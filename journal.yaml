@@ -1,0 +1,4449 @@
+openapi: 3.0.3
+info:
+  title: University Journal System API
+  description: |
+    REST API for the University Electronic Journal System.
+    Handles attendance tracking, grade management, assessment forms, and reporting.
+
+    ## Architecture
+
+    The system has two HTTP services:
+
+    | Service | Port | Purpose |
+    |---|---|---|
+    | **Edge service** | `:8080` | Public API. Validates JWT, enforces RBAC, proxies to Domain. |
+    | **Domain service** | `:8081` | Internal API (`/internal/v1/...`). No auth. Reachable only inside Docker network. |
+
+    **Always use port `:8080` (Edge) for API calls.**
+    Calling Domain service directly (`:8081`) bypasses authentication.
+
+    ## Authentication
+
+    All endpoints except `/health` and `/ready` require a Bearer token from Keycloak:
+
+    ```
+    Authorization: Bearer <access_token>
+    ```
+
+    Get a token:
+    ```
+    POST http://localhost:8180/realms/university-journal/protocol/openid-connect/token
+    Content-Type: application/x-www-form-urlencoded
+
+    grant_type=password&client_id=journal-backend&username=teacher1&password=teacher123
+    ```
+
+    ## Postman setup
+
+    Import `GET http://localhost:8080/api/openapi.yaml` into Postman.
+    The collection variable `baseUrl` will be set to `http://localhost:8080/api/v1` automatically.
+  version: 1.0.0
+  contact:
+    name: University Journal System
+
+servers:
+  # All versioned API paths live under /api/v1 on the Edge service (:8080).
+  # The Edge service handles authentication (JWT) and proxies to Domain service (:8081).
+  # IMPORTANT: never call the Domain service directly - it has no auth middleware.
+  - url: /api/v1
+    description: Current origin - Edge service (recommended for Swagger UI)
+  - url: http://localhost:8080/api/v1
+    description: Local development - Edge service direct (auth required, use Bearer token)
+  - url: http://domain:8081/api/v1
+    description: Docker-internal - Domain service direct (no auth, internal use only)
+
+tags:
+  - name: schedule
+    description: Teacher schedule and lesson listings
+  - name: periods
+    description: Academic periods (semesters)
+  - name: groups
+    description: Academic groups and student rosters
+  - name: attendance
+    description: Student attendance tracking
+  - name: grades
+    description: Grade records and assessment forms
+  - name: journal
+    description: Aggregated teacher journal grid read models
+  - name: reports
+    description: Asynchronous report generation
+  - name: student
+    description: Student personal schedule, subject cards and progress tracking
+  - name: dashboard
+    description: Teacher dashboard aggregates (stats, attendance summary, group performance)
+  - name: archive
+    description: |
+      Archive of journals from closed academic periods, and record-level archive/restore operations.
+
+      ## Journal archive list
+      `GET /journals/archive` - paginated list of (discipline x group x period) entries for closed periods.
+
+      ## Record-level archive / restore
+      Individual `AttendanceRecord` and `GradeRecord` entries can be soft-deleted (archived) and
+      subsequently restored without physical deletion.
+
+      - `POST /attendance-records/{id}/archive` - archive an attendance record
+      - `POST /attendance-records/{id}/restore` - restore an archived attendance record
+      - `POST /grades/{id}/archive` - archive a grade record
+      - `POST /grades/{id}/restore` - restore an archived grade record
+
+      Archived records are excluded from all operational views by default.
+      Pass `include_archived=true` on `GET /lessons/{id}/attendance` or
+      `GET /assessment-forms/{id}/grades` to include them (teacher/admin/dean only;
+      students never see archived records).
+
+      **409 Conflict** is returned when attempting to archive an already-archived record
+      or restore a non-archived record.
+  - name: health
+    description: Service health and readiness probes
+  - name: grants
+    description: Teacher-to-teacher journal access delegation (read or write access sharing)
+  - name: lesson-templates
+    description: КТП (calendar-thematic plan) templates - plan authoring, topic management, and assignment to teaching contexts
+  - name: admin-imports
+    description: |
+      Student import lifecycle.
+
+      Clients parse Excel/CSV themselves and submit a JSON list of student rows.
+      The server is **format-agnostic** - it only processes JSON.
+
+      **Lifecycle:** `submit -> preview -> resolve conflicts -> apply`
+
+      **Roles:** `admin` only.
+
+paths:
+  # -- Health -------------------------------------------------------------
+  # Health probes are infrastructure endpoints - they live at the root path,
+  # NOT under /api/v1. The path-level `servers` override below corrects the
+  # base URL for these two paths only; all other paths use the global server.
+  /health:
+    servers:
+      - url: http://localhost:8080
+        description: Edge service root (health probes are not versioned)
+    get:
+      tags: [health]
+      operationId: getLiveness
+      summary: Liveness probe
+      description: |
+        Returns `{"status":"ok"}` when the process is running.
+        Registered at `GET /health` (no `/api/v1/` prefix).
+      responses:
+        "200":
+          description: Service is running
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+
+  /ready:
+    servers:
+      - url: http://localhost:8080
+        description: Edge service root (health probes are not versioned)
+    get:
+      tags: [health]
+      operationId: getReadiness
+      summary: Readiness probe
+      description: |
+        Returns `{"status":"ready"}` when PostgreSQL and Redis are reachable.
+        Returns `503` when the database is unavailable.
+        Registered at `GET /ready` (no `/api/v1/` prefix).
+      responses:
+        "200":
+          description: Service is ready to accept traffic
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+        "503":
+          description: Service is not ready
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # -- Academic Periods ----------------------------------------------------
+  /academic-periods:
+    get:
+      tags: [periods]
+      operationId: listAcademicPeriods
+      summary: List all academic periods
+      description: |
+        Returns available academic periods (semesters) ordered by start date descending.
+        The active (current) period is indicated by `is_active: true`.
+        Clients use the returned `id` values when requesting reports or filtering the journal.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: include_closed
+          in: query
+          required: false
+          description: Include closed periods in the response (default false)
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: List of academic periods
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AcademicPeriod'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Schedule / Lessons --------------------------------------------------
+  /lessons:
+    get:
+      tags: [schedule]
+      operationId: listLessons
+      summary: List lessons for the authenticated teacher
+      description: |
+        Returns lessons assigned to the current teacher, filtered by group, discipline,
+        and/or date range. This is the primary endpoint for building the journal grid
+        (columns) and the teacher's weekly schedule view.
+
+        **Journal grid construction:**
+        - Fetch lessons for a specific `group_id` + `discipline_id` + `period_id` to get columns.
+        - Fetch students separately via `GET /groups/{group_id}/students` for rows.
+        - Fetch attendance per lesson via `GET /lessons/{lesson_id}/attendance` for cells.
+
+        Results are ordered by `scheduled_at` ascending.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: query
+          required: false
+          description: Filter by academic group UUID
+          schema:
+            type: string
+            format: uuid
+        - name: discipline_id
+          in: query
+          required: false
+          description: Filter by discipline UUID
+          schema:
+            type: string
+            format: uuid
+        - name: period_id
+          in: query
+          required: false
+          description: Filter by academic period UUID
+          schema:
+            type: string
+            format: uuid
+        - name: date_from
+          in: query
+          required: false
+          description: Start of date range (inclusive, YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          required: false
+          description: End of date range (inclusive, YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: List of lessons
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Lesson'
+                  total:
+                    type: integer
+                    description: Total number of lessons matching the filter
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Groups / Student Roster ----------------------------------------------
+  /groups/{group_id}/students:
+    get:
+      tags: [groups]
+      operationId: listGroupStudents
+      summary: List students in a group
+      description: |
+        Returns the active student roster for a group as of the given period.
+        This is the primary endpoint for building the journal grid rows.
+
+        Students are ordered by last name ascending.
+        Only students with an active `EnrollmentHistory` record for the given period are returned.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          description: Academic group UUID
+          schema:
+            type: string
+            format: uuid
+        - name: period_id
+          in: query
+          required: false
+          description: Filter by academic period (defaults to current active period)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of students in the group
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Student'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /groups/{group_id}/journal:
+    get:
+      tags: [journal]
+      operationId: getGroupJournalGrid
+      summary: Get complete journal grid for a group
+      description: |
+        Returns a single read model for rendering the teacher journal grid:
+        group, discipline, academic period, teacher, students, lessons,
+        attendance records, assessment forms, grade records and edit permissions.
+
+        Edge passes the authenticated Keycloak user id to Domain. Domain resolves it
+        to `teacher_profiles.id` and validates business access by teaching assignment
+        or active journal access grant.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          description: Academic group UUID
+          schema:
+            type: string
+            format: uuid
+        - name: discipline_id
+          in: query
+          required: true
+          description: Discipline UUID
+          schema:
+            type: string
+            format: uuid
+        - name: academic_period_id
+          in: query
+          required: true
+          description: Academic period UUID
+          schema:
+            type: string
+            format: uuid
+        - name: subgroup_id
+          in: query
+          required: false
+          description: Optional subgroup UUID filter
+          schema:
+            type: string
+            format: uuid
+        - name: date_from
+          in: query
+          required: false
+          description: Start date inclusive. Defaults to academic period start.
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          required: false
+          description: End date inclusive. Defaults to academic period end.
+          schema:
+            type: string
+            format: date
+      responses:
+        "200":
+          description: Complete journal grid read model
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JournalGridResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Attendance ----------------------------------------------------------
+  /lessons/{lesson_id}/attendance:
+    get:
+      tags: [attendance]
+      operationId: getAttendanceByLesson
+      summary: Get attendance records for a lesson
+      description: |
+        Returns attendance records for the given lesson.
+        By default only **active** (non-archived) records are returned.
+        Pass `include_archived=true` to also retrieve soft-deleted records
+        (teacher, admin, dean only - students always see the filtered view).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LessonID'
+        - name: include_archived
+          in: query
+          required: false
+          description: |
+            When `true`, include archived (soft-deleted) attendance records in the response.
+            Allowed for roles: `teacher`, `admin`, `dean`. Ignored for `student`.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: List of attendance records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AttendanceRecord'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /lessons/{lesson_id}/attendance/mark:
+    post:
+      tags: [attendance]
+      operationId: markAttendance
+      summary: Mark attendance for a single student
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LessonID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MarkAttendanceRequest'
+      responses:
+        "200":
+          description: Attendance record created or updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceRecord'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "422":
+          $ref: '#/components/responses/PeriodClosed'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /lessons/{lesson_id}/attendance/bulk:
+    post:
+      tags: [attendance]
+      operationId: bulkMarkAttendance
+      summary: Mark attendance for multiple students at once
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LessonID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BulkMarkAttendanceRequest'
+      responses:
+        "200":
+          description: Attendance marked successfully - returns the persisted state of every upserted record
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AttendanceRecord'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "422":
+          $ref: '#/components/responses/PeriodClosed'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Assessment Forms ----------------------------------------------------
+  /assessment-forms:
+    get:
+      tags: [grades]
+      operationId: listAssessmentForms
+      summary: List assessment forms for a journal context
+      description: |
+        Returns all assessment forms for the given `group_id` + `discipline_id` combination,
+        ordered by `form_date` ascending then `created_at` ascending.
+
+        This is the primary read-side endpoint for **building the grade columns** in the
+        teacher journal grid. Each returned form corresponds to one grade column.
+
+        Both `group_id` and `discipline_id` are **required** - the server rejects requests
+        without them to prevent full-table scans.
+
+        Optional filters:
+        - `period_id` - scope to a specific semester.
+        - `teacher_id` - limit to forms created by a specific teacher (methodologist/admin use; Keycloak UUID is accepted and resolved internally).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: query
+          required: true
+          description: Academic group UUID
+          schema:
+            type: string
+            format: uuid
+        - name: discipline_id
+          in: query
+          required: true
+          description: Discipline UUID
+          schema:
+            type: string
+            format: uuid
+        - name: period_id
+          in: query
+          required: false
+          description: Academic period UUID (defaults to all periods)
+          schema:
+            type: string
+            format: uuid
+        - name: teacher_id
+          in: query
+          required: false
+          description: |
+            Optional teacher filter for admin/methodologist views.
+            Public callers may pass the teacher Keycloak UUID; the domain resolves it
+            to the internal `teacher_profiles.id` used by persisted journal rows.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of assessment forms ordered by date
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AssessmentForm'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags: [grades]
+      operationId: createAssessmentForm
+      summary: Create a new assessment form
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateAssessmentFormRequest'
+      responses:
+        "201":
+          description: Assessment form created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentForm'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /assessment-forms/{assessment_form_id}:
+    get:
+      tags: [grades]
+      operationId: getAssessmentForm
+      summary: Get a single assessment form by ID
+      description: |
+        Returns the full assessment form object. Useful for detail views,
+        Postman testing, and verifying the resolved `period_id` after creation.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AssessmentFormID'
+      responses:
+        "200":
+          description: Assessment form
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentForm'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    patch:
+      tags: [grades]
+      operationId: updateAssessmentForm
+      summary: Update title and/or status of an assessment form
+      description: |
+        Allows lifecycle management of an assessment form:
+
+        - **Rename** - update `title` to reflect a corrected name.
+        - **Close** (`status: "closed"`) - lock the form so no new grades can be added.
+          Any teacher or admin can close a form they own.
+        - **Reopen** (`status: "open"`) - only `admin` or `dean` can reopen a closed form
+          (equivalent to a late-entry correction).
+
+        All other fields (form_type, date, discipline_id, group_id) are **immutable** after creation.
+
+        At least one of `title` or `status` must be provided.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AssessmentFormID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateAssessmentFormRequest'
+      responses:
+        "200":
+          description: Updated assessment form
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssessmentForm'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /assessment-forms/{assessment_form_id}/grades:
+    get:
+      tags: [grades]
+      operationId: getGradesByAssessmentForm
+      summary: Get all grades for an assessment form
+      description: |
+        Returns grade records for the given assessment form.
+        By default only **active** (non-archived) records are returned.
+        Pass `include_archived=true` to also retrieve soft-deleted records
+        (teacher, admin, dean only - students always see the filtered view).
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AssessmentFormID'
+        - name: include_archived
+          in: query
+          required: false
+          description: |
+            When `true`, include archived (soft-deleted) grade records in the response.
+            Allowed for roles: `teacher`, `admin`, `dean`. Ignored for `student`.
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: List of grade records
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/GradeRecord'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Grades --------------------------------------------------------------
+  /grades:
+    post:
+      tags: [grades]
+      operationId: createGrade
+      summary: Create a grade record
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateGradeRequest'
+      responses:
+        "201":
+          description: Grade record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeRecord'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "422":
+          $ref: '#/components/responses/PeriodClosed'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /grades/{grade_id}:
+    put:
+      tags: [grades]
+      operationId: updateGrade
+      summary: Update an existing grade record
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GradeID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateGradeRequest'
+      responses:
+        "200":
+          description: Grade record updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeRecord'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "422":
+          $ref: '#/components/responses/PeriodClosed'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Attendance record archive / restore ----------------------------------
+  /attendance-records/{attendance_id}/archive:
+    post:
+      tags: [attendance, archive]
+      operationId: archiveAttendanceRecord
+      summary: Archive (soft-delete) an attendance record
+      description: |
+        Marks the attendance record as archived (`is_archived = true`).
+        The record is immediately hidden from operational views and excluded
+        from all `GET /lessons/{id}/attendance` responses unless
+        `include_archived=true` is passed.
+
+        **Allowed roles:** `teacher`, `admin`, `dean`.
+
+        **409 Conflict** is returned if the record is already archived.
+        An `AuditEvent` of type `attendance_record_archived` is persisted.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AttendanceID'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArchiveRecordRequest'
+      responses:
+        "200":
+          description: Attendance record archived successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceRecord'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          description: Record is already archived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /attendance-records/{attendance_id}/restore:
+    post:
+      tags: [attendance, archive]
+      operationId: restoreAttendanceRecord
+      summary: Restore an archived attendance record
+      description: |
+        Clears the archive flag (`is_archived = false`) on the attendance record,
+        making it visible again in operational views.
+
+        **Allowed roles:** `teacher`, `admin`, `dean`.
+
+        **409 Conflict** is returned if the record is not archived (i.e., it is already active).
+        An `AuditEvent` of type `attendance_record_restored` is persisted.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AttendanceID'
+      responses:
+        "200":
+          description: Attendance record restored successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceRecord'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          description: Record is not archived - cannot restore
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Grade record archive / restore ---------------------------------------
+  /grades/{grade_id}/archive:
+    post:
+      tags: [grades, archive]
+      operationId: archiveGradeRecord
+      summary: Archive (soft-delete) a grade record
+      description: |
+        Marks the grade record as archived (`is_archived = true`).
+        The record is immediately hidden from operational views and excluded
+        from all `GET /assessment-forms/{id}/grades` responses unless
+        `include_archived=true` is passed.
+
+        **Allowed roles:** `teacher`, `admin`, `dean`.
+
+        **409 Conflict** is returned if the record is already archived.
+        An `AuditEvent` of type `grade_record_archived` is persisted.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GradeID'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArchiveRecordRequest'
+      responses:
+        "200":
+          description: Grade record archived successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeRecord'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          description: Record is already archived
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /grades/{grade_id}/restore:
+    post:
+      tags: [grades, archive]
+      operationId: restoreGradeRecord
+      summary: Restore an archived grade record
+      description: |
+        Clears the archive flag (`is_archived = false`) on the grade record,
+        making it visible again in operational views.
+
+        **Allowed roles:** `teacher`, `admin`, `dean`.
+
+        **409 Conflict** is returned if the record is not archived (i.e., it is already active).
+        An `AuditEvent` of type `grade_record_restored` is persisted.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/GradeID'
+      responses:
+        "200":
+          description: Grade record restored successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GradeRecord'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          description: Record is not archived - cannot restore
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Reports -------------------------------------------------------------
+  /reports:
+    post:
+      tags: [reports]
+      operationId: requestReport
+      summary: Request async report generation
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RequestReportRequest'
+      responses:
+        "202":
+          description: Report generation task accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobAccepted'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /reports/{job_id}/status:
+    get:
+      tags: [reports]
+      operationId: getReportStatus
+      summary: Get the status of a report generation job
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          description: Report job UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Job status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentTask'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Student Workflow ----------------------------------------------------
+  # All /students/me/* endpoints are scoped to the authenticated student.
+  # The student identity is derived from the Bearer token (JWT sub claim).
+  # Only role: student is permitted on these endpoints.
+
+  /students/me:
+    get:
+      tags: [student]
+      operationId: getMyProfile
+      summary: Get own student profile
+      description: |
+        Returns the authenticated student's display profile:
+        full name, gradebook number, current group, and starosta flag.
+
+        Returns `404` if the student's Keycloak account has not yet been linked
+        to an imported student profile (first-login linking happens automatically
+        on the first authenticated request via the `UserProfileSync` middleware).
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Student profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentProfile'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /students/me/lessons:
+    get:
+      tags: [student]
+      operationId: getMyLessons
+      summary: Get personal lesson schedule with own attendance status
+      description: |
+        Returns all lessons from every group the authenticated student is enrolled in,
+        enriched with the student's own attendance status on each lesson.
+
+        `my_attendance_status` is `null` when no attendance record exists yet for that lesson.
+
+        Ordered by `scheduled_at` descending (most recent first).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period_id
+          in: query
+          required: false
+          description: Filter by academic period UUID (defaults to all periods)
+          schema:
+            type: string
+            format: uuid
+        - name: date_from
+          in: query
+          required: false
+          description: Filter lessons on or after this date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: date_to
+          in: query
+          required: false
+          description: Filter lessons on or before this date (YYYY-MM-DD)
+          schema:
+            type: string
+            format: date
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Paginated lesson list with student attendance
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StudentLesson'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /students/me/subjects:
+    get:
+      tags: [student]
+      operationId: getMySubjects
+      summary: Get list of subjects with attendance and grade summary
+      description: |
+        Returns a lightweight summary for each discipline the authenticated student
+        attends in the given academic period.
+
+        Each entry includes:
+        - Discipline name and teacher
+        - Lessons attended vs total
+        - Average grade (null if no grades yet)
+
+        If `period_id` is not provided, returns subjects across all periods
+        (active period first in ordering).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period_id
+          in: query
+          required: false
+          description: Filter by academic period UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: List of subjects with aggregated progress
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StudentSubjectSummary'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /students/me/subjects/{discipline_id}/card:
+    get:
+      tags: [student]
+      operationId: getMySubjectCard
+      summary: Get full student card for one subject
+      description: |
+        Returns the complete aggregated view for the authenticated student
+        in a specific discipline and period.
+
+        Includes:
+        - Student profile with `is_head_student` flag
+        - Attendance counts (attended / absent / valid_excuse)
+        - Grade summary (avg, assessments completed/total)
+        - Monthly attendance breakdown for a progress chart
+
+        `period_id` is required - the client should select from `GET /academic-periods`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: discipline_id
+          in: path
+          required: true
+          description: Discipline UUID
+          schema:
+            type: string
+            format: uuid
+        - name: period_id
+          in: query
+          required: true
+          description: Academic period UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Full student subject card
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudentSubjectCard'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /groups/{group_id}/head-student-grant:
+    post:
+      tags: [student]
+      operationId: grantHeadStudentAccess
+      summary: Grant starosta journal access for a group + discipline
+      description: |
+        Teacher or admin delegates the right for the class representative (starosta)
+        to mark attendance for a specific group + discipline.
+
+        The starosta can only mark attendance for **current and future** lessons
+        (i.e. `scheduled_at >= NOW()`), unless `allows_late_entry` is explicitly set to `true`.
+
+        The grant is upserted: if a grant already exists for this starosta + group + discipline,
+        it is refreshed (revoked_at cleared, new settings applied).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: path
+          required: true
+          description: Academic group UUID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrantHeadStudentRequest'
+      responses:
+        "201":
+          description: Grant created or refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HeadStudentGrant'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /head-student-grants/{grant_id}:
+    delete:
+      tags: [student]
+      operationId: revokeHeadStudentGrant
+      summary: Revoke a starosta's journal access grant
+      description: |
+        Soft-revokes the grant by setting `revoked_at = NOW()`.
+        After revocation, the starosta can no longer mark attendance via the delegated access.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: grant_id
+          in: path
+          required: true
+          description: Head student grant UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Grant revoked
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Journal Access Grants (teacher-to-teacher delegation) -------------------
+  /journal-access-grants:
+    get:
+      tags: [grants]
+      operationId: listJournalAccessGrants
+      summary: List journal access grants
+      description: |
+        Returns journal access grants for the authenticated teacher.
+
+        **As grantee** (`grantee_id` = own Keycloak UUID): see journals others have shared with you.
+        **As granter** (`granter_id` = own Keycloak UUID): see what access you have issued.
+
+        Use `active_only=true` to exclude revoked and expired grants.
+
+        **Roles:** `teacher`, `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: grantee_id
+          in: query
+          required: false
+          description: Filter by grantee Keycloak UUID (who received access)
+          schema:
+            type: string
+        - name: granter_id
+          in: query
+          required: false
+          description: Filter by granter Keycloak UUID (who issued the grant)
+          schema:
+            type: string
+        - name: discipline_id
+          in: query
+          required: false
+          description: Filter by discipline UUID
+          schema:
+            type: string
+            format: uuid
+        - name: group_id
+          in: query
+          required: false
+          description: Filter by academic group UUID
+          schema:
+            type: string
+            format: uuid
+        - name: active_only
+          in: query
+          required: false
+          description: When true, exclude revoked and expired grants (default false)
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: List of journal access grants
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/JournalAccessGrant'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags: [grants]
+      operationId: grantJournalAccess
+      summary: Grant another teacher access to a journal
+      description: |
+        Creates a teacher-to-teacher journal access delegation.
+
+        **Access levels:**
+        - `read` - grantee can view lessons, attendance, and grades.
+        - `write` - grantee can additionally mark attendance and submit grades.
+
+        **Business rules:**
+        - `granter_id` must be the caller's Keycloak UUID (for `teacher` role).
+          `admin` may specify a different `granter_id` to issue grants on behalf of others.
+        - Self-grant (`grantee_id == granter_id`) is rejected with `400`.
+        - Duplicate active grant for the same scope returns `409 Conflict`.
+
+        **Roles:** `teacher` (can only grant for their own journals), `admin`
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrantJournalAccessRequest'
+      responses:
+        "201":
+          description: Journal access grant created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/JournalAccessGrant'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /journal-access-grants/{grant_id}:
+    get:
+      tags: [grants]
+      operationId: getJournalAccessGrant
+      summary: Get a single journal access grant
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/JournalAccessGrantID'
+      responses:
+        "200":
+          description: Journal access grant
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    $ref: '#/components/schemas/JournalAccessGrant'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags: [grants]
+      operationId: revokeJournalAccessGrant
+      summary: Revoke a journal access grant
+      description: |
+        Soft-deletes the grant (`revoked_at = NOW()`).
+
+        **Business rules:**
+        - Only the **granter** or an **admin** may revoke.
+        - Returns `404` if the grant is already revoked or does not exist.
+
+        **Roles:** `teacher` (own grants only), `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/JournalAccessGrantID'
+      responses:
+        "204":
+          description: Grant revoked
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Lesson Templates (КТП) --------------------------------------------------
+  /lesson-templates:
+    get:
+      tags: [lesson-templates]
+      operationId: listLessonTemplates
+      summary: List КТП templates
+      description: |
+        Returns all available calendar-thematic plan (КТП) templates.
+
+        - **teacher / dean**: see all non-archived templates for their discipline(s).
+        - **methodologist / admin**: see all templates; may pass `include_deleted=true`
+          to also retrieve soft-deleted (archived) templates.
+
+        Optionally filter by `discipline_id`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: discipline_id
+          in: query
+          required: false
+          description: Filter by discipline UUID
+          schema:
+            type: string
+            format: uuid
+        - name: include_deleted
+          in: query
+          required: false
+          description: Include archived (soft-deleted) templates (methodologist/admin only)
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: List of templates
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/LessonTemplate'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags: [lesson-templates]
+      operationId: createLessonTemplate
+      summary: Create a new КТП template
+      description: |
+        Creates a new calendar-thematic plan template for a discipline.
+        Only **methodologist** and **admin** roles can create templates.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLessonTemplateRequest'
+      responses:
+        "201":
+          description: Template created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonTemplate'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /lesson-templates/{template_id}:
+    get:
+      tags: [lesson-templates]
+      operationId: getLessonTemplate
+      summary: Get a single КТП template with full topic list
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateID'
+      responses:
+        "200":
+          description: Template detail with topics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonTemplateDetail'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      tags: [lesson-templates]
+      operationId: updateLessonTemplate
+      summary: Update template metadata (name / description)
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLessonTemplateRequest'
+      responses:
+        "200":
+          description: Template updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonTemplate'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags: [lesson-templates]
+      operationId: deleteLessonTemplate
+      summary: Delete a КТП template (smart delete)
+      description: |
+        **Smart delete** logic:
+
+        - If the template has **no active assignments**, it is **hard-deleted** -> `204 No Content`.
+        - If the template has active assignments, it is **soft-deleted** (archived) -> `200 OK`
+          with `{ "is_archived": true, "message": "..." }`.
+
+        In both cases the template is no longer visible to teachers.
+        Archived templates can be listed by methodologist/admin using `include_deleted=true`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateID'
+      responses:
+        "204":
+          description: Template hard-deleted (had no active assignments)
+        "200":
+          description: Template soft-deleted / archived (had active assignments)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonTemplateArchivedResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Template Topics ----------------------------------------------------------
+  /lesson-templates/{template_id}/topics:
+    post:
+      tags: [lesson-templates]
+      operationId: addLessonTemplateTopic
+      summary: Add a topic to a КТП template
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddTopicRequest'
+      responses:
+        "201":
+          description: Topic added
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonTopic'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /lesson-templates/{template_id}/topics/reorder:
+    put:
+      tags: [lesson-templates]
+      operationId: reorderLessonTemplateTopics
+      summary: Reorder topics within a template
+      description: |
+        Accepts a list of `{ topic_id, order_index }` pairs and applies the new ordering
+        atomically. All topic IDs that belong to the template must be included.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReorderTopicsRequest'
+      responses:
+        "200":
+          description: Topics reordered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: "topics reordered"
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /lesson-templates/{template_id}/topics/{topic_id}:
+    put:
+      tags: [lesson-templates]
+      operationId: updateLessonTemplateTopic
+      summary: Update a topic in a template
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateID'
+        - $ref: '#/components/parameters/TopicID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateTopicRequest'
+      responses:
+        "200":
+          description: Topic updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonTopic'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags: [lesson-templates]
+      operationId: deleteLessonTemplateTopic
+      summary: Delete a topic from a template
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/TemplateID'
+        - $ref: '#/components/parameters/TopicID'
+      responses:
+        "204":
+          description: Topic deleted
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Template Assignments -----------------------------------------------------
+  /lesson-template-assignments/current:
+    get:
+      tags: [lesson-templates]
+      operationId: getCurrentTemplateAssignment
+      summary: Get the active template assignment for a teaching context
+      description: |
+        Returns the currently active КТП assignment for the given
+        `teacher_id` x `discipline_id` x `group_id` x `period_id` context.
+
+        Teachers query their own assignment (server resolves `teacher_id` from the JWT).
+        Methodologist/admin can pass an explicit `teacher_id` query param to inspect
+        another teacher's assignment.
+
+        Returns `404` if no active assignment exists for this context.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: discipline_id
+          in: query
+          required: true
+          description: Discipline UUID
+          schema:
+            type: string
+            format: uuid
+        - name: group_id
+          in: query
+          required: true
+          description: Academic group UUID
+          schema:
+            type: string
+            format: uuid
+        - name: period_id
+          in: query
+          required: true
+          description: Academic period UUID
+          schema:
+            type: string
+            format: uuid
+        - name: teacher_id
+          in: query
+          required: false
+          description: |
+            Teacher identifier for methodologist/admin views.
+            Public callers may pass the teacher Keycloak UUID; the domain resolves it
+            to the internal `teacher_profiles.id` used by persisted assignments.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Current template assignment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TemplateAssignment'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /lesson-template-assignments:
+    post:
+      tags: [lesson-templates]
+      operationId: assignLessonTemplate
+      summary: Assign a КТП template to a teaching context
+      description: |
+        Links a template to a specific `discipline_id` x `group_id` x `period_id` context.
+        The server automatically maps lessons in that context to template topics
+        based on `order_index` and `lesson_count`.
+
+        Returns the number of lessons updated and how many remain without a topic
+        (because the template's total lesson count doesn't cover all scheduled lessons).
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AssignTemplateRequest'
+      responses:
+        "200":
+          description: Assignment created and lessons updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AssignTemplateResult'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /lesson-template-assignments/{assignment_id}:
+    delete:
+      tags: [lesson-templates]
+      operationId: revokeLessonTemplateAssignment
+      summary: Revoke a template assignment
+      description: |
+        Soft-revokes the assignment. After revocation, the template is no longer
+        considered active for that teaching context and topic hints are removed from
+        affected lessons.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AssignmentID'
+      responses:
+        "204":
+          description: Assignment revoked
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Lesson Topic Details -----------------------------------------------------
+  /lessons/{lesson_id}/topic-details:
+    put:
+      tags: [lesson-templates]
+      operationId: updateLessonTopicDetails
+      summary: Update a teacher's custom topic details for a lesson
+      description: |
+        Allows a teacher (or methodologist / admin) to override the default topic text
+        from the КТП template with their own lesson-specific notes.
+
+        The result includes the original template topic (if any) alongside the custom
+        teacher text and a flag indicating whether the teacher has overridden the default.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/LessonID'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateLessonTopicDetailsRequest'
+      responses:
+        "200":
+          description: Topic details updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonTopicInfo'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Teacher Dashboard ----------------------------------------------------
+  /teacher/stats:
+    get:
+      tags: [dashboard]
+      operationId: getTeacherStats
+      summary: Get aggregate statistics for the authenticated teacher
+      description: |
+        Returns four summary numbers for the teacher dashboard header:
+        - `total_students` - distinct students enrolled in the teacher's active groups
+        - `total_disciplines` - distinct disciplines the teacher currently teaches
+        - `hours_this_week` - total lesson hours scheduled for the current ISO week
+          (uses `ends_at - scheduled_at`; falls back to 1.5 h per lesson if `ends_at` is null)
+        - `avg_grade` - average grade across all assessment forms created by this teacher
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Teacher statistics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherStats'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /teacher/attendance-summary:
+    get:
+      tags: [dashboard]
+      operationId: getAttendanceSummary
+      summary: Get monthly attendance breakdown for a group + discipline
+      description: |
+        Returns per-month counts of present / absent / valid_excuse attendance records
+        for the specified group, discipline, and period taught by the authenticated teacher.
+
+        Frontend is expected to compute percentages from raw counts.
+        `students_in_group` is the number of active enrollments for the period -
+        useful as the denominator when computing group-level attendance rate.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: query
+          required: true
+          description: Academic group UUID
+          schema:
+            type: string
+            format: uuid
+        - name: discipline_id
+          in: query
+          required: true
+          description: Discipline UUID
+          schema:
+            type: string
+            format: uuid
+        - name: period_id
+          in: query
+          required: false
+          description: Academic period UUID (defaults to current active period)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Monthly attendance breakdown
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttendanceSummary'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /teacher/groups-performance:
+    get:
+      tags: [dashboard]
+      operationId: getGroupsPerformance
+      summary: Get average grade per group for the authenticated teacher
+      description: |
+        Returns average grade value and grade count per group for a given period.
+        Used for the teacher dashboard bar chart.
+        Groups with no grade records are excluded from the response.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period_id
+          in: query
+          required: false
+          description: Academic period UUID (defaults to current active period)
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Per-group average grade data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupsPerformance'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Archive --------------------------------------------------------------
+  /journals/archive:
+    get:
+      tags: [archive]
+      operationId: listArchivedJournals
+      summary: List archived journals from closed academic periods
+      description: |
+        Returns a paginated list of journal entries (discipline x group x period combinations)
+        from **closed** academic periods where the authenticated teacher has lessons.
+
+        Each entry in the list can be opened as a read-only (or late-entry) journal using
+        the standard `GET /lessons` + `GET /groups/{group_id}/students` + `GET /lessons/{lesson_id}/attendance`
+        endpoints filtered by `discipline_id`, `group_id`, and `period_id`.
+
+        `has_late_entries: true` indicates that at least one attendance or grade record
+        in this journal was entered after the period was closed (post-session entry).
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period_id
+          in: query
+          required: false
+          description: Filter by a specific closed period UUID
+          schema:
+            type: string
+            format: uuid
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: List of archived journals
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, total]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ArchivedJournalEntry'
+                  total:
+                    type: integer
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Admin: Student Import ---------------------------------------------------
+  #
+  # Decision: Clients parse Excel/CSV and send JSON rows to the server.
+  # The server validates business rules, builds a preview, detects conflicts,
+  # and only writes to DB after explicit admin confirmation (POST /apply).
+  #
+  # Lifecycle:
+  #   POST /admin/imports/students   -> batch created, preview built synchronously
+  #   GET  /admin/imports/{id}       -> current status + preview rows
+  #   GET  /admin/imports/{id}/conflicts -> conflicts list (if any)
+  #   POST /admin/imports/{id}/conflicts/{cid}/resolve -> resolve one conflict
+  #   POST /admin/imports/{id}/apply -> finalize: write EnrollmentHistory + AuditEvent
+  #   DELETE /admin/imports/{id}     -> cancel (only if not completed/applying)
+
+  /admin/imports/students:
+    post:
+      tags: [admin-imports]
+      operationId: startStudentImport
+      summary: Submit a student import batch
+      description: |
+        Accepts a JSON list of student rows (pre-parsed by the client from Excel/CSV).
+        Synchronously validates each row and builds a **preview** of what will happen.
+
+        **Matching priority** (finding an existing student profile):
+        1. `student_code` - university-assigned ID (most reliable)
+        2. `email` - if no code provided
+        3. Full name + group - fallback (may produce a `name_mismatch` conflict)
+
+        **Response status mapping:**
+        - `preview_ready` - no conflicts, can call `/apply` immediately
+        - `conflicts_detected` - must resolve all conflicts first, then `/apply`
+        - `failed` - structural validation failed (400-level errors in rows)
+
+        **Roles:** `admin`
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImportStudentsRequest'
+      responses:
+        "202":
+          description: |
+            Batch created and preview built. Check `status` field:
+            - `preview_ready` - ready to apply immediately
+            - `conflicts_detected` - must resolve conflicts before applying
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportBatchPreview'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/imports/{batch_id}:
+    get:
+      tags: [admin-imports]
+      operationId: getImportBatch
+      summary: Get import batch status and preview
+      description: |
+        Returns the current status of the import batch, the summary counters,
+        and the full list of preview rows (with per-row action and conflict info).
+
+        **Roles:** `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: batch_id
+          in: path
+          required: true
+          description: Import batch UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Import batch detail
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportBatchPreview'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags: [admin-imports]
+      operationId: cancelImportBatch
+      summary: Cancel an import batch
+      description: |
+        Cancels the batch by setting `status = failed`.
+        Only allowed when `status` is NOT `completed`, `applying`, or `failed`.
+
+        **Roles:** `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: batch_id
+          in: path
+          required: true
+          description: Import batch UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Batch cancelled
+        "400":
+          description: Cannot cancel a completed or in-progress batch
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/imports/{batch_id}/conflicts:
+    get:
+      tags: [admin-imports]
+      operationId: listImportConflicts
+      summary: List conflicts for an import batch
+      description: |
+        Returns all conflicts detected during preview that require manual resolution.
+        Each conflict has `available_resolutions` showing which decisions are valid.
+
+        **Roles:** `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: batch_id
+          in: path
+          required: true
+          description: Import batch UUID
+          schema:
+            type: string
+            format: uuid
+        - name: resolution
+          in: query
+          required: false
+          description: Filter by resolution status (`pending`, `skip`, `merge`, `force_move`, `force_create`, `update`)
+          schema:
+            type: string
+      responses:
+        "200":
+          description: List of conflicts
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [batch_id, conflicts]
+                properties:
+                  batch_id:
+                    type: string
+                    format: uuid
+                  conflicts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ImportConflict'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/imports/{batch_id}/conflicts/{conflict_id}/resolve:
+    post:
+      tags: [admin-imports]
+      operationId: resolveImportConflict
+      summary: Resolve a specific import conflict
+      description: |
+        Admin provides a resolution decision for the conflict.
+        Valid resolutions depend on conflict type:
+
+        | Conflict type | Valid resolutions |
+        |---|---|
+        | `duplicate_in_batch` | `skip` |
+        | `already_enrolled` | `skip`, `update` |
+        | `already_in_other_group` | `skip`, `force_move` |
+        | `name_mismatch` | `skip`, `merge` |
+        | `profile_not_found` | `skip`, `force_create` |
+
+        After all conflicts are resolved, `batch.status` automatically becomes `resolved`.
+
+        **Roles:** `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: batch_id
+          in: path
+          required: true
+          description: Import batch UUID
+          schema:
+            type: string
+            format: uuid
+        - name: conflict_id
+          in: path
+          required: true
+          description: Conflict UUID
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ResolveConflictRequest'
+      responses:
+        "200":
+          description: Conflict resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportConflict'
+        "400":
+          description: Invalid resolution for this conflict type
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          description: Conflict already resolved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/imports/{batch_id}/apply:
+    post:
+      tags: [admin-imports]
+      operationId: applyImportBatch
+      summary: Apply (finalize) an import batch
+      description: |
+        Finalizes the import: writes `EnrollmentHistory` records, creates missing
+        `StudentProfile` entries, and records an `AuditEvent`.
+
+        **Preconditions:**
+        - `batch.status` must be `preview_ready` or `resolved`
+        - All conflicts must have `resolution != pending`
+
+        Returns 409 if any conflicts are still `pending`.
+
+        **After apply:**
+        - New students (no Keycloak account yet) will be linked automatically
+          when they first log in (existing profile-link middleware).
+        - `batch.status` becomes `completed`, `partial`, or `failed`.
+
+        **Roles:** `admin`
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: batch_id
+          in: path
+          required: true
+          description: Import batch UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Import applied successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportApplyResult'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          description: Cannot apply - pending conflicts exist or batch already applied
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    LessonID:
+      name: lesson_id
+      in: path
+      required: true
+      description: Lesson UUID
+      schema:
+        type: string
+        format: uuid
+
+    AttendanceID:
+      name: attendance_id
+      in: path
+      required: true
+      description: Attendance record UUID
+      schema:
+        type: string
+        format: uuid
+
+    AssessmentFormID:
+      name: assessment_form_id
+      in: path
+      required: true
+      description: Assessment form UUID
+      schema:
+        type: string
+        format: uuid
+
+    GradeID:
+      name: grade_id
+      in: path
+      required: true
+      description: Grade record UUID
+      schema:
+        type: string
+        format: uuid
+
+    JournalAccessGrantID:
+      name: grant_id
+      in: path
+      required: true
+      description: Journal access grant UUID
+      schema:
+        type: string
+        format: uuid
+
+    TemplateID:
+      name: template_id
+      in: path
+      required: true
+      description: КТП template UUID
+      schema:
+        type: string
+        format: uuid
+
+    TopicID:
+      name: topic_id
+      in: path
+      required: true
+      description: Template topic UUID
+      schema:
+        type: string
+        format: uuid
+
+    AssignmentID:
+      name: assignment_id
+      in: path
+      required: true
+      description: Template assignment UUID
+      schema:
+        type: string
+        format: uuid
+
+  schemas:
+    # -- Journal Grid ------------------------------------------------------
+    JournalGridResponse:
+      type: object
+      required: [group, discipline, academic_period, teacher, students, lessons, attendance, grades, assessment_forms, permissions, meta]
+      properties:
+        group:
+          $ref: '#/components/schemas/JournalGridRef'
+        discipline:
+          $ref: '#/components/schemas/JournalGridRef'
+        academic_period:
+          $ref: '#/components/schemas/JournalGridAcademicPeriod'
+        teacher:
+          $ref: '#/components/schemas/JournalGridTeacher'
+        students:
+          type: array
+          items:
+            $ref: '#/components/schemas/JournalGridStudent'
+        lessons:
+          type: array
+          items:
+            $ref: '#/components/schemas/JournalGridLesson'
+        attendance:
+          type: array
+          items:
+            $ref: '#/components/schemas/JournalGridAttendance'
+        grades:
+          type: array
+          items:
+            $ref: '#/components/schemas/JournalGridGrade'
+        assessment_forms:
+          type: array
+          items:
+            $ref: '#/components/schemas/JournalGridAssessmentForm'
+        permissions:
+          $ref: '#/components/schemas/JournalGridPermissions'
+        meta:
+          $ref: '#/components/schemas/JournalGridMeta'
+
+    JournalGridRef:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+
+    JournalGridAcademicPeriod:
+      type: object
+      required: [id, name, starts_at, ends_at, is_closed]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        starts_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+        is_closed:
+          type: boolean
+
+    JournalGridTeacher:
+      type: object
+      required: [id, full_name]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Internal teacher_profiles.id
+        full_name:
+          type: string
+
+    JournalGridStudent:
+      type: object
+      required: [student_id, full_name]
+      properties:
+        student_id:
+          type: string
+          format: uuid
+          description: Internal students.id used by attendance and grade records
+        full_name:
+          type: string
+        external_id:
+          type: string
+          nullable: true
+        subgroup_id:
+          type: string
+          format: uuid
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    JournalGridLesson:
+      type: object
+      required: [lesson_id, date, scheduled_at, lesson_type, status, updated_at]
+      properties:
+        lesson_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        scheduled_at:
+          type: string
+          format: date-time
+        topic:
+          type: string
+          nullable: true
+        lesson_type:
+          type: string
+          enum: [lecture, practice, lab, seminar]
+        status:
+          type: string
+          enum: [planned, held, cancelled, rescheduled]
+        updated_at:
+          type: string
+          format: date-time
+
+    JournalGridAttendance:
+      type: object
+      required: [attendance_id, lesson_id, student_id, status, updated_at, version]
+      properties:
+        attendance_id:
+          type: string
+          format: uuid
+        lesson_id:
+          type: string
+          format: uuid
+        student_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [present, absent, valid_excuse]
+        comment:
+          type: string
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+        version:
+          type: string
+          format: date-time
+
+    JournalGridAssessmentForm:
+      type: object
+      required: [assessment_form_id, title, type, date, status, updated_at]
+      properties:
+        assessment_form_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        type:
+          type: string
+          enum: [exam, quiz, homework, project]
+        max_score:
+          type: integer
+          nullable: true
+          description: Reserved for future scoring scales; current schema returns null.
+        date:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [open, closed]
+        updated_at:
+          type: string
+          format: date-time
+
+    JournalGridGrade:
+      type: object
+      required: [grade_id, assessment_form_id, student_id, value, updated_at, version]
+      properties:
+        grade_id:
+          type: string
+          format: uuid
+        assessment_form_id:
+          type: string
+          format: uuid
+        student_id:
+          type: string
+          format: uuid
+        value:
+          type: string
+        comment:
+          type: string
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+        version:
+          type: string
+          format: date-time
+
+    JournalGridPermissions:
+      type: object
+      required: [can_edit_attendance, can_edit_grades, can_view_private_comments]
+      properties:
+        can_edit_attendance:
+          type: boolean
+        can_edit_grades:
+          type: boolean
+        can_view_private_comments:
+          type: boolean
+
+    JournalGridMeta:
+      type: object
+      required: [generated_at, version]
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        version:
+          type: string
+
+    # -- Student Workflow ---------------------------------------------------
+    StudentProfile:
+      type: object
+      required: [id, full_name, student_code, is_head_student]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Internal student UUID (stable FK for all relations)
+        student_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Keycloak sub UUID. Null until first login link.
+        full_name:
+          type: string
+          description: "Last First Patronymic, e.g. Иванов Иван Иванович"
+          example: "Иванов Иван Иванович"
+        student_code:
+          type: string
+          description: Gradebook number (зачётная книжка)
+          example: "2023-ИТ-001"
+        group_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Current group UUID (null if not enrolled)
+        group_name:
+          type: string
+          nullable: true
+          description: Current group display name
+          example: "2020-ГиРО-ТИС-1б"
+        is_head_student:
+          type: boolean
+          description: True if this student is the class representative (Starosta) in their current group
+
+    StudentLesson:
+      type: object
+      required: [id, discipline_id, discipline_name, group_id, group_name, teacher_id, scheduled_at, lesson_type, status]
+      description: A lesson enriched with the student's own attendance status
+      properties:
+        id:
+          type: string
+          format: uuid
+        discipline_id:
+          type: string
+          format: uuid
+        discipline_name:
+          type: string
+        group_id:
+          type: string
+          format: uuid
+        group_name:
+          type: string
+        teacher_id:
+          type: string
+          format: uuid
+          description: Internal `teacher_profiles.id` of the teacher.
+        teacher_name:
+          type: string
+          description: "Abbreviated name, e.g. Петров П.П. (empty if no profile)"
+          example: "Петров П.П."
+        period_id:
+          type: string
+          format: uuid
+          nullable: true
+        scheduled_at:
+          type: string
+          format: date-time
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+        lesson_type:
+          type: string
+          enum: [lecture, practice, lab, seminar]
+        status:
+          type: string
+          enum: [planned, held, cancelled, rescheduled]
+        location:
+          type: string
+          nullable: true
+          description: Classroom and building
+          example: "Ауд. 301, 3-й корпус"
+        topic:
+          type: string
+          nullable: true
+        my_attendance_status:
+          type: string
+          enum: [present, absent, valid_excuse]
+          nullable: true
+          description: |
+            The authenticated student's own attendance status on this lesson.
+            `null` means no attendance record has been created yet.
+
+    StudentSubjectSummary:
+      type: object
+      required: [discipline_id, discipline_name, teacher_name, group_name, lessons_attended, lessons_total]
+      description: Lightweight subject summary for the subjects list view
+      properties:
+        discipline_id:
+          type: string
+          format: uuid
+        discipline_name:
+          type: string
+        teacher_name:
+          type: string
+          description: Abbreviated teacher name
+        group_name:
+          type: string
+        period_id:
+          type: string
+          format: uuid
+          nullable: true
+        lessons_attended:
+          type: integer
+          description: Lessons where the student was present
+        lessons_total:
+          type: integer
+          description: Total lessons in this discipline + period
+        attendance_pct:
+          type: number
+          format: float
+          description: Attendance percentage (0-100); computed as lessons_attended/lessons_total*100
+        avg_grade:
+          type: number
+          format: float
+          nullable: true
+          description: Average grade value (null if no grades yet)
+
+    StudentSubjectCard:
+      type: object
+      required: [student, discipline_id, discipline_name, teacher_name, period_id,
+                 lessons_attended, lessons_total, absences_total, absences_valid_excuse,
+                 assessments_completed, assessments_total, attendance_by_month]
+      description: Full aggregated view for a student in one subject
+      properties:
+        student:
+          $ref: '#/components/schemas/StudentProfile'
+        discipline_id:
+          type: string
+          format: uuid
+        discipline_name:
+          type: string
+        teacher_name:
+          type: string
+        period_id:
+          type: string
+          format: uuid
+        lessons_attended:
+          type: integer
+          description: Lessons where student was present
+        lessons_total:
+          type: integer
+          description: Total lessons held in this discipline + period
+        absences_total:
+          type: integer
+          description: Total absences (absent + valid_excuse combined)
+        absences_valid_excuse:
+          type: integer
+          description: Absences with valid reason (valid_excuse subset of absences_total)
+        assessments_completed:
+          type: integer
+          description: Number of assessment forms this student has a grade for
+        assessments_total:
+          type: integer
+          description: Total assessment forms for this group + discipline + period
+        avg_grade:
+          type: number
+          format: float
+          nullable: true
+          description: "Average grade value (1.0-5.0); null if no grades"
+        attendance_by_month:
+          type: array
+          description: Monthly attendance breakdown for progress chart
+          items:
+            $ref: '#/components/schemas/StudentAttendanceMonth'
+
+    StudentAttendanceMonth:
+      type: object
+      required: [month, total_lessons, attended, absent, valid_excuse, attendance_pct]
+      properties:
+        month:
+          type: string
+          format: date
+          description: First day of the month (YYYY-MM-01)
+          example: "2024-09-01"
+        total_lessons:
+          type: integer
+          description: Lessons scheduled in this month for this discipline
+        attended:
+          type: integer
+          description: Lessons with status=present
+        absent:
+          type: integer
+          description: Lessons with status=absent
+        valid_excuse:
+          type: integer
+          description: Lessons with status=valid_excuse
+        attendance_pct:
+          type: number
+          format: float
+          description: "attended / total_lessons * 100; 0 if total_lessons is 0"
+          example: 87.5
+
+    HeadStudentGrant:
+      type: object
+      required: [id, group_id, discipline_id, granted_by, head_student_id, allows_late_entry, granted_at]
+      description: A teacher-issued permission for a starosta to mark attendance
+      properties:
+        id:
+          type: string
+          format: uuid
+        group_id:
+          type: string
+          format: uuid
+        discipline_id:
+          type: string
+          format: uuid
+        granted_by:
+          type: string
+          description: Keycloak UUID of the teacher who granted access
+        head_student_id:
+          type: string
+          format: uuid
+          description: Internal students.id (not KC UUID) of the starosta
+        allows_late_entry:
+          type: boolean
+          description: If false (default), starosta can only mark attendance for current/future lessons
+        granted_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    GrantHeadStudentRequest:
+      type: object
+      required: [discipline_id, head_student_id]
+      properties:
+        discipline_id:
+          type: string
+          format: uuid
+          description: Discipline for which access is granted
+        head_student_id:
+          type: string
+          format: uuid
+          description: |
+            Internal `students.id` (UUID) of the starosta.
+            Get this from `GET /groups/{group_id}/students` - use the `id` field.
+        allows_late_entry:
+          type: boolean
+          default: false
+          description: |
+            When false (default): starosta can only mark attendance for lessons scheduled today or in the future.
+            When true: starosta can also edit past records (exceptional, admin approval implied).
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Optional expiry time for the grant (e.g. end of semester). Null = no expiry.
+
+    PaginationMeta:
+      type: object
+      required: [total, limit, offset]
+      properties:
+        total:
+          type: integer
+          description: Total number of matching records (for pagination)
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    # -- Dashboard ----------------------------------------------------------
+    TeacherStats:
+      type: object
+      required: [total_students, total_disciplines, hours_this_week, avg_grade]
+      properties:
+        total_students:
+          type: integer
+          description: Distinct students enrolled in all groups the teacher currently teaches
+        total_disciplines:
+          type: integer
+          description: Distinct disciplines in active (non-deleted) lessons
+        hours_this_week:
+          type: number
+          format: float
+          description: |
+            Total lesson hours scheduled for the current ISO week.
+            Computed from ends_at - scheduled_at; assumes 1.5 h when ends_at is null.
+        avg_grade:
+          type: number
+          format: float
+          nullable: true
+          description: Average grade value across all assessment forms created by this teacher (null if no grades yet)
+
+    AttendanceSummary:
+      type: object
+      required: [group_id, discipline_id, period_id, students_in_group, months]
+      properties:
+        group_id:
+          type: string
+          format: uuid
+        discipline_id:
+          type: string
+          format: uuid
+        period_id:
+          type: string
+          format: uuid
+        students_in_group:
+          type: integer
+          description: Number of active enrollments for this group in the given period
+        months:
+          type: array
+          items:
+            $ref: '#/components/schemas/AttendanceMonthEntry'
+
+    AttendanceMonthEntry:
+      type: object
+      required: [month, lesson_count, present, absent, valid_excuse]
+      properties:
+        month:
+          type: string
+          format: date
+          description: First day of the month (YYYY-MM-01)
+          example: "2024-09-01"
+        lesson_count:
+          type: integer
+          description: Number of lessons held in this month for the group + discipline
+        present:
+          type: integer
+          description: Total attendance_records with status=present
+        absent:
+          type: integer
+          description: Total attendance_records with status=absent
+        valid_excuse:
+          type: integer
+          description: Total attendance_records with status=valid_excuse
+
+    GroupsPerformance:
+      type: object
+      required: [period_id, groups]
+      properties:
+        period_id:
+          type: string
+          format: uuid
+          nullable: true
+        groups:
+          type: array
+          items:
+            $ref: '#/components/schemas/GroupPerformanceEntry'
+
+    GroupPerformanceEntry:
+      type: object
+      required: [group_id, group_name, avg_grade, grade_count]
+      properties:
+        group_id:
+          type: string
+          format: uuid
+        group_name:
+          type: string
+          example: "2020-ГиРО-ТИС-1б"
+        avg_grade:
+          type: number
+          format: float
+          description: Average grade value (1.0-5.0)
+        grade_count:
+          type: integer
+          description: Total number of grade records for this group
+
+    # -- Archive ------------------------------------------------------------
+    ArchivedJournalEntry:
+      type: object
+      required: [discipline_id, discipline_name, group_id, group_name, period_id, period_name, lesson_type, lesson_count, has_late_entries]
+      properties:
+        discipline_id:
+          type: string
+          format: uuid
+        discipline_name:
+          type: string
+        group_id:
+          type: string
+          format: uuid
+        group_name:
+          type: string
+        period_id:
+          type: string
+          format: uuid
+        period_name:
+          type: string
+          description: Human-readable period name (e.g. "Осенний семестр 2023-2024")
+        lesson_type:
+          type: string
+          enum: [lecture, practice, lab, seminar]
+        lesson_count:
+          type: integer
+          description: Total number of lessons in this journal entry
+        has_late_entries:
+          type: boolean
+          description: True if any attendance or grade record in this journal was entered after the period closed
+
+    # -- Common -------------------------------------------------------------
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status:
+          type: string
+          example: ok
+
+    JobAccepted:
+      type: object
+      required: [job_id]
+      properties:
+        job_id:
+          type: string
+          format: uuid
+          description: The ID of the created background job
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          $ref: '#/components/schemas/ErrorDetail'
+
+    ErrorDetail:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          description: Machine-readable error code
+          example: VALIDATION_ERROR
+        message:
+          type: string
+          description: Human-readable error description
+        details:
+          type: array
+          items:
+            $ref: '#/components/schemas/FieldError'
+        request_id:
+          type: string
+          description: Correlation ID for debugging
+
+    FieldError:
+      type: object
+      required: [field, message]
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+
+    # -- Academic Periods ---------------------------------------------------
+    AcademicPeriod:
+      type: object
+      required: [id, name, starts_at, ends_at, is_closed, is_active]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: Human-readable period name (e.g. "Осенний семестр 2024-2025")
+          example: "Осенний семестр 2024-2025"
+        starts_at:
+          type: string
+          format: date
+          description: Period start date (YYYY-MM-DD)
+        ends_at:
+          type: string
+          format: date
+          description: Period end date (YYYY-MM-DD)
+        is_closed:
+          type: boolean
+          description: Closed periods cannot be edited (attendance / grades are locked)
+        is_active:
+          type: boolean
+          description: True if this is the currently active period
+
+    # -- Lessons / Schedule -------------------------------------------------
+    Lesson:
+      type: object
+      required: [id, discipline_id, discipline_name, group_id, group_name, teacher_id, scheduled_at, lesson_type, status]
+      properties:
+        id:
+          type: string
+          format: uuid
+        discipline_id:
+          type: string
+          format: uuid
+        discipline_name:
+          type: string
+          description: Display name of the discipline
+        group_id:
+          type: string
+          format: uuid
+        group_name:
+          type: string
+          description: Display name of the academic group
+        subgroup_id:
+          type: string
+          format: uuid
+          nullable: true
+        teacher_id:
+          type: string
+          format: uuid
+          description: Internal `teacher_profiles.id` of the teacher.
+        scheduled_at:
+          type: string
+          format: date-time
+          description: Lesson start datetime (RFC3339)
+        ends_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Lesson end datetime (RFC3339)
+        lesson_type:
+          type: string
+          enum: [lecture, practice, lab, seminar]
+          description: Type of the lesson
+        location:
+          type: string
+          nullable: true
+          description: Classroom and building (e.g. "ауд. 301, корп. А")
+        status:
+          type: string
+          enum: [planned, held, cancelled, rescheduled]
+        attendance_marked:
+          type: boolean
+          description: True if at least one attendance record exists for this lesson
+        period_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Academic period this lesson belongs to
+
+    # -- Students -----------------------------------------------------------
+    Student:
+      type: object
+      required: [id, full_name, student_code]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: StudentProfile UUID (used as student_id in attendance/grade records)
+        full_name:
+          type: string
+          description: Full name (Last First Patronymic)
+          example: "Иванов Иван Иванович"
+        student_code:
+          type: string
+          description: Student ID / gradebook number
+          example: "23-ИВТ-001"
+        subgroup_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Subgroup the student belongs to (if applicable)
+
+    # -- Attendance ---------------------------------------------------------
+    AttendanceRecord:
+      type: object
+      required: [id, lesson_id, student_id, status, is_late_entry, is_archived, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        lesson_id:
+          type: string
+          format: uuid
+        student_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [present, absent, valid_excuse]
+          description: |
+            Attendance status:
+            - `present` - student was present
+            - `absent` - student was absent without a valid reason
+            - `valid_excuse` - student was absent with a valid excuse (medical certificate, order)
+        comment:
+          type: string
+          nullable: true
+        is_late_entry:
+          type: boolean
+          description: |
+            True if this record was created or last modified after the academic period was closed.
+            Post-session entries are allowed only for users with admin/dean role or explicitly granted late-entry permission.
+        late_entry_reason:
+          type: string
+          nullable: true
+          description: Optional reason provided when making a post-session entry
+        is_archived:
+          type: boolean
+          description: |
+            True if this record has been soft-deleted (archived).
+            Archived records are excluded from all operational views by default.
+            Use `include_archived=true` on the list endpoint to retrieve them.
+        archived_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: RFC3339 timestamp of when the record was archived. Null if not archived.
+        archived_by:
+          type: string
+          format: uuid
+          nullable: true
+          description: UUID of the user who archived this record. Null if not archived.
+        archive_reason:
+          type: string
+          nullable: true
+          description: Optional reason provided when archiving the record.
+        created_at:
+          type: string
+          format: date-time
+          description: RFC3339 timestamp
+        updated_at:
+          type: string
+          format: date-time
+
+    MarkAttendanceRequest:
+      type: object
+      required: [student_id, status]
+      properties:
+        student_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [present, absent, valid_excuse]
+          description: |
+            Attendance status:
+            - `present` - student was present
+            - `absent` - student was absent without a valid reason
+            - `valid_excuse` - student was absent with a valid excuse
+        comment:
+          type: string
+          maxLength: 500
+          nullable: true
+        is_late_entry:
+          type: boolean
+          default: false
+          description: |
+            Set to true to allow writing to a closed academic period (post-session entry).
+            Requires admin or dean role, or explicit late-entry permission on the teacher profile.
+        late_entry_reason:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: Required when is_late_entry is true; explains why the entry is made after period close
+
+    BulkMarkAttendanceRequest:
+      type: object
+      required: [records]
+      properties:
+        records:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/MarkAttendanceRequest'
+
+    ArchiveRecordRequest:
+      type: object
+      description: Optional request body for archive operations. All fields are optional.
+      properties:
+        reason:
+          type: string
+          maxLength: 500
+          nullable: true
+          description: |
+            Human-readable reason for archiving this record.
+            Stored as `archive_reason` and included in the `AuditEvent`.
+          example: "Data entry error - duplicate record"
+
+    # -- Grades -------------------------------------------------------------
+    GradeRecord:
+      type: object
+      required: [id, student_id, assessment_form_id, value, is_private, is_late_entry, is_archived, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        student_id:
+          type: string
+          format: uuid
+        assessment_form_id:
+          type: string
+          format: uuid
+        value:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          nullable: true
+        is_private:
+          type: boolean
+        is_late_entry:
+          type: boolean
+          description: True if this grade was entered after the academic period was closed
+        late_entry_reason:
+          type: string
+          nullable: true
+        is_archived:
+          type: boolean
+          description: |
+            True if this record has been soft-deleted (archived).
+            Archived records are excluded from all operational views by default.
+            Use `include_archived=true` on the list endpoint to retrieve them.
+        archived_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: RFC3339 timestamp of when the record was archived. Null if not archived.
+        archived_by:
+          type: string
+          format: uuid
+          nullable: true
+          description: UUID of the user who archived this record. Null if not archived.
+        archive_reason:
+          type: string
+          nullable: true
+          description: Optional reason provided when archiving the record.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    CreateGradeRequest:
+      type: object
+      required: [student_id, assessment_form_id, value]
+      properties:
+        student_id:
+          type: string
+          format: uuid
+        assessment_form_id:
+          type: string
+          format: uuid
+        value:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          maxLength: 1000
+          nullable: true
+        is_private:
+          type: boolean
+          default: false
+        is_late_entry:
+          type: boolean
+          default: false
+          description: Set to true to create a grade in a closed period (requires admin/dean role)
+        late_entry_reason:
+          type: string
+          maxLength: 500
+          nullable: true
+
+    UpdateGradeRequest:
+      type: object
+      required: [value]
+      properties:
+        value:
+          type: integer
+          minimum: 1
+          maximum: 5
+        comment:
+          type: string
+          maxLength: 1000
+          nullable: true
+        is_late_entry:
+          type: boolean
+          default: false
+          description: Set to true to update a grade in a closed period (requires admin/dean role)
+        late_entry_reason:
+          type: string
+          maxLength: 500
+          nullable: true
+
+    # -- Assessment Forms ---------------------------------------------------
+    AssessmentForm:
+      type: object
+      required: [id, title, form_type, date, discipline_id, group_id, teacher_id, period_id, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        form_type:
+          type: string
+          enum: [exam, quiz, homework, project]
+        date:
+          type: string
+          format: date
+          description: RFC3339 date (YYYY-MM-DD)
+        discipline_id:
+          type: string
+          format: uuid
+        group_id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          format: uuid
+          description: Internal `teacher_profiles.id` of the teacher.
+        period_id:
+          type: string
+          format: uuid
+          description: Academic period the form belongs to.
+        status:
+          type: string
+          enum: [open, closed]
+        created_at:
+          type: string
+          format: date-time
+
+    UpdateAssessmentFormRequest:
+      type: object
+      description: |
+        At least one of `title` or `status` must be provided.
+        All other form fields are immutable after creation.
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: New title for the assessment form
+        status:
+          type: string
+          enum: [open, closed]
+          description: |
+            Lifecycle transition:
+            - `closed` - lock the form (no new grades allowed). Any teacher/admin can close.
+            - `open` - reopen a closed form. Requires `admin` or `dean` role.
+
+    CreateAssessmentFormRequest:
+      type: object
+      required: [title, form_type, date, discipline_id, group_id]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        form_type:
+          type: string
+          enum: [exam, quiz, homework, project]
+        date:
+          type: string
+          format: date
+        discipline_id:
+          type: string
+          format: uuid
+        group_id:
+          type: string
+          format: uuid
+        period_id:
+          type: string
+          format: uuid
+          description: |
+            Optional. Academic period for this form. When omitted the server resolves
+            the currently open period that contains the form date.
+
+    # -- Reports ------------------------------------------------------------
+    RequestReportRequest:
+      type: object
+      required: [report_type, format]
+      properties:
+        report_type:
+          type: string
+          enum: [attendance_summary, grade_sheet, group_performance]
+        format:
+          type: string
+          enum: [pdf, excel]
+        group_id:
+          type: string
+          format: uuid
+          nullable: true
+        discipline_id:
+          type: string
+          format: uuid
+          nullable: true
+        period_id:
+          type: string
+          format: uuid
+          nullable: true
+
+    DocumentTask:
+      type: object
+      required: [id, job_type, status, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        job_type:
+          type: string
+        status:
+          type: string
+          enum: [pending, running, done, failed, permanently_failed]
+        result:
+          type: object
+          nullable: true
+          description: Available when status is 'done'; contains file_url
+        error_msg:
+          type: string
+          nullable: true
+        retry_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+        started_at:
+          type: string
+          format: date-time
+          nullable: true
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    # -- Journal Access Grant schemas ------------------------------------------
+    JournalAccessGrant:
+      type: object
+      required: [id, granter_id, grantee_id, discipline_id, group_id, access_level, granted_at]
+      description: |
+        A teacher-to-teacher journal access delegation.
+        The granter shares read or write access to a specific discipline + group journal
+        with the grantee.
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Grant UUID
+        granter_id:
+          type: string
+          description: Keycloak UUID of the teacher who issued the grant
+        grantee_id:
+          type: string
+          description: Keycloak UUID of the teacher who received access
+        discipline_id:
+          type: string
+          format: uuid
+          description: Discipline the grant is scoped to
+        group_id:
+          type: string
+          format: uuid
+          description: Academic group the grant is scoped to
+        period_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Academic period the grant is scoped to (null = all periods)
+        access_level:
+          $ref: '#/components/schemas/JournalAccessGrantAccessLevel'
+        granted_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Automatic expiry date (null = no expiry)
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Revocation timestamp (null = grant is active)
+
+    JournalAccessGrantAccessLevel:
+      type: string
+      enum: [read, write]
+      description: |
+        - `read`  - grantee can view lessons, attendance, and grades.
+        - `write` - grantee can additionally mark attendance and submit grades.
+
+    GrantJournalAccessRequest:
+      type: object
+      required: [grantee_id, discipline_id, group_id, access_level]
+      description: Request body for creating a journal access delegation
+      properties:
+        granter_id:
+          type: string
+          description: |
+            Keycloak UUID of the teacher issuing the grant.
+            For `teacher` role, defaults to the caller's own ID.
+            For `admin` role, can specify a different teacher as granter.
+        grantee_id:
+          type: string
+          description: Keycloak UUID of the teacher who will receive access
+        discipline_id:
+          type: string
+          format: uuid
+          description: Discipline to share
+        group_id:
+          type: string
+          format: uuid
+          description: Academic group to share
+        period_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Scope to a specific academic period (null = all periods)
+        access_level:
+          $ref: '#/components/schemas/JournalAccessGrantAccessLevel'
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Optional automatic expiry (e.g. end of semester)
+
+    # -- Lesson Template schemas ------------------------------------------------
+    LessonTemplate:
+      type: object
+      required: [id, discipline_id, discipline_name, name, total_lessons, topics_count, has_assignments, is_archived, created_by, created_at, updated_at]
+      description: Summary view of a КТП (calendar-thematic plan) template
+      properties:
+        id:
+          type: string
+          format: uuid
+        discipline_id:
+          type: string
+          format: uuid
+        discipline_name:
+          type: string
+          description: Display name of the discipline this template belongs to
+        name:
+          type: string
+          description: Template name (e.g. "Программирование на Python, осень 2024")
+        description:
+          type: string
+          nullable: true
+          description: Optional extended description / notes
+        total_lessons:
+          type: integer
+          description: Total number of lessons covered by all topics combined
+        topics_count:
+          type: integer
+          description: Number of topics in this template
+        has_assignments:
+          type: boolean
+          description: True if this template is currently assigned to at least one teaching context
+        is_archived:
+          type: boolean
+          description: True if the template has been soft-deleted (archived)
+        created_by:
+          type: string
+          description: Keycloak UUID of the user who created the template
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    LessonTemplateDetail:
+      allOf:
+        - $ref: '#/components/schemas/LessonTemplate'
+        - type: object
+          required: [topics]
+          properties:
+            topics:
+              type: array
+              description: Ordered list of topics in this template
+              items:
+                $ref: '#/components/schemas/LessonTopic'
+
+    LessonTopic:
+      type: object
+      required: [id, plan_id, topic_name, lesson_count, order_index, is_frozen, created_at, updated_at]
+      description: A single topic entry within a КТП template
+      properties:
+        id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+          description: Parent template UUID
+        topic_name:
+          type: string
+          description: Topic title
+        topic_description:
+          type: string
+          nullable: true
+          description: Extended topic description
+        default_topic_details:
+          type: string
+          nullable: true
+          description: Default lesson notes pre-filled for each lesson mapped to this topic
+        lesson_count:
+          type: integer
+          minimum: 1
+          description: Number of lessons this topic spans
+        order_index:
+          type: integer
+          minimum: 1
+          description: Position of this topic in the plan (1-based)
+        is_frozen:
+          type: boolean
+          description: True if the topic is locked because lessons have already been taught with it
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    LessonTemplateArchivedResponse:
+      type: object
+      required: [is_archived, message]
+      description: Returned when a template is soft-deleted (has active assignments)
+      properties:
+        is_archived:
+          type: boolean
+          example: true
+        message:
+          type: string
+          example: "Template archived because it has active assignments"
+
+    TemplateAssignment:
+      type: object
+      required: [id, teacher_id, discipline_id, group_id, period_id, plan_id, plan_name, assigned_by, assigned_at]
+      description: An active КТП template assignment for a teaching context
+      properties:
+        id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          format: uuid
+          description: Internal `teacher_profiles.id` of the teacher.
+        discipline_id:
+          type: string
+          format: uuid
+        group_id:
+          type: string
+          format: uuid
+        period_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+          description: UUID of the assigned template
+        plan_name:
+          type: string
+          description: Display name of the assigned template
+        assigned_by:
+          type: string
+          description: Keycloak UUID of the user who created the assignment
+        assigned_at:
+          type: string
+          format: date-time
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set when the assignment has been revoked
+        notes:
+          type: string
+          nullable: true
+          description: Optional notes about the assignment
+
+    AssignTemplateResult:
+      type: object
+      required: [assignment_id, plan_id, plan_name, lessons_updated, lessons_without_topic]
+      description: Result of assigning a template to a teaching context
+      properties:
+        assignment_id:
+          type: string
+          format: uuid
+        plan_id:
+          type: string
+          format: uuid
+        plan_name:
+          type: string
+        lessons_updated:
+          type: integer
+          description: Number of lessons that were mapped to a template topic
+        lessons_without_topic:
+          type: integer
+          description: Number of lessons that could not be mapped (template doesn't cover enough lessons)
+
+    LessonTopicInfo:
+      type: object
+      required: [lesson_id, topic_details_edited_by_teacher, updated_at]
+      description: Topic information for a specific lesson, combining template defaults with teacher overrides
+      properties:
+        lesson_id:
+          type: string
+          format: uuid
+        template_topic:
+          $ref: '#/components/schemas/LessonTopic'
+          nullable: true
+          description: The template topic assigned to this lesson (null if no template assigned)
+        topic_custom_details:
+          type: string
+          nullable: true
+          description: Teacher's custom lesson notes (overrides default_topic_details from the template)
+        topic_details_edited_by_teacher:
+          type: boolean
+          description: True if the teacher has set their own custom details for this lesson
+        updated_at:
+          type: string
+          format: date-time
+
+    # -- КТП Request schemas ----------------------------------------------------
+    CreateLessonTemplateRequest:
+      type: object
+      required: [discipline_id, name]
+      properties:
+        discipline_id:
+          type: string
+          format: uuid
+          description: Discipline this template belongs to
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Template name
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+          description: Optional description / notes
+
+    UpdateLessonTemplateRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+
+    AddTopicRequest:
+      type: object
+      required: [topic_name, lesson_count, order_index]
+      properties:
+        topic_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+          description: Topic title
+        topic_description:
+          type: string
+          maxLength: 2000
+          nullable: true
+          description: Extended topic description
+        default_topic_details:
+          type: string
+          maxLength: 2000
+          nullable: true
+          description: Default lesson notes that are pre-filled for each lesson mapped to this topic
+        lesson_count:
+          type: integer
+          minimum: 1
+          description: Number of lessons this topic covers
+        order_index:
+          type: integer
+          minimum: 1
+          description: Position of this topic in the plan (1-based)
+
+    UpdateTopicRequest:
+      type: object
+      properties:
+        topic_name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        topic_description:
+          type: string
+          maxLength: 2000
+          nullable: true
+        default_topic_details:
+          type: string
+          maxLength: 2000
+          nullable: true
+        lesson_count:
+          type: integer
+          minimum: 1
+        order_index:
+          type: integer
+          minimum: 1
+
+    ReorderTopicsRequest:
+      type: object
+      required: [order]
+      properties:
+        order:
+          type: array
+          minItems: 1
+          description: New ordering - every topic in the template must be listed
+          items:
+            type: object
+            required: [topic_id, order_index]
+            properties:
+              topic_id:
+                type: string
+                format: uuid
+              order_index:
+                type: integer
+                minimum: 1
+
+    AssignTemplateRequest:
+      type: object
+      required: [plan_id, discipline_id, group_id, period_id]
+      properties:
+        plan_id:
+          type: string
+          format: uuid
+          description: Template UUID to assign
+        discipline_id:
+          type: string
+          format: uuid
+        group_id:
+          type: string
+          format: uuid
+        period_id:
+          type: string
+          format: uuid
+        notes:
+          type: string
+          maxLength: 1000
+          nullable: true
+          description: Optional notes about this assignment
+
+    UpdateLessonTopicDetailsRequest:
+      type: object
+      required: [topic_custom_details]
+      properties:
+        topic_custom_details:
+          type: string
+          minLength: 1
+          maxLength: 5000
+          description: Teacher's custom lesson notes for this specific lesson
+
+    # -- Student Import schemas -------------------------------------------------
+
+    ImportStudentRow:
+      type: object
+      required: [row_number, last_name, first_name]
+      description: |
+        A single student row submitted for import.
+        The client is responsible for parsing Excel/CSV - the server accepts JSON only.
+      properties:
+        row_number:
+          type: integer
+          minimum: 1
+          description: 1-based row number from the source file (used for error reporting)
+        last_name:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Student's last name (required)
+        first_name:
+          type: string
+          minLength: 1
+          maxLength: 128
+          description: Student's first name (required)
+        middle_name:
+          type: string
+          maxLength: 128
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+          description: Used as secondary matching key if student_code is absent
+        student_code:
+          type: string
+          maxLength: 64
+          nullable: true
+          description: University-assigned student ID. Primary matching key during import.
+        subgroup_number:
+          type: integer
+          minimum: 1
+          nullable: true
+        start_date:
+          type: string
+          format: date
+          nullable: true
+          description: Date from which this enrollment is active. Defaults to period start_date.
+
+    ImportStudentsRequest:
+      type: object
+      required: [group_id, academic_period_id, students]
+      description: |
+        Payload for creating a new student import batch.
+        Clients parse Excel/CSV themselves and submit the JSON list.
+      properties:
+        group_id:
+          type: string
+          format: uuid
+          description: Target group for all imported students
+        academic_period_id:
+          type: string
+          format: uuid
+          description: Academic period for enrollment records
+        source_file_name:
+          type: string
+          maxLength: 255
+          nullable: true
+          description: Original file name for traceability (e.g. "group_101_spring2026.xlsx")
+        students:
+          type: array
+          minItems: 1
+          maxItems: 2000
+          items:
+            $ref: '#/components/schemas/ImportStudentRow'
+
+    ImportSummary:
+      type: object
+      required: [total, created, updated, skipped, conflicts, errors]
+      properties:
+        total:
+          type: integer
+        created:
+          type: integer
+        updated:
+          type: integer
+        skipped:
+          type: integer
+        conflicts:
+          type: integer
+        errors:
+          type: integer
+
+    ImportConflict:
+      type: object
+      required: [id, batch_id, row_number, conflict_type, resolution]
+      description: |
+        A conflict detected during import preview that requires an explicit admin decision.
+        Apply is blocked until all conflicts have a resolution != pending.
+      properties:
+        id:
+          type: string
+          format: uuid
+        batch_id:
+          type: string
+          format: uuid
+        row_number:
+          type: integer
+        conflict_type:
+          type: string
+          enum: [duplicate_in_batch, already_enrolled, already_in_other_group, name_mismatch, profile_not_found]
+          description: |
+            - `duplicate_in_batch`: same student appears twice in the submitted JSON
+            - `already_enrolled`: student already active in this exact group+period
+            - `already_in_other_group`: student active in a DIFFERENT group
+            - `name_mismatch`: profile found by code/email but full name differs
+            - `profile_not_found`: cannot identify the student (no code, no email)
+        current_state:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: Snapshot of what exists in the database
+        proposed:
+          type: object
+          nullable: true
+          additionalProperties: true
+          description: What the import row proposes
+        resolution:
+          type: string
+          enum: [pending, skip, merge, force_move, force_create, update]
+          description: |
+            - `pending`: not resolved yet (blocks apply)
+            - `skip`: ignore this row
+            - `merge`: accept new name (for name_mismatch)
+            - `force_move`: transfer student to target group (closes old enrollment)
+            - `force_create`: create new profile despite ambiguity
+            - `update`: update subgroup or dates for existing enrollment
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+        resolved_by:
+          type: string
+          nullable: true
+          description: Keycloak sub claim of the admin who resolved the conflict
+
+    ImportPreviewRow:
+      type: object
+      required: [row_number, action]
+      description: Preview of what will happen to a single import row after apply
+      properties:
+        row_number:
+          type: integer
+        action:
+          type: string
+          enum: [create, update, skip, conflict, error]
+        conflict_id:
+          type: string
+          format: uuid
+          nullable: true
+        conflict_type:
+          type: string
+          nullable: true
+        message:
+          type: string
+          nullable: true
+        student:
+          $ref: '#/components/schemas/ImportStudentRow'
+          nullable: true
+
+    ImportBatchPreview:
+      type: object
+      required: [batch_id, status, summary, rows]
+      description: Full preview returned immediately after batch submission
+      properties:
+        batch_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, validating, preview_ready, conflicts_detected, resolved, applying, completed, failed, partial]
+        summary:
+          $ref: '#/components/schemas/ImportSummary'
+        rows:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportPreviewRow'
+        conflicts:
+          type: array
+          nullable: true
+          items:
+            $ref: '#/components/schemas/ImportConflict'
+
+    ImportBatchStatus:
+      type: object
+      required: [id, status, started_by, started_at]
+      description: Current status of an import batch
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, validating, preview_ready, conflicts_detected, resolved, applying, completed, failed, partial]
+        group_id:
+          type: string
+          format: uuid
+          nullable: true
+        period_id:
+          type: string
+          format: uuid
+          nullable: true
+        source_file_name:
+          type: string
+          nullable: true
+        started_by:
+          type: string
+          description: Keycloak sub claim of the admin who started the import
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        summary:
+          $ref: '#/components/schemas/ImportSummary'
+          nullable: true
+
+    ImportConflictsResponse:
+      type: object
+      required: [batch_id, conflicts]
+      properties:
+        batch_id:
+          type: string
+          format: uuid
+        conflicts:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportConflict'
+
+    ResolveConflictRequest:
+      type: object
+      required: [resolution]
+      properties:
+        resolution:
+          type: string
+          enum: [skip, merge, force_move, force_create, update]
+          description: Admin decision for this conflict
+
+    ImportApplyResult:
+      type: object
+      required: [batch_id, status, summary]
+      description: Result returned after the apply operation completes
+      properties:
+        batch_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [completed, partial, failed]
+        summary:
+          $ref: '#/components/schemas/ImportSummary'
+
+  responses:
+    Unauthorized:
+      description: Authentication required or token is invalid
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Forbidden:
+      description: Insufficient permissions
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    Conflict:
+      description: |
+        Conflict - the operation cannot proceed due to the current state of the resource.
+        Examples: duplicate record, record already archived, record not archived (restore).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    ValidationError:
+      description: Request validation failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    PeriodClosed:
+      description: Academic period is closed for editing
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    InternalServerError:
+      description: Unexpected server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
