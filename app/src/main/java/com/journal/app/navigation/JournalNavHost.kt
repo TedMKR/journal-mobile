@@ -6,6 +6,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.journal.core.network.api.JournalApi
 import com.journal.features.auth.AuthRoute
 import com.journal.features.teacher.dashboard.TeacherDashboardRoute
 import com.journal.features.teacher.home.TeacherHomeRoute
@@ -15,7 +16,7 @@ import com.journal.features.teacher.ved.TeacherVedRoute
 import com.journal.shared.navigation.Routes
 
 @Composable
-fun JournalNavHost() {
+fun JournalNavHost(journalApi: JournalApi) {
     val navController = rememberNavController()
 
     NavHost(navController = navController, startDestination = Routes.AUTH) {
@@ -48,6 +49,7 @@ fun JournalNavHost() {
                 groupId = backStackEntry.arguments?.getString("groupId").orEmpty(),
                 disciplineId = backStackEntry.arguments?.getString("disciplineId").orEmpty(),
                 periodId = backStackEntry.arguments?.getString("periodId").orEmpty(),
+                journalApi = journalApi,
                 onOpenStudentCard = { navController.navigate(Routes.TEACHER_STUDENT_CARD) }
             )
         }
