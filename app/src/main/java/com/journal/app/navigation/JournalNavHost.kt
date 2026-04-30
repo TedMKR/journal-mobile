@@ -29,8 +29,9 @@ fun JournalNavHost(journalApi: JournalApi) {
                     val groupId = lesson.groupId.orEmpty()
                     val disciplineId = lesson.disciplineId.orEmpty()
                     val periodId = lesson.periodId.orEmpty()
-                    if (groupId.isNotBlank() && disciplineId.isNotBlank() && periodId.isNotBlank()) {
-                        navController.navigate(Routes.teacherJournal(groupId, disciplineId, periodId))
+                    val lessonId = lesson.id
+                    if (groupId.isNotBlank() && disciplineId.isNotBlank() && periodId.isNotBlank() && lessonId.isNotBlank()) {
+                        navController.navigate(Routes.teacherJournal(groupId, disciplineId, periodId, lessonId))
                     }
                 },
                 onOpenDashboard = { navController.navigate(Routes.TEACHER_DASHBOARD) },
@@ -42,13 +43,15 @@ fun JournalNavHost(journalApi: JournalApi) {
             arguments = listOf(
                 navArgument("groupId") { type = NavType.StringType },
                 navArgument("disciplineId") { type = NavType.StringType },
-                navArgument("periodId") { type = NavType.StringType }
+                navArgument("periodId") { type = NavType.StringType },
+                navArgument("lessonId") { type = NavType.StringType }
             )
         ) { backStackEntry ->
             TeacherJournalRoute(
                 groupId = backStackEntry.arguments?.getString("groupId").orEmpty(),
                 disciplineId = backStackEntry.arguments?.getString("disciplineId").orEmpty(),
                 periodId = backStackEntry.arguments?.getString("periodId").orEmpty(),
+                selectedLessonId = backStackEntry.arguments?.getString("lessonId").orEmpty(),
                 journalApi = journalApi,
                 onOpenStudentCard = { navController.navigate(Routes.TEACHER_STUDENT_CARD) }
             )

@@ -25,7 +25,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journal.core.model.teacher.TeacherLesson
 import java.time.OffsetDateTime
-import java.time.format.DateTimeFormatter
 
 private val BgColor = Color(0xFFEDEEED)
 private val PrimaryText = Color(0xFF223268)
@@ -65,13 +64,6 @@ fun TeacherHomeRoute(
             )
         }
 
-        Text(
-            text = "Иванов Иван Иванович",
-            color = PrimaryText,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(top = 8.dp, bottom = 8.dp)
-        )
 
         when {
             uiState.isLoading -> {
@@ -114,7 +106,7 @@ fun TeacherHomeRoute(
                                             .padding(vertical = 12.dp)
                                     )
                                 } else {
-                                    lessons.forEachIndexed { index, lesson ->
+                                    lessons.sortedBy { it.scheduledAt }.forEachIndexed { index, lesson ->
                                         LessonCard(
                                             lesson = lesson,
                                             index = index + 1,
@@ -162,7 +154,7 @@ private fun LessonCard(
                     Text(index.toString(), color = PrimaryText, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
                 }
                 Text(
-                    text = formatLessonTime(lesson.scheduledAt, lesson.endsAt),
+                    text = lessonSlotTime(index),
                     color = PrimaryText,
                     style = MaterialTheme.typography.bodySmall
                 )
@@ -213,14 +205,17 @@ private fun lessonDayLabel(scheduledAt: String): String = runCatching {
         6 -> "Суббота"
         else -> "Воскресенье"
     }
-}.getOrDefault("День")
+}.getOrElse { scheduledAt }
 
-private fun formatLessonTime(startsAt: String, endsAt: String?): String = runCatching {
-    val start = OffsetDateTime.parse(startsAt)
-    val end = endsAt?.let { OffsetDateTime.parse(it) } ?: start.plusMinutes(90)
-    val fmt = DateTimeFormatter.ofPattern("H:mm")
-    "${start.format(fmt)} - ${end.format(fmt)}"
-}.getOrDefault(startsAt)
+private fun lessonSlotTime(index: Int): String = when (index) {
+    1 -> "09:00 - 10:30"
+    2 -> "10:40 - 12:10"
+    3 -> "12:20 - 13:50"
+    4 -> "14:30 - 16:00"
+    5 -> "16:10 - 17:40"
+    6 -> "17:50 - 19:20"
+    else -> ""
+}
 
 private fun lessonTypeRu(type: String): String = when (type.lowercase()) {
     "lecture" -> "Лекция"

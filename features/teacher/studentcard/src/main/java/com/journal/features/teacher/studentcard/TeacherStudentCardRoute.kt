@@ -23,7 +23,7 @@ fun TeacherStudentCardRoute(onBack: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Text("Карточка студента", style = MaterialTheme.typography.headlineSmall, color = Color(0xFF223268))
-        Text("Teacher-specific endpoint пока не реализован, используем адаптированный fallback.", color = Color(0xFF223268))
+        Text("Данные недоступны: endpoint не реализован на API.", color = Color(0xFF223268))
         Button(onClick = onBack) {
             Text("Назад")
         }

@@ -49,6 +49,7 @@ fun TeacherJournalRoute(
     groupId: String,
     disciplineId: String,
     periodId: String,
+    selectedLessonId: String,
     journalApi: JournalApi,
     onOpenStudentCard: () -> Unit
 ) {
@@ -100,7 +101,11 @@ fun TeacherJournalRoute(
                 style = MaterialTheme.typography.bodyMedium
             )
 
-            journal != null -> JournalContent(journal = journal!!, onOpenStudentCard = onOpenStudentCard)
+            journal != null -> JournalContent(
+                journal = journal!!,
+                selectedLessonId = selectedLessonId,
+                onOpenStudentCard = onOpenStudentCard
+            )
         }
     }
 }
@@ -108,9 +113,11 @@ fun TeacherJournalRoute(
 @Composable
 private fun JournalContent(
     journal: JournalGridResponse,
+    selectedLessonId: String,
     onOpenStudentCard: () -> Unit
 ) {
     val lessons = journal.lessons.sortedBy { it.scheduledAt }
+    val selectedLesson = lessons.firstOrNull { it.lessonId == selectedLessonId }
 
     Text(
         text = journal.discipline.name,
@@ -121,7 +128,7 @@ private fun JournalContent(
 
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Tag(journal.group.name)
-        Tag(lessonTypeRu(lessons.firstOrNull()?.lessonType ?: "practice"))
+        selectedLesson?.lessonType?.let { Tag(lessonTypeRu(it)) }
     }
 
     Button(onClick = { }) {
