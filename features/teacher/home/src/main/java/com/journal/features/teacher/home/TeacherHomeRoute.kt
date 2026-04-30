@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -34,7 +33,7 @@ private val CardBg = Color(0xFFE4E6EC)
 
 @Composable
 fun TeacherHomeRoute(
-    onOpenLesson: () -> Unit,
+    onOpenLesson: (TeacherLesson) -> Unit,
     onOpenDashboard: () -> Unit,
     onOpenVed: () -> Unit,
     viewModel: TeacherHomeViewModel = hiltViewModel()
@@ -143,14 +142,14 @@ fun TeacherHomeRoute(
 private fun LessonCard(
     lesson: TeacherLesson,
     index: Int,
-    onOpenLesson: () -> Unit,
+    onOpenLesson: (TeacherLesson) -> Unit,
     onOpenVed: () -> Unit
 ) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(CardBg, RoundedCornerShape(8.dp))
-            .clickable(onClick = onOpenLesson)
+            .clickable { onOpenLesson(lesson) }
             .padding(10.dp)
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
