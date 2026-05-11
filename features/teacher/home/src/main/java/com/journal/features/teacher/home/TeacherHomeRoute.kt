@@ -25,16 +25,31 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journal.core.model.teacher.TeacherLesson
 import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 
-private val BgColor = Color(0xFFEDEEED)
+private val BackgroundColor = Color(0xFFEDEEED)
 private val PrimaryText = Color(0xFF223268)
-private val CardBg = Color(0xFFE4E6EC)
+private val SecondaryText = Color(0xFF7E8E99)
+private val CardBackground = Color.White
+private val LessonBackground = Color(0xFFE4E6EC)
+private val ActiveLessonBackground = Color(0xFFD7DDF2)
+private val BadgeBackground = Color(0xFFD3D7E1)
+private val ActiveBadgeBackground = Color(0xFFB8C3EA)
+
+private val dayNames = listOf(
+    "Понедельник",
+    "Вторник",
+    "Среда",
+    "Четверг",
+    "Пятница",
+    "Суббота"
+)
+
+private val lessonStartTimes = listOf("09:00", "10:40", "12:50", "14:30", "16:10", "17:50", "19:30")
 
 @Composable
 fun TeacherHomeRoute(
     onOpenLesson: (TeacherLesson) -> Unit,
-    onOpenDashboard: () -> Unit,
-    onOpenVed: () -> Unit,
     viewModel: TeacherHomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -42,89 +57,101 @@ fun TeacherHomeRoute(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BgColor)
+            .background(BackgroundColor)
             .padding(horizontal = 10.dp, vertical = 8.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "Электронный\nЖурнал",
-                color = PrimaryText,
-                style = MaterialTheme.typography.titleSmall,
-                fontWeight = FontWeight.SemiBold
-            )
-            Text(
-                text = "☰",
-                color = PrimaryText,
-                style = MaterialTheme.typography.headlineSmall,
-                modifier = Modifier.clickable(onClick = onOpenDashboard)
-            )
-        }
-
+        Header()
 
         when {
-            uiState.isLoading -> {
-                CircularProgressIndicator(modifier = Modifier.padding(24.dp))
-            }
+            uiState.isLoading -> CircularProgressIndicator(modifier = Modifier.padding(24.dp))
+            uiState.error != null -> Text(
+                text = uiState.error.orEmpty(),
+                color = PrimaryText,
+                modifier = Modifier.padding(top = 16.dp)
+            )
+            else -> WeekSchedule(
+                lessons = uiState.lessons,
+                onOpenLesson = onOpenLesson
+            )
+        }
+    }
+}
 
-            uiState.error != null -> {
-                Text(
-                    text = uiState.error ?: "Ошибка",
-                    color = PrimaryText,
-                    modifier = Modifier.padding(top = 16.dp)
+@Composable
+private fun Header() {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "Электронный\nЖурнал",
+            color = PrimaryText,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        Text(
+            text = "☰",
+            color = PrimaryText,
+            style = MaterialTheme.typography.headlineSmall
+        )
+    }
+}
+
+@Composable
+private fun WeekSchedule(
+    lessons: List<TeacherLesson>,
+    onOpenLesson: (TeacherLesson) -> Unit
+) {
+    val groupedLessons = lessons.groupBy { lessonDayIndex(it.scheduledAt) }
+
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        dayNames.forEachIndexed { dayIndex, dayName ->
+            item {
+                DayScheduleCard(
+                    dayName = dayName,
+                    lessons = groupedLessons[dayIndex].orEmpty().sortedWith(compareBy({ lessonOrderNumber(it) }, { it.scheduledAt })),
+                    onOpenLesson = onOpenLesson
                 )
             }
+        }
+    }
+}
 
-            else -> {
-                val grouped = uiState.lessons.groupBy { lessonDayLabel(it.scheduledAt) }
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    grouped.forEach { (day, lessons) ->
-                        item {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .background(Color.White, RoundedCornerShape(10.dp))
-                                    .padding(10.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Text(
-                                    text = day,
-                                    color = Color(0xFF7E8E99),
-                                    style = MaterialTheme.typography.titleMedium,
-                                    fontWeight = FontWeight.SemiBold
-                                )
+@Composable
+private fun DayScheduleCard(
+    dayName: String,
+    lessons: List<TeacherLesson>,
+    onOpenLesson: (TeacherLesson) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground, RoundedCornerShape(20.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text(
+            text = dayName,
+            color = SecondaryText,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.SemiBold
+        )
 
-                                if (lessons.isEmpty()) {
-                                    Text(
-                                        text = "Нет занятий",
-                                        color = PrimaryText,
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(vertical = 12.dp)
-                                    )
-                                } else {
-                                    lessons.sortedBy { it.scheduledAt }.forEachIndexed { index, lesson ->
-                                        LessonCard(
-                                            lesson = lesson,
-                                            index = index + 1,
-                                            onOpenLesson = onOpenLesson,
-                                            onOpenVed = onOpenVed
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    if (grouped.isEmpty()) {
-                        item {
-                            Text("Нет занятий", color = PrimaryText, modifier = Modifier.padding(8.dp))
-                        }
-                    }
-                }
+        if (lessons.isEmpty()) {
+            Text(
+                text = "Нет занятий",
+                color = PrimaryText,
+                modifier = Modifier.padding(vertical = 8.dp)
+            )
+        } else {
+            lessons.forEach { lesson ->
+                LessonCard(
+                    lesson = lesson,
+                    orderNumber = lessonOrderNumber(lesson),
+                    isActive = isLessonCurrentlyActive(lesson),
+                    onOpenLesson = onOpenLesson
+                )
             }
         }
     }
@@ -133,94 +160,88 @@ fun TeacherHomeRoute(
 @Composable
 private fun LessonCard(
     lesson: TeacherLesson,
-    index: Int,
-    onOpenLesson: (TeacherLesson) -> Unit,
-    onOpenVed: () -> Unit
+    orderNumber: Int,
+    isActive: Boolean,
+    onOpenLesson: (TeacherLesson) -> Unit
 ) {
-    Box(
+    val lessonBackground = if (isActive) ActiveLessonBackground else LessonBackground
+    val badgeBackground = if (isActive) ActiveBadgeBackground else BadgeBackground
+
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CardBg, RoundedCornerShape(8.dp))
+            .background(lessonBackground, RoundedCornerShape(15.dp))
             .clickable { onOpenLesson(lesson) }
-            .padding(10.dp)
+            .padding(10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                Box(
-                    modifier = Modifier
-                        .background(Color(0xFFD3D7E1), RoundedCornerShape(7.dp))
-                        .padding(horizontal = 8.dp, vertical = 2.dp)
-                ) {
-                    Text(index.toString(), color = PrimaryText, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
-                }
-                Text(
-                    text = lessonSlotTime(index),
-                    color = PrimaryText,
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            Text(
-                text = lesson.disciplineName,
-                color = PrimaryText,
-                style = MaterialTheme.typography.bodyMedium,
-                fontWeight = FontWeight.Medium
-            )
-
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(
                 modifier = Modifier
-                    .background(Color(0xFFD3D7E1), RoundedCornerShape(10.dp))
-                    .padding(horizontal = 10.dp, vertical = 3.dp)
+                    .background(badgeBackground, RoundedCornerShape(10.dp))
+                    .padding(horizontal = 10.dp, vertical = 2.dp)
             ) {
-                Text(lessonTypeRu(lesson.lessonType), color = PrimaryText, style = MaterialTheme.typography.bodySmall)
+                Text(orderNumber.takeIf { it > 0 }?.toString().orEmpty(), color = PrimaryText, fontWeight = FontWeight.SemiBold)
             }
+            Text(formatLessonTime(lesson), color = PrimaryText, style = MaterialTheme.typography.bodyMedium)
+            Text(lesson.disciplineName, color = PrimaryText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+        }
 
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Box(
-                    modifier = Modifier
-                        .background(Color(0xFFD3D7E1), RoundedCornerShape(7.dp))
-                        .padding(horizontal = 10.dp, vertical = 3.dp)
-                ) {
-                    Text(lesson.groupName, color = PrimaryText, style = MaterialTheme.typography.bodySmall)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                LessonBadge(text = lessonTypeName(lesson.lessonType), background = badgeBackground)
+                LessonBadge(text = lesson.groupName, background = badgeBackground)
+                lesson.location?.takeIf { it.isNotBlank() }?.let { location ->
+                    LessonBadge(text = location, background = badgeBackground)
                 }
-
-                Text(
-                    text = "→",
-                    color = PrimaryText,
-                    style = MaterialTheme.typography.titleLarge,
-                    modifier = Modifier.clickable(onClick = onOpenVed)
-                )
             }
+            Text(text = "→", color = PrimaryText, style = MaterialTheme.typography.titleLarge)
         }
     }
 }
 
-private fun lessonDayLabel(scheduledAt: String): String = runCatching {
-    when (OffsetDateTime.parse(scheduledAt).dayOfWeek.value) {
-        1 -> "Понедельник"
-        2 -> "Вторник"
-        3 -> "Среда"
-        4 -> "Четверг"
-        5 -> "Пятница"
-        6 -> "Суббота"
-        else -> "Воскресенье"
+@Composable
+private fun LessonBadge(text: String, background: Color) {
+    Box(
+        modifier = Modifier
+            .background(background, RoundedCornerShape(10.dp))
+            .padding(horizontal = 12.dp, vertical = 3.dp)
+    ) {
+        Text(text, color = PrimaryText, style = MaterialTheme.typography.bodySmall)
     }
-}.getOrElse { scheduledAt }
-
-private fun lessonSlotTime(index: Int): String = when (index) {
-    1 -> "09:00 - 10:30"
-    2 -> "10:40 - 12:10"
-    3 -> "12:20 - 13:50"
-    4 -> "14:30 - 16:00"
-    5 -> "16:10 - 17:40"
-    6 -> "17:50 - 19:20"
-    else -> ""
 }
 
-private fun lessonTypeRu(type: String): String = when (type.lowercase()) {
+private fun lessonDayIndex(scheduledAt: String): Int = runCatching {
+    OffsetDateTime.parse(scheduledAt).dayOfWeek.value - 1
+}.getOrDefault(-1)
+
+private fun lessonOrderNumber(lesson: TeacherLesson): Int = runCatching {
+    val time = OffsetDateTime.parse(lesson.scheduledAt).format(DateTimeFormatter.ofPattern("HH:mm"))
+    lessonStartTimes.indexOf(time).takeIf { it >= 0 }?.plus(1) ?: 0
+}.getOrDefault(0)
+
+private fun formatLessonTime(lesson: TeacherLesson): String = runCatching {
+    val formatter = DateTimeFormatter.ofPattern("HH:mm")
+    val start = OffsetDateTime.parse(lesson.scheduledAt).format(formatter)
+    val end = lesson.endsAt?.let { OffsetDateTime.parse(it).format(formatter) }
+    if (end == null) start else "$start - $end"
+}.getOrElse { lesson.scheduledAt }
+
+private fun isLessonCurrentlyActive(lesson: TeacherLesson): Boolean = runCatching {
+    val now = OffsetDateTime.now()
+    val start = OffsetDateTime.parse(lesson.scheduledAt)
+    val end = lesson.endsAt?.let { OffsetDateTime.parse(it) } ?: return false
+    now >= start && now <= end
+}.getOrDefault(false)
+
+private fun lessonTypeName(type: String): String = when (type) {
     "lecture" -> "Лекция"
     "practice" -> "Практическое занятие"
-    "lab" -> "Лабораторная"
+    "lab" -> "Лабораторная работа"
     "seminar" -> "Семинар"
     else -> type
 }

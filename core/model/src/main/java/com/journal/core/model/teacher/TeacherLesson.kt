@@ -13,5 +13,9 @@ data class TeacherLesson(
     @SerialName("ends_at") val endsAt: String? = null,
     @SerialName("discipline_id") val disciplineId: String? = null,
     @SerialName("group_id") val groupId: String? = null,
-    @SerialName("period_id") val periodId: String? = null
+    @SerialName("period_id") val periodId: String? = null,
+    @SerialName("location") val location: String? = null,
+    @SerialName("status") val status: String? = null,
+    @SerialName("attendance_marked") val attendanceMarked: Boolean? = null,
+    @SerialName("topic") val topic: String? = null
 )

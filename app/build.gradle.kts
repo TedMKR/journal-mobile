@@ -82,12 +82,6 @@ dependencies {
     implementation(project(":features:auth"))
     implementation(project(":features:teacher:home"))
     implementation(project(":features:teacher:journal"))
-    implementation(project(":features:teacher:dashboard"))
-    implementation(project(":features:teacher:ved"))
-    implementation(project(":features:teacher:studentcard"))
-    implementation(project(":features:student:home"))
-    implementation(project(":features:methodist:templates"))
-    implementation(project(":features:admin:imports"))
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("com.google.android.material:material:1.12.0")

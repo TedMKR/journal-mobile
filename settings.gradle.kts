@@ -25,11 +25,5 @@ include(
     ":shared:navigation",
     ":features:auth",
     ":features:teacher:home",
-    ":features:teacher:journal",
-    ":features:teacher:dashboard",
-    ":features:teacher:ved",
-    ":features:teacher:studentcard",
-    ":features:student:home",
-    ":features:methodist:templates",
-    ":features:admin:imports"
+    ":features:teacher:journal"
 )

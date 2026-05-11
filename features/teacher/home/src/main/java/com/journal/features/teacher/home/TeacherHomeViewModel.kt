@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.journal.core.model.teacher.TeacherLesson
 import com.journal.core.network.api.JournalApi
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -32,8 +33,13 @@ class TeacherHomeViewModel @Inject constructor(
     fun loadLessons() {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
+            val (dateFrom, dateTo) = currentWeekRange()
             runCatching {
-                journalApi.getLessons()
+                journalApi.getLessons(
+                    dateFrom = dateFrom.toString(),
+                    dateTo = dateTo.toString(),
+                    limit = 200
+                )
             }.onSuccess { response ->
                 _uiState.value = TeacherHomeUiState(
                     isLoading = false,
@@ -42,10 +48,15 @@ class TeacherHomeViewModel @Inject constructor(
             }.onFailure { throwable ->
                 _uiState.value = TeacherHomeUiState(
                     isLoading = false,
-                    lessons = emptyList(),
-                    error = throwable.message ?: "Не удалось загрузить расписание"
+                    error = throwable.message ?: "Не удалось загрузить расписание. Попробуйте позже."
                 )
             }
         }
+    }
+
+    private fun currentWeekRange(): Pair<LocalDate, LocalDate> {
+        val now = LocalDate.now()
+        val monday = now.minusDays((now.dayOfWeek.value - 1).toLong())
+        return monday to monday.plusDays(6)
     }
 }

@@ -8,11 +8,8 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.journal.core.network.api.JournalApi
 import com.journal.features.auth.AuthRoute
-import com.journal.features.teacher.dashboard.TeacherDashboardRoute
 import com.journal.features.teacher.home.TeacherHomeRoute
 import com.journal.features.teacher.journal.TeacherJournalRoute
-import com.journal.features.teacher.studentcard.TeacherStudentCardRoute
-import com.journal.features.teacher.ved.TeacherVedRoute
 import com.journal.shared.navigation.Routes
 
 @Composable
@@ -29,13 +26,17 @@ fun JournalNavHost(journalApi: JournalApi) {
                     val groupId = lesson.groupId.orEmpty()
                     val disciplineId = lesson.disciplineId.orEmpty()
                     val periodId = lesson.periodId.orEmpty()
-                    val lessonId = lesson.id
-                    if (groupId.isNotBlank() && disciplineId.isNotBlank() && periodId.isNotBlank() && lessonId.isNotBlank()) {
-                        navController.navigate(Routes.teacherJournal(groupId, disciplineId, periodId, lessonId))
+                    if (groupId.isNotBlank() && disciplineId.isNotBlank() && periodId.isNotBlank()) {
+                        navController.navigate(
+                            Routes.teacherJournal(
+                                groupId = groupId,
+                                disciplineId = disciplineId,
+                                periodId = periodId,
+                                lessonType = lesson.lessonType
+                            )
+                        )
                     }
-                },
-                onOpenDashboard = { navController.navigate(Routes.TEACHER_DASHBOARD) },
-                onOpenVed = { navController.navigate(Routes.TEACHER_VED) }
+                }
             )
         }
         composable(
@@ -44,26 +45,16 @@ fun JournalNavHost(journalApi: JournalApi) {
                 navArgument("groupId") { type = NavType.StringType },
                 navArgument("disciplineId") { type = NavType.StringType },
                 navArgument("periodId") { type = NavType.StringType },
-                navArgument("lessonId") { type = NavType.StringType }
+                navArgument("lessonType") { type = NavType.StringType }
             )
         ) { backStackEntry ->
             TeacherJournalRoute(
                 groupId = backStackEntry.arguments?.getString("groupId").orEmpty(),
                 disciplineId = backStackEntry.arguments?.getString("disciplineId").orEmpty(),
                 periodId = backStackEntry.arguments?.getString("periodId").orEmpty(),
-                selectedLessonId = backStackEntry.arguments?.getString("lessonId").orEmpty(),
-                journalApi = journalApi,
-                onOpenStudentCard = { navController.navigate(Routes.TEACHER_STUDENT_CARD) }
+                lessonType = backStackEntry.arguments?.getString("lessonType").orEmpty(),
+                journalApi = journalApi
             )
-        }
-        composable(Routes.TEACHER_DASHBOARD) {
-            TeacherDashboardRoute(onBack = { navController.popBackStack() })
-        }
-        composable(Routes.TEACHER_VED) {
-            TeacherVedRoute(onBack = { navController.popBackStack() })
-        }
-        composable(Routes.TEACHER_STUDENT_CARD) {
-            TeacherStudentCardRoute(onBack = { navController.popBackStack() })
         }
     }
 }
