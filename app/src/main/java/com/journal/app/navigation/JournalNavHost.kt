@@ -10,6 +10,7 @@ import com.journal.core.network.api.JournalApi
 import com.journal.features.auth.AuthRoute
 import com.journal.features.teacher.home.TeacherHomeRoute
 import com.journal.features.teacher.journal.TeacherJournalRoute
+import com.journal.features.teacher.studentcard.TeacherStudentCardRoute
 import com.journal.shared.navigation.Routes
 
 @Composable
@@ -48,12 +49,43 @@ fun JournalNavHost(journalApi: JournalApi) {
                 navArgument("lessonType") { type = NavType.StringType }
             )
         ) { backStackEntry ->
+            val groupId = backStackEntry.arguments?.getString("groupId").orEmpty()
+            val disciplineId = backStackEntry.arguments?.getString("disciplineId").orEmpty()
+            val periodId = backStackEntry.arguments?.getString("periodId").orEmpty()
             TeacherJournalRoute(
+                groupId = groupId,
+                disciplineId = disciplineId,
+                periodId = periodId,
+                lessonType = backStackEntry.arguments?.getString("lessonType").orEmpty(),
+                journalApi = journalApi,
+                onOpenStudentCard = { studentId ->
+                    navController.navigate(
+                        Routes.teacherStudentCard(
+                            groupId = groupId,
+                            disciplineId = disciplineId,
+                            periodId = periodId,
+                            studentId = studentId
+                        )
+                    )
+                }
+            )
+        }
+        composable(
+            route = Routes.TEACHER_STUDENT_CARD,
+            arguments = listOf(
+                navArgument("groupId") { type = NavType.StringType },
+                navArgument("disciplineId") { type = NavType.StringType },
+                navArgument("periodId") { type = NavType.StringType },
+                navArgument("studentId") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            TeacherStudentCardRoute(
                 groupId = backStackEntry.arguments?.getString("groupId").orEmpty(),
                 disciplineId = backStackEntry.arguments?.getString("disciplineId").orEmpty(),
                 periodId = backStackEntry.arguments?.getString("periodId").orEmpty(),
-                lessonType = backStackEntry.arguments?.getString("lessonType").orEmpty(),
-                journalApi = journalApi
+                studentId = backStackEntry.arguments?.getString("studentId").orEmpty(),
+                journalApi = journalApi,
+                onBack = { navController.popBackStack() }
             )
         }
     }

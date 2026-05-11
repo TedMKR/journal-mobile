@@ -70,7 +70,8 @@ fun TeacherJournalRoute(
     disciplineId: String,
     periodId: String,
     lessonType: String,
-    journalApi: JournalApi
+    journalApi: JournalApi,
+    onOpenStudentCard: (String) -> Unit
 ) {
     var journal by remember(groupId, disciplineId, periodId) { mutableStateOf<JournalGridResponse?>(null) }
     var isLoading by remember(groupId, disciplineId, periodId) { mutableStateOf(true) }
@@ -108,6 +109,7 @@ fun TeacherJournalRoute(
                 journal = journal!!,
                 selectedLessonType = lessonType,
                 journalApi = journalApi,
+                onOpenStudentCard = onOpenStudentCard,
                 onRefresh = { refreshKey++ }
             )
         }
@@ -119,6 +121,7 @@ private fun JournalContent(
     journal: JournalGridResponse,
     selectedLessonType: String,
     journalApi: JournalApi,
+    onOpenStudentCard: (String) -> Unit,
     onRefresh: () -> Unit
 ) {
     var currentType by remember(selectedLessonType) { mutableStateOf(selectedLessonType.ifBlank { journal.lessons.firstOrNull()?.lessonType.orEmpty() }) }
@@ -140,6 +143,7 @@ private fun JournalContent(
             canEditAttendance = journal.permissions.canEditAttendance,
             canEditGrades = journal.permissions.canEditGrades,
             journalApi = journalApi,
+            onOpenStudentCard = onOpenStudentCard,
             onRefresh = onRefresh
         )
     }
@@ -194,6 +198,7 @@ private fun JournalTable(
     canEditAttendance: Boolean,
     canEditGrades: Boolean,
     journalApi: JournalApi,
+    onOpenStudentCard: (String) -> Unit,
     onRefresh: () -> Unit
 ) {
     val horizontalScroll = rememberScrollState()
@@ -211,7 +216,11 @@ private fun JournalTable(
             Column {
                 FixedHeader()
                 students.forEachIndexed { index, student ->
-                    FixedStudentRow(index = index + 1, student = student)
+                    FixedStudentRow(
+                        index = index + 1,
+                        student = student,
+                        onOpenStudentCard = onOpenStudentCard
+                    )
                 }
             }
             Column(modifier = Modifier.horizontalScroll(horizontalScroll)) {
@@ -320,10 +329,20 @@ private fun DynamicHeader(lessons: List<JournalGridLesson>, assessmentForms: Lis
 }
 
 @Composable
-private fun FixedStudentRow(index: Int, student: JournalGridStudent) {
+private fun FixedStudentRow(
+    index: Int,
+    student: JournalGridStudent,
+    onOpenStudentCard: (String) -> Unit
+) {
     Row {
         TableCell(index.toString(), 42)
-        TableCell(student.fullName, 190, textAlign = TextAlign.Start)
+        TableCell(
+            text = student.fullName,
+            width = 190,
+            textAlign = TextAlign.Start,
+            clickable = true,
+            onClick = { onOpenStudentCard(student.studentId) }
+        )
     }
 }
 

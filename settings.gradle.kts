@@ -25,5 +25,6 @@ include(
     ":shared:navigation",
     ":features:auth",
     ":features:teacher:home",
-    ":features:teacher:journal"
+    ":features:teacher:journal",
+    ":features:teacher:studentcard"
 )

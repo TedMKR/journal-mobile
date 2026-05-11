@@ -6,7 +6,6 @@ import com.journal.core.model.teacher.CreateAssessmentFormRequest
 import com.journal.core.model.teacher.CreateGradeRequest
 import com.journal.core.model.teacher.JournalGridAssessmentForm
 import com.journal.core.model.teacher.JournalGridAttendance
-import com.journal.core.model.teacher.JournalGridGrade
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.LessonsResponse
 import com.journal.core.model.teacher.MarkAttendanceRequest
@@ -51,18 +50,18 @@ interface JournalApi {
     suspend fun markAttendance(
         @Path("lesson_id") lessonId: String,
         @Body request: MarkAttendanceRequest
-    ): JournalGridAttendance
+    )
 
     @POST("grades")
     suspend fun createGrade(
         @Body request: CreateGradeRequest
-    ): JournalGridGrade
+    )
 
     @PUT("grades/{grade_id}")
     suspend fun updateGrade(
         @Path("grade_id") gradeId: String,
         @Body request: UpdateGradeRequest
-    ): JournalGridGrade
+    )
 
     @POST("assessment-forms")
     suspend fun createAssessmentForm(
