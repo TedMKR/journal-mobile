@@ -50,6 +50,7 @@ private val lessonStartTimes = listOf("09:00", "10:40", "12:50", "14:30", "16:10
 @Composable
 fun TeacherHomeRoute(
     onOpenLesson: (TeacherLesson) -> Unit,
+    onOpenDashboard: () -> Unit,
     viewModel: TeacherHomeViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -60,7 +61,7 @@ fun TeacherHomeRoute(
             .background(BackgroundColor)
             .padding(horizontal = 10.dp, vertical = 8.dp)
     ) {
-        Header()
+        Header(onOpenDashboard = onOpenDashboard)
 
         when {
             uiState.isLoading -> CircularProgressIndicator(modifier = Modifier.padding(24.dp))
@@ -78,7 +79,7 @@ fun TeacherHomeRoute(
 }
 
 @Composable
-private fun Header() {
+private fun Header(onOpenDashboard: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -91,9 +92,13 @@ private fun Header() {
             fontWeight = FontWeight.SemiBold
         )
         Text(
-            text = "☰",
+            text = "Личный кабинет",
             color = PrimaryText,
-            style = MaterialTheme.typography.headlineSmall
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier
+                .clickable(onClick = onOpenDashboard)
+                .padding(vertical = 8.dp)
         )
     }
 }

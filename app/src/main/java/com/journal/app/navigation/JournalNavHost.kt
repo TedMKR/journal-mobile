@@ -8,6 +8,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.journal.core.network.api.JournalApi
 import com.journal.features.auth.AuthRoute
+import com.journal.features.teacher.dashboard.TeacherDashboardRoute
 import com.journal.features.teacher.home.TeacherHomeRoute
 import com.journal.features.teacher.journal.TeacherJournalRoute
 import com.journal.features.teacher.studentcard.TeacherStudentCardRoute
@@ -37,6 +38,23 @@ fun JournalNavHost(journalApi: JournalApi) {
                             )
                         )
                     }
+                },
+                onOpenDashboard = { navController.navigate(Routes.TEACHER_DASHBOARD) }
+            )
+        }
+        composable(Routes.TEACHER_DASHBOARD) {
+            TeacherDashboardRoute(
+                journalApi = journalApi,
+                onBack = { navController.popBackStack() },
+                onOpenJournal = { target ->
+                    navController.navigate(
+                        Routes.teacherJournal(
+                            groupId = target.groupId,
+                            disciplineId = target.disciplineId,
+                            periodId = target.periodId,
+                            lessonType = target.lessonType
+                        )
+                    )
                 }
             )
         }

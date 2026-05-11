@@ -26,5 +26,6 @@ include(
     ":features:auth",
     ":features:teacher:home",
     ":features:teacher:journal",
-    ":features:teacher:studentcard"
+    ":features:teacher:studentcard",
+    ":features:teacher:dashboard"
 )

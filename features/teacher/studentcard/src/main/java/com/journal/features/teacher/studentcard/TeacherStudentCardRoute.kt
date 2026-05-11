@@ -27,10 +27,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.journal.core.model.teacher.JournalGridResponse
@@ -189,24 +190,75 @@ private fun AttendanceChartCard(months: List<StudentAttendanceMonth>) {
         if (months.isEmpty()) {
             Text("Нет данных", color = MutedText)
         } else {
-            months.forEach { month ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(month.month, color = PrimaryText, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                    CircularPercent(month.percent)
-                    Text("${month.percent}%", color = PrimaryText, fontWeight = FontWeight.SemiBold)
-                }
-            }
+            AttendanceLineChart(months = months)
         }
     }
 }
 
 @Composable
-private fun CircularPercent(percent: Int) {
-    Canvas(modifier = Modifier.height(34.dp).width(34.dp)) {
-        val stroke = Stroke(width = 5.dp.toPx(), cap = StrokeCap.Round)
-        val arcSize = Size(size.minDimension, size.minDimension)
-        drawArc(BarBackground, -90f, 360f, false, topLeft = Offset.Zero, size = arcSize, style = stroke)
-        drawArc(PrimaryText, -90f, percent.coerceIn(0, 100) * 3.6f, false, topLeft = Offset.Zero, size = arcSize, style = stroke)
+private fun AttendanceLineChart(months: List<StudentAttendanceMonth>) {
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(96.dp)
+    ) {
+        val chartTop = 18.dp.toPx()
+        val chartBottom = size.height - 28.dp.toPx()
+        val leftPadding = 28.dp.toPx()
+        val rightPadding = 28.dp.toPx()
+        val availableWidth = size.width - leftPadding - rightPadding
+        val points = months.mapIndexed { index, month ->
+            val x = if (months.size == 1) size.width / 2f else leftPadding + availableWidth * index / (months.size - 1)
+            val normalized = month.percent.coerceIn(0, 100) / 100f
+            val y = chartBottom - (chartBottom - chartTop) * normalized
+            Offset(x, y)
+        }
+
+        points.zipWithNext().forEach { (start, end) ->
+            drawLine(
+                color = PrimaryText,
+                start = start,
+                end = end,
+                strokeWidth = 1.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+        }
+
+        points.forEachIndexed { index, point ->
+            val percentText = "${months[index].percent}%"
+            val labelWidth = 38.dp.toPx()
+            val labelHeight = 18.dp.toPx()
+            drawRoundRect(
+                color = PrimaryText,
+                topLeft = Offset(point.x - labelWidth / 2f, point.y - labelHeight / 2f),
+                size = Size(labelWidth, labelHeight),
+                cornerRadius = CornerRadius(9.dp.toPx(), 9.dp.toPx())
+            )
+            drawContext.canvas.nativeCanvas.apply {
+                val paint = android.graphics.Paint().apply {
+                    color = android.graphics.Color.WHITE
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    textSize = 11.dp.toPx()
+                    isAntiAlias = true
+                }
+                drawText(percentText, point.x, point.y + 4.dp.toPx(), paint)
+
+                val monthPaint = android.graphics.Paint().apply {
+                    color = android.graphics.Color.rgb(34, 50, 104)
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    textSize = 11.dp.toPx()
+                    isAntiAlias = true
+                }
+                drawText(months[index].month, point.x, size.height - 4.dp.toPx(), monthPaint)
+            }
+        }
+
+        drawLine(
+            color = PrimaryText.copy(alpha = 0.35f),
+            start = Offset(leftPadding, chartBottom + 4.dp.toPx()),
+            end = Offset(size.width - rightPadding, chartBottom + 4.dp.toPx()),
+            strokeWidth = 1.dp.toPx()
+        )
     }
 }
 
@@ -291,7 +343,7 @@ private fun buildStudentCard(journal: JournalGridResponse, studentId: String): S
 }
 
 private fun monthLabel(date: String): String = runCatching {
-    LocalDate.parse(date.take(10)).format(DateTimeFormatter.ofPattern("LLLL yyyy", Locale("ru")))
+    LocalDate.parse(date.take(10)).format(DateTimeFormatter.ofPattern("LLLL", Locale("ru")))
 }.getOrElse { date }
 
 private data class StudentCardUiState(
