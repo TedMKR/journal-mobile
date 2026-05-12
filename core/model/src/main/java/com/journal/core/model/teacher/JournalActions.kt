@@ -62,3 +62,16 @@ data class UpdateAssessmentFormRequest(
 data class ArchiveRecordRequest(
     @SerialName("reason") val reason: String? = null
 )
+
+@Serializable
+data class UpdateLessonTopicDetailsRequest(
+    @SerialName("topic_custom_details") val topicCustomDetails: String
+)
+
+@Serializable
+data class LessonTopicInfo(
+    @SerialName("lesson_id") val lessonId: String,
+    @SerialName("topic_custom_details") val topicCustomDetails: String? = null,
+    @SerialName("topic_details_edited_by_teacher") val topicDetailsEditedByTeacher: Boolean,
+    @SerialName("updated_at") val updatedAt: String
+)

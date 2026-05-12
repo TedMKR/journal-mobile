@@ -4,13 +4,12 @@ import com.journal.core.model.teacher.AcademicPeriodsResponse
 import com.journal.core.model.teacher.ArchiveRecordRequest
 import com.journal.core.model.teacher.CreateAssessmentFormRequest
 import com.journal.core.model.teacher.CreateGradeRequest
-import com.journal.core.model.teacher.JournalGridAssessmentForm
-import com.journal.core.model.teacher.JournalGridAttendance
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.LessonsResponse
 import com.journal.core.model.teacher.MarkAttendanceRequest
 import com.journal.core.model.teacher.UpdateAssessmentFormRequest
 import com.journal.core.model.teacher.UpdateGradeRequest
+import com.journal.core.model.teacher.UpdateLessonTopicDetailsRequest
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.PATCH
@@ -66,17 +65,23 @@ interface JournalApi {
     @POST("assessment-forms")
     suspend fun createAssessmentForm(
         @Body request: CreateAssessmentFormRequest
-    ): JournalGridAssessmentForm
+    )
 
     @PATCH("assessment-forms/{assessment_form_id}")
     suspend fun updateAssessmentForm(
         @Path("assessment_form_id") assessmentFormId: String,
         @Body request: UpdateAssessmentFormRequest
-    ): JournalGridAssessmentForm
+    )
 
     @POST("assessment-forms/{assessment_form_id}/archive")
     suspend fun archiveAssessmentForm(
         @Path("assessment_form_id") assessmentFormId: String,
         @Body request: ArchiveRecordRequest = ArchiveRecordRequest()
-    ): JournalGridAssessmentForm
+    )
+
+    @PUT("lessons/{lesson_id}/topic-details")
+    suspend fun updateLessonTopicDetails(
+        @Path("lesson_id") lessonId: String,
+        @Body request: UpdateLessonTopicDetailsRequest
+    )
 }
