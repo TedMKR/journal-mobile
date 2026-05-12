@@ -1,7 +1,6 @@
 package com.journal.core.network.api
 
 import com.journal.core.model.teacher.AcademicPeriodsResponse
-import com.journal.core.model.teacher.ArchiveRecordRequest
 import com.journal.core.model.teacher.CreateAssessmentFormRequest
 import com.journal.core.model.teacher.CreateGradeRequest
 import com.journal.core.model.teacher.JournalGridResponse
@@ -11,6 +10,7 @@ import com.journal.core.model.teacher.UpdateAssessmentFormRequest
 import com.journal.core.model.teacher.UpdateGradeRequest
 import com.journal.core.model.teacher.UpdateLessonTopicDetailsRequest
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.PATCH
 import retrofit2.http.POST
@@ -73,10 +73,9 @@ interface JournalApi {
         @Body request: UpdateAssessmentFormRequest
     )
 
-    @POST("assessment-forms/{assessment_form_id}/archive")
-    suspend fun archiveAssessmentForm(
-        @Path("assessment_form_id") assessmentFormId: String,
-        @Body request: ArchiveRecordRequest = ArchiveRecordRequest()
+    @DELETE("assessment-forms/{assessment_form_id}")
+    suspend fun deleteAssessmentForm(
+        @Path("assessment_form_id") assessmentFormId: String
     )
 
     @PUT("lessons/{lesson_id}/topic-details")

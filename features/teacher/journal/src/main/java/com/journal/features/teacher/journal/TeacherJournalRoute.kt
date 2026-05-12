@@ -25,8 +25,12 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,7 +48,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.journal.core.model.teacher.ArchiveRecordRequest
 import com.journal.core.model.teacher.CreateAssessmentFormRequest
 import com.journal.core.model.teacher.CreateGradeRequest
 import com.journal.core.model.teacher.JournalGridAssessmentForm
@@ -58,7 +61,9 @@ import com.journal.core.model.teacher.UpdateAssessmentFormRequest
 import com.journal.core.model.teacher.UpdateGradeRequest
 import com.journal.core.model.teacher.UpdateLessonTopicDetailsRequest
 import com.journal.core.network.api.JournalApi
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
@@ -148,7 +153,8 @@ private fun JournalContent(
         .sortedBy { it.scheduledAt }
     val visibleAttendance = journal.attendance.filter { attendance -> filteredLessons.any { it.lessonId == attendance.lessonId } }
     val sortedAssessmentForms = journal.assessmentForms.sortedBy { it.date }
-    val canEditAssessments = journal.permissions.canEditGrades && !journal.academicPeriod.isClosed
+    val showGrades = currentType != "lecture"
+    val canEditAssessments = showGrades && journal.permissions.canEditGrades && !journal.academicPeriod.isClosed
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         JournalHeader(journal = journal, currentType = currentType)
@@ -163,7 +169,7 @@ private fun JournalContent(
                     attendance = visibleAttendance,
                     assessmentForms = sortedAssessmentForms,
                     grades = journal.grades,
-                    showGrades = currentType != "lecture"
+                    showGrades = showGrades
                 )
             },
             onAddAssessment = {
@@ -183,7 +189,7 @@ private fun JournalContent(
             grades = journal.grades,
             canEditAttendance = journal.permissions.canEditAttendance && !journal.academicPeriod.isClosed,
             canEditGrades = journal.permissions.canEditGrades && !journal.academicPeriod.isClosed,
-            showGrades = currentType != "lecture",
+            showGrades = showGrades,
             journalApi = journalApi,
             onOpenStudentCard = onOpenStudentCard,
             onEditAssessment = { form ->
@@ -194,7 +200,6 @@ private fun JournalContent(
                     initialDate = formatApiDate(form.date)
                 )
             },
-            onDeleteAssessment = { form -> deleteAssessmentDialog = form },
             onRefresh = onRefresh
         )
     }
@@ -203,6 +208,10 @@ private fun JournalContent(
         AssessmentDialog(
             state = state,
             onDismiss = { assessmentDialog = null },
+            onDelete = { form ->
+                assessmentDialog = null
+                deleteAssessmentDialog = form
+            },
             onSave = { title, type, date ->
                 scope.launch {
                     runCatching {
@@ -243,10 +252,7 @@ private fun JournalContent(
             onConfirm = {
                 scope.launch {
                     runCatching {
-                        journalApi.archiveAssessmentForm(
-                            assessmentFormId = form.assessmentFormId,
-                            request = ArchiveRecordRequest(reason = "Удалено из Android-клиента")
-                        )
+                        journalApi.deleteAssessmentForm(assessmentFormId = form.assessmentFormId)
                     }.onSuccess {
                         deleteAssessmentDialog = null
                         onRefresh()
@@ -343,7 +349,6 @@ private fun JournalTable(
     journalApi: JournalApi,
     onOpenStudentCard: (String) -> Unit,
     onEditAssessment: (JournalGridAssessmentForm) -> Unit,
-    onDeleteAssessment: (JournalGridAssessmentForm) -> Unit,
     onRefresh: () -> Unit
 ) {
     val horizontalScroll = rememberScrollState()
@@ -382,8 +387,7 @@ private fun JournalTable(
                         assessmentForms = visibleForms,
                         canEditGrades = canEditGrades,
                         onLessonClick = { lesson -> topicDialog = TopicEditState(lesson) },
-                        onEditAssessment = onEditAssessment,
-                        onDeleteAssessment = onDeleteAssessment
+                        onEditAssessment = onEditAssessment
                     )
                     students.forEach { student ->
                         val studentAttendance = attendance.filter { it.studentId == student.studentId }
@@ -550,8 +554,7 @@ private fun DynamicHeader(
     assessmentForms: List<JournalGridAssessmentForm>,
     canEditGrades: Boolean,
     onLessonClick: (JournalGridLesson) -> Unit,
-    onEditAssessment: (JournalGridAssessmentForm) -> Unit,
-    onDeleteAssessment: (JournalGridAssessmentForm) -> Unit
+    onEditAssessment: (JournalGridAssessmentForm) -> Unit
 ) {
     Row {
         lessons.forEach { lesson ->
@@ -565,12 +568,11 @@ private fun DynamicHeader(
         }
         assessmentForms.forEach { form ->
             TableCell(
-                text = assessmentHeaderText(form, canEditGrades),
+                text = assessmentHeaderText(form),
                 width = GRADE_COLUMN_WIDTH,
                 isHeader = true,
                 clickable = canEditGrades,
-                onClick = { onEditAssessment(form) },
-                onLongClick = { onDeleteAssessment(form) }
+                onClick = { onEditAssessment(form) }
             )
         }
     }
@@ -711,8 +713,8 @@ private fun AttendanceDialog(
                 OutlinedTextField(value = comment, onValueChange = { comment = it }, label = { Text("Комментарий") })
             }
         },
-        confirmButton = { Button(onClick = { onSave(selectedStatus, comment) }) { Text("Сохранить") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+        confirmButton = { DialogPrimaryButton(text = "Сохранить", onClick = { onSave(selectedStatus, comment) }) },
+        dismissButton = { DialogTextButton(text = "Отмена", onClick = onDismiss) }
     )
 }
 
@@ -743,20 +745,45 @@ private fun GradeDialog(
                 OutlinedTextField(value = comment, onValueChange = { comment = it }, label = { Text("Комментарий") })
             }
         },
-        confirmButton = { Button(onClick = { onSave(selectedValue, comment) }) { Text("Сохранить") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+        confirmButton = { DialogPrimaryButton(text = "Сохранить", onClick = { onSave(selectedValue, comment) }) },
+        dismissButton = { DialogTextButton(text = "Отмена", onClick = onDismiss) }
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AssessmentDialog(
     state: AssessmentEditState,
     onDismiss: () -> Unit,
+    onDelete: (JournalGridAssessmentForm) -> Unit,
     onSave: (String, String, String) -> Unit
 ) {
     var title by remember(state) { mutableStateOf(state.initialTitle) }
     var type by remember(state) { mutableStateOf(state.initialType) }
     var date by remember(state) { mutableStateOf(state.initialDate) }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val initialSelectedDateMillis = remember(state) { date.toUtcStartOfDayMillis() }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialSelectedDateMillis)
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                DialogPrimaryButton(
+                    text = "Выбрать",
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { selectedMillis ->
+                            date = selectedMillis.toIsoLocalDate()
+                        }
+                        showDatePicker = false
+                    }
+                )
+            },
+            dismissButton = { DialogTextButton(text = "Отмена", onClick = { showDatePicker = false }) }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -778,16 +805,34 @@ private fun AssessmentDialog(
                         }
                     }
                 }
-                OutlinedTextField(value = date, onValueChange = { date = it }, label = { Text("Дата YYYY-MM-DD") })
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    OutlinedTextField(
+                        value = date,
+                        onValueChange = { date = it },
+                        label = { Text("Дата") },
+                        readOnly = true,
+                        modifier = Modifier.weight(1f)
+                    )
+                    DialogPrimaryButton(text = "Выбрать", onClick = { showDatePicker = true })
+                }
+                state.form?.let { form ->
+                    TextButton(onClick = { onDelete(form) }) {
+                        Text("Удалить контроль", color = DangerColor, fontWeight = FontWeight.SemiBold)
+                    }
+                }
             }
         },
         confirmButton = {
-            Button(
-                onClick = { onSave(title.trim(), type, date.trim()) },
-                enabled = title.isNotBlank() && date.isNotBlank()
-            ) { Text("Сохранить") }
+            DialogPrimaryButton(
+                text = "Сохранить",
+                enabled = title.isNotBlank() && date.isNotBlank(),
+                onClick = { onSave(title.trim(), type, date.trim()) }
+            )
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+        dismissButton = { DialogTextButton(text = "Отмена", onClick = onDismiss) }
     )
 }
 
@@ -806,8 +851,14 @@ private fun ConfirmDeleteAssessmentDialog(
                 Text("Это действие скроет контрольное мероприятие и связанные с ним оценки из обычного журнала.", color = DangerColor)
             }
         },
-        confirmButton = { Button(onClick = onConfirm) { Text("Удалить") } },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+        confirmButton = {
+            DialogPrimaryButton(
+                text = "Удалить",
+                containerColor = DangerColor,
+                onClick = onConfirm
+            )
+        },
+        dismissButton = { DialogTextButton(text = "Отмена", onClick = onDismiss) }
     )
 }
 
@@ -834,10 +885,43 @@ private fun TopicDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { onSave(topic.trim()) }, enabled = topic.isNotBlank()) { Text("Сохранить") }
+            DialogPrimaryButton(
+                text = "Сохранить",
+                enabled = topic.isNotBlank(),
+                onClick = { onSave(topic.trim()) }
+            )
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+        dismissButton = { DialogTextButton(text = "Отмена", onClick = onDismiss) }
     )
+}
+
+@Composable
+private fun DialogPrimaryButton(
+    text: String,
+    enabled: Boolean = true,
+    containerColor: Color = AccentBlue,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = containerColor,
+            contentColor = Color.White,
+            disabledContainerColor = HeaderBackground,
+            disabledContentColor = PrimaryText.copy(alpha = 0.45f)
+        )
+    ) {
+        Text(text, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
+private fun DialogTextButton(text: String, onClick: () -> Unit) {
+    TextButton(onClick = onClick) {
+        Text(text, color = AccentBlue, fontWeight = FontWeight.SemiBold)
+    }
 }
 
 @Composable
@@ -942,6 +1026,18 @@ private fun buildJournalCsv(
 
 private fun String.csvEscape(): String = "\"${replace("\"", "\"\"")}\""
 
+private fun String.toUtcStartOfDayMillis(): Long? = runCatching {
+    LocalDate.parse(take(10))
+        .atStartOfDay()
+        .toInstant(ZoneOffset.UTC)
+        .toEpochMilli()
+}.getOrNull()
+
+private fun Long.toIsoLocalDate(): String = Instant.ofEpochMilli(this)
+    .atZone(ZoneOffset.UTC)
+    .toLocalDate()
+    .toString()
+
 private fun formatLessonDate(lesson: JournalGridLesson): String = runCatching {
     LocalDate.parse(lesson.date.take(10)).format(DateTimeFormatter.ofPattern("dd.MM"))
 }.getOrElse { lesson.date }
@@ -955,13 +1051,12 @@ private fun lessonHeaderText(lesson: JournalGridLesson): String {
         .joinToString("\n")
 }
 
-private fun assessmentHeaderText(form: JournalGridAssessmentForm, canEdit: Boolean): String = buildString {
+private fun assessmentHeaderText(form: JournalGridAssessmentForm): String = buildString {
     append(form.title)
     append("\n")
     append(formTypeName(form.type))
     append("\n")
     append(formatApiDate(form.date))
-    if (canEdit) append("\nНажмите: редактировать")
 }
 
 private fun attendanceSymbol(status: String?): String = when (status) {
