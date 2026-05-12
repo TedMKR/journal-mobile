@@ -32,9 +32,7 @@ private val PrimaryText = Color(0xFF223268)
 private val SecondaryText = Color(0xFF7E8E99)
 private val CardBackground = Color.White
 private val LessonBackground = Color(0xFFE4E6EC)
-private val ActiveLessonBackground = Color(0xFFD7DDF2)
 private val BadgeBackground = Color(0xFFD3D7E1)
-private val ActiveBadgeBackground = Color(0xFFB8C3EA)
 
 private val dayNames = listOf(
     "Понедельник",
@@ -44,8 +42,6 @@ private val dayNames = listOf(
     "Пятница",
     "Суббота"
 )
-
-private val lessonStartTimes = listOf("09:00", "10:40", "12:50", "14:30", "16:10", "17:50", "19:30")
 
 @Composable
 fun TeacherHomeRoute(
@@ -115,7 +111,7 @@ private fun WeekSchedule(
             item {
                 DayScheduleCard(
                     dayName = dayName,
-                    lessons = groupedLessons[dayIndex].orEmpty().sortedWith(compareBy({ lessonOrderNumber(it) }, { it.scheduledAt })),
+                    lessons = groupedLessons[dayIndex].orEmpty().sortedBy { it.scheduledAt },
                     onOpenLesson = onOpenLesson
                 )
             }
@@ -150,11 +146,10 @@ private fun DayScheduleCard(
                 modifier = Modifier.padding(vertical = 8.dp)
             )
         } else {
-            lessons.forEach { lesson ->
+            lessons.forEachIndexed { index, lesson ->
                 LessonCard(
                     lesson = lesson,
-                    orderNumber = lessonOrderNumber(lesson),
-                    isActive = isLessonCurrentlyActive(lesson),
+                    orderNumber = index + 1,
                     onOpenLesson = onOpenLesson
                 )
             }
@@ -166,16 +161,12 @@ private fun DayScheduleCard(
 private fun LessonCard(
     lesson: TeacherLesson,
     orderNumber: Int,
-    isActive: Boolean,
     onOpenLesson: (TeacherLesson) -> Unit
 ) {
-    val lessonBackground = if (isActive) ActiveLessonBackground else LessonBackground
-    val badgeBackground = if (isActive) ActiveBadgeBackground else BadgeBackground
-
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(lessonBackground, RoundedCornerShape(15.dp))
+            .background(LessonBackground, RoundedCornerShape(15.dp))
             .clickable { onOpenLesson(lesson) }
             .padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -183,7 +174,7 @@ private fun LessonCard(
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Box(
                 modifier = Modifier
-                    .background(badgeBackground, RoundedCornerShape(10.dp))
+                    .background(BadgeBackground, RoundedCornerShape(10.dp))
                     .padding(horizontal = 10.dp, vertical = 2.dp)
             ) {
                 Text(orderNumber.takeIf { it > 0 }?.toString().orEmpty(), color = PrimaryText, fontWeight = FontWeight.SemiBold)
@@ -198,13 +189,13 @@ private fun LessonCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                LessonBadge(text = lessonTypeName(lesson.lessonType), background = badgeBackground)
-                LessonBadge(text = lesson.groupName, background = badgeBackground)
-                lesson.location?.takeIf { it.isNotBlank() }?.let { location ->
-                    LessonBadge(text = location, background = badgeBackground)
-                }
+                LessonBadge(text = lessonTypeName(lesson.lessonType), background = BadgeBackground)
+                LessonBadge(text = lesson.groupName, background = BadgeBackground)
             }
             Text(text = "→", color = PrimaryText, style = MaterialTheme.typography.titleLarge)
+        }
+        lesson.location?.takeIf { it.isNotBlank() }?.let { location ->
+            LessonBadge(text = location, background = BadgeBackground)
         }
     }
 }
@@ -224,24 +215,12 @@ private fun lessonDayIndex(scheduledAt: String): Int = runCatching {
     OffsetDateTime.parse(scheduledAt).dayOfWeek.value - 1
 }.getOrDefault(-1)
 
-private fun lessonOrderNumber(lesson: TeacherLesson): Int = runCatching {
-    val time = OffsetDateTime.parse(lesson.scheduledAt).format(DateTimeFormatter.ofPattern("HH:mm"))
-    lessonStartTimes.indexOf(time).takeIf { it >= 0 }?.plus(1) ?: 0
-}.getOrDefault(0)
-
 private fun formatLessonTime(lesson: TeacherLesson): String = runCatching {
     val formatter = DateTimeFormatter.ofPattern("HH:mm")
     val start = OffsetDateTime.parse(lesson.scheduledAt).format(formatter)
     val end = lesson.endsAt?.let { OffsetDateTime.parse(it).format(formatter) }
     if (end == null) start else "$start - $end"
 }.getOrElse { lesson.scheduledAt }
-
-private fun isLessonCurrentlyActive(lesson: TeacherLesson): Boolean = runCatching {
-    val now = OffsetDateTime.now()
-    val start = OffsetDateTime.parse(lesson.scheduledAt)
-    val end = lesson.endsAt?.let { OffsetDateTime.parse(it) } ?: return false
-    now >= start && now <= end
-}.getOrDefault(false)
 
 private fun lessonTypeName(type: String): String = when (type) {
     "lecture" -> "Лекция"

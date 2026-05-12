@@ -11,11 +11,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
@@ -158,12 +160,15 @@ private fun JournalHeader(journal: JournalGridResponse, currentType: String) {
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(journal.discipline.name, color = PrimaryText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Tag(journal.group.name)
-            Tag(journal.academicPeriod.name)
-            Tag(lessonTypeName(currentType))
-        }
+        Text(
+            text = journal.discipline.name,
+            color = PrimaryText,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Tag(journal.group.name)
+        Tag(journal.academicPeriod.name)
+        Tag(lessonTypeName(currentType))
     }
 }
 
@@ -202,6 +207,7 @@ private fun JournalTable(
     onRefresh: () -> Unit
 ) {
     val horizontalScroll = rememberScrollState()
+    val verticalScroll = rememberScrollState()
     val scope = rememberCoroutineScope()
     var attendanceDialog by remember { mutableStateOf<AttendanceEditState?>(null) }
     var gradeDialog by remember { mutableStateOf<GradeEditState?>(null) }
@@ -212,39 +218,54 @@ private fun JournalTable(
             .background(CardBackground, RoundedCornerShape(18.dp))
             .padding(8.dp)
     ) {
-        Row {
-            Column {
-                FixedHeader()
-                students.forEachIndexed { index, student ->
-                    FixedStudentRow(
-                        index = index + 1,
-                        student = student,
-                        onOpenStudentCard = onOpenStudentCard
-                    )
+        Box {
+            Row(
+                modifier = Modifier
+                    .height(360.dp)
+                    .verticalScroll(verticalScroll)
+            ) {
+                Column {
+                    FixedHeader()
+                    students.forEachIndexed { index, student ->
+                        FixedStudentRow(
+                            index = index + 1,
+                            student = student,
+                            onOpenStudentCard = onOpenStudentCard
+                        )
+                    }
+                }
+                Column(modifier = Modifier.horizontalScroll(horizontalScroll)) {
+                    DynamicHeader(lessons = lessons, assessmentForms = assessmentForms)
+                    students.forEach { student ->
+                        val studentAttendance = attendance.filter { it.studentId == student.studentId }
+                        val studentGrades = grades.filter { it.studentId == student.studentId }
+                        DynamicStudentRow(
+                            lessons = lessons,
+                            attendance = studentAttendance,
+                            assessmentForms = assessmentForms,
+                            grades = studentGrades,
+                            canEditAttendance = canEditAttendance,
+                            canEditGrades = canEditGrades,
+                            onAttendanceClick = { lesson, record ->
+                                if (canEditAttendance) attendanceDialog = AttendanceEditState(student, lesson, record)
+                            },
+                            onGradeClick = { form, grade ->
+                                if (canEditGrades) gradeDialog = GradeEditState(student, form, grade)
+                            }
+                        )
+                    }
                 }
             }
-            Column(modifier = Modifier.horizontalScroll(horizontalScroll)) {
-                DynamicHeader(lessons = lessons, assessmentForms = assessmentForms)
-                students.forEach { student ->
-                    val studentAttendance = attendance.filter { it.studentId == student.studentId }
-                    val studentGrades = grades.filter { it.studentId == student.studentId }
-                    DynamicStudentRow(
-                        lessons = lessons,
-                        attendance = studentAttendance,
-                        assessmentForms = assessmentForms,
-                        grades = studentGrades,
-                        canEditAttendance = canEditAttendance,
-                        canEditGrades = canEditGrades,
-                        onAttendanceClick = { lesson, record ->
-                            if (canEditAttendance) attendanceDialog = AttendanceEditState(student, lesson, record)
-                        },
-                        onGradeClick = { form, grade ->
-                            if (canEditGrades) gradeDialog = GradeEditState(student, form, grade)
-                        }
-                    )
-                }
-            }
+            VerticalScrollIndicator(
+                scrollValue = verticalScroll.value,
+                maxValue = verticalScroll.maxValue,
+                modifier = Modifier.align(Alignment.CenterEnd)
+            )
         }
+        HorizontalScrollIndicator(
+            scrollValue = horizontalScroll.value,
+            maxValue = horizontalScroll.maxValue
+        )
     }
 
     attendanceDialog?.let { state ->
@@ -302,6 +323,44 @@ private fun JournalTable(
                     }
                 }
             }
+        )
+    }
+}
+
+@Composable
+private fun HorizontalScrollIndicator(scrollValue: Int, maxValue: Int) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(8.dp)
+            .background(HeaderBackground, RoundedCornerShape(8.dp))
+    ) {
+        val progress = if (maxValue > 0) scrollValue.toFloat() / maxValue.toFloat() else 0f
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(if (maxValue > 0) 0.28f else 1f)
+                .height(8.dp)
+                .offset(x = (220 * progress).dp)
+                .background(AccentBlue, RoundedCornerShape(8.dp))
+        )
+    }
+}
+
+@Composable
+private fun VerticalScrollIndicator(scrollValue: Int, maxValue: Int, modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .width(8.dp)
+            .height(350.dp)
+            .background(HeaderBackground, RoundedCornerShape(8.dp))
+    ) {
+        val progress = if (maxValue > 0) scrollValue.toFloat() / maxValue.toFloat() else 0f
+        Box(
+            modifier = Modifier
+                .width(8.dp)
+                .height(if (maxValue > 0) 70.dp else 350.dp)
+                .offset(y = (280 * progress).dp)
+                .background(AccentBlue, RoundedCornerShape(8.dp))
         )
     }
 }

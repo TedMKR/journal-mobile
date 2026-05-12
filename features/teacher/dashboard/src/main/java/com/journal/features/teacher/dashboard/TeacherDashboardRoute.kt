@@ -108,7 +108,7 @@ private fun TeacherDashboardContent(
         ProfileSummary(state)
         TodayScheduleCard(state.todayLessons)
         AnalyticsCard(state = state, onOpenJournal = onOpenJournal)
-        PerformanceCard(state.performance)
+        GroupPerformanceCard(state.groupPerformance)
     }
 }
 
@@ -255,7 +255,7 @@ private fun ActionTile(title: String, value: String, modifier: Modifier = Modifi
 }
 
 @Composable
-private fun PerformanceCard(items: List<StudentPerformance>) {
+private fun GroupPerformanceCard(items: List<GroupPerformance>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -263,13 +263,13 @@ private fun PerformanceCard(items: List<StudentPerformance>) {
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text("Успеваемость", color = PrimaryText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("Успеваемость по группам", color = PrimaryText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         if (items.isEmpty()) {
             Text("Нет данных", color = SecondaryText)
         } else {
             items.take(8).forEach { item ->
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(item.fullName, color = PrimaryText, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
+                    Text(item.groupName, color = PrimaryText, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
                     Box(
                         modifier = Modifier
                             .weight(1f)
@@ -373,7 +373,7 @@ private suspend fun buildDashboardState(
         analyticsTitle = defaultJournal?.let { "${it.discipline.name} · ${it.group.name}" } ?: "Нет выбранного журнала",
         selectedStudentsCount = defaultJournal?.students?.size ?: 0,
         attendanceByMonth = attendanceByMonth(defaultJournal),
-        performance = performance(defaultJournal),
+        groupPerformance = groupPerformance(lessons = lessons, defaultJournal = defaultJournal),
         defaultJournalTarget = defaultLesson?.let {
             TeacherDashboardJournalTarget(
                 groupId = it.groupId.orEmpty(),
@@ -408,14 +408,22 @@ private fun attendanceByMonth(journal: JournalGridResponse?): List<AttendanceMon
         }
 }
 
-private fun performance(journal: JournalGridResponse?): List<StudentPerformance> {
-    if (journal == null) return emptyList()
-    return journal.students.mapNotNull { student ->
-        val grades = journal.grades
-            .filter { it.studentId == student.studentId }
-            .mapNotNull { it.value.toFloatOrNull() }
-        if (grades.isEmpty()) return@mapNotNull null
-        StudentPerformance(student.fullName, grades.average().toFloat())
+private fun groupPerformance(lessons: List<TeacherLesson>, defaultJournal: JournalGridResponse?): List<GroupPerformance> {
+    val groupNames = lessons
+        .mapNotNull { lesson -> lesson.groupId?.let { it to lesson.groupName } }
+        .distinctBy { it.first }
+        .map { it.second }
+    val defaultGroup = defaultJournal?.group?.name
+    val defaultAvg = defaultJournal?.grades.orEmpty()
+        .mapNotNull { it.value.toFloatOrNull() }
+        .takeIf { it.isNotEmpty() }
+        ?.average()
+        ?.toFloat()
+    return groupNames.map { groupName ->
+        GroupPerformance(
+            groupName = groupName,
+            avgGrade = if (groupName == defaultGroup && defaultAvg != null) defaultAvg else 0f
+        )
     }.sortedByDescending { it.avgGrade }
 }
 
@@ -467,7 +475,7 @@ private data class TeacherDashboardUiState(
     val analyticsTitle: String,
     val selectedStudentsCount: Int,
     val attendanceByMonth: List<AttendanceMonth>,
-    val performance: List<StudentPerformance>,
+    val groupPerformance: List<GroupPerformance>,
     val defaultJournalTarget: TeacherDashboardJournalTarget?
 )
 
@@ -483,7 +491,7 @@ private data class AttendanceMonth(
     val percent: Int
 )
 
-private data class StudentPerformance(
-    val fullName: String,
+private data class GroupPerformance(
+    val groupName: String,
     val avgGrade: Float
 )
