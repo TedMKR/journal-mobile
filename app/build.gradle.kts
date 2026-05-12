@@ -84,6 +84,7 @@ dependencies {
     implementation(project(":features:teacher:journal"))
     implementation(project(":features:teacher:studentcard"))
     implementation(project(":features:teacher:dashboard"))
+    implementation(project(":features:methodist:templates"))
 
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("com.google.android.material:material:1.12.0")

@@ -2,10 +2,12 @@ package com.journal.features.auth
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -46,9 +48,10 @@ interface AuthRoleEntryPoint {
 }
 
 @Composable
-fun AuthRoute(onContinue: () -> Unit) {
+fun AuthRoute(onContinue: (String) -> Unit) {
     var login by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var selectedRole by remember { mutableStateOf("teacher") }
 
     val context = LocalContext.current
     val entryPoint = EntryPointAccessors.fromApplication(
@@ -100,11 +103,16 @@ fun AuthRoute(onContinue: () -> Unit) {
                     singleLine = true
                 )
 
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    RoleChip("teacher", selectedRole == "teacher") { selectedRole = "teacher" }
+                    RoleChip("methodologist", selectedRole == "methodologist") { selectedRole = "methodologist" }
+                }
+
                 Button(
                     onClick = {
-                        // Keep debug flow stable for backend test mode.
-                        entryPoint.roleSession().setRole("teacher")
-                        onContinue()
+                        // Debug backend reads role from X-Debug-Role.
+                        entryPoint.roleSession().setRole(selectedRole)
+                        onContinue(selectedRole)
                     },
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
@@ -125,6 +133,23 @@ fun AuthRoute(onContinue: () -> Unit) {
             }
         }
     }
+}
+
+@Composable
+private fun RoleChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    Text(
+        text = text,
+        modifier = Modifier
+            .background(
+                if (selected) PrimaryText else Color(0xFFD3D7E1),
+                RoundedCornerShape(999.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 7.dp),
+        color = if (selected) Color.White else PrimaryText,
+        style = MaterialTheme.typography.bodySmall,
+        fontWeight = FontWeight.SemiBold
+    )
 }
 
 @Composable
