@@ -109,7 +109,6 @@ fun MethodistJournalsRoute(
         subtitle = "Методист",
         actions = {
             PrimaryButton(text = "Создать журнал", onClick = onCreateJournal)
-            SecondaryButton(text = "КТП", onClick = onOpenTemplates)
         }
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -182,7 +181,6 @@ fun MethodistTemplatesRoute(
         title = "КТП шаблоны",
         actions = {
             PrimaryButton(text = "Добавить КТП", onClick = { showCreateDialog = true })
-            SecondaryButton(text = "Журналы", onClick = onOpenJournals)
         }
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {

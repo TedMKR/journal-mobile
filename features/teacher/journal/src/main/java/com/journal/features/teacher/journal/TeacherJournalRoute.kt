@@ -814,7 +814,7 @@ private fun AssessmentDialog(
         ) {
             Text(
                 text = if (state.form == null) "Добавить контроль" else "Редактировать контроль",
-                color = Color(0xFF111827),
+                color = PrimaryText,
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold
             )
@@ -884,7 +884,7 @@ private fun WebFormField(
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             text = label,
-            color = Color(0xFF374151),
+            color = PrimaryText,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold
         )
@@ -907,8 +907,8 @@ private fun WebOutlinedTextField(
         singleLine = true,
         placeholder = { Text(placeholder, color = Color(0xFF9CA3AF)) },
         colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = Color(0xFF111827),
-            unfocusedTextColor = Color(0xFF111827),
+            focusedTextColor = PrimaryText,
+            unfocusedTextColor = PrimaryText,
             focusedContainerColor = Color.White,
             unfocusedContainerColor = Color.White,
             focusedBorderColor = Color(0xFF223268),
@@ -935,7 +935,7 @@ private fun WebSelectOption(
     ) {
         Text(
             text = text,
-            color = Color(0xFF111827),
+            color = PrimaryText,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
         )

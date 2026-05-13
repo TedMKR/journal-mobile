@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -204,6 +205,14 @@ fun JournalNavHost(journalApi: JournalApi) {
                     navController.navigate(route) {
                         launchSingleTop = true
                     }
+                },
+                onLogout = {
+                    isMenuOpen = false
+                    role = null
+                    navController.navigate(Routes.AUTH) {
+                        popUpTo(0)
+                        launchSingleTop = true
+                    }
                 }
             )
         }
@@ -229,7 +238,8 @@ private fun RightSideMenu(
     role: String,
     currentRoute: String,
     onDismiss: () -> Unit,
-    onNavigate: (String) -> Unit
+    onNavigate: (String) -> Unit,
+    onLogout: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -286,8 +296,26 @@ private fun RightSideMenu(
                     onClick = { onNavigate(item.route) }
                 )
             }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            LogoutRow(onClick = onLogout)
         }
     }
+}
+
+@Composable
+private fun LogoutRow(onClick: () -> Unit) {
+    Text(
+        text = "Выйти из аккаунта",
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFFFE4E6), RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 13.dp),
+        color = Color(0xFFB91C1C),
+        fontWeight = FontWeight.SemiBold
+    )
 }
 
 @Composable
