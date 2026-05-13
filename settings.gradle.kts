@@ -28,5 +28,6 @@ include(
     ":features:teacher:journal",
     ":features:teacher:studentcard",
     ":features:teacher:dashboard",
+    ":features:teacher:ved",
     ":features:methodist:templates"
 )

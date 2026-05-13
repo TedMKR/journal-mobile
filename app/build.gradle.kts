@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -5,8 +7,6 @@ plugins {
     id("com.google.devtools.ksp")
     id("org.jetbrains.kotlin.plugin.serialization")
 }
-
-import java.util.Properties
 
 fun loadEnv(): Properties {
     val props = Properties()
@@ -84,6 +84,7 @@ dependencies {
     implementation(project(":features:teacher:journal"))
     implementation(project(":features:teacher:studentcard"))
     implementation(project(":features:teacher:dashboard"))
+    implementation(project(":features:teacher:ved"))
     implementation(project(":features:methodist:templates"))
 
     implementation("androidx.core:core-ktx:1.13.1")

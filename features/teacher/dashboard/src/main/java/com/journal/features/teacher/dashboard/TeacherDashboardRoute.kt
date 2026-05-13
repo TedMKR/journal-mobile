@@ -116,17 +116,11 @@ private fun TeacherDashboardContent(
 private fun Header(onBack: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.Start,
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "Электронный\nЖурнал",
-            color = PrimaryText,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold
-        )
-        Text(
-            text = "← Расписание",
+            text = "← Назад",
             color = SecondaryText,
             style = MaterialTheme.typography.bodyMedium,
             modifier = Modifier

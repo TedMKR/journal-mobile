@@ -79,7 +79,7 @@ fun AuthRoute(onContinue: (String) -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = "Электронный\nЖурнал",
+                    text = "Вход в систему",
                     color = PrimaryText,
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.SemiBold

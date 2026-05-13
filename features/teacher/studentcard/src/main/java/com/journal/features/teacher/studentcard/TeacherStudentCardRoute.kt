@@ -102,21 +102,14 @@ private fun StudentCardContent(card: StudentCardUiState, onBack: () -> Unit) {
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "← Назад к журналу группы",
-                color = MutedText,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier
-                    .clickable(onClick = onBack)
-                    .padding(vertical = 8.dp)
-            )
-            Text(card.disciplineName, color = PrimaryText, fontWeight = FontWeight.SemiBold)
-        }
+        Text(
+            text = "← Назад",
+            color = MutedText,
+            style = MaterialTheme.typography.bodyLarge,
+            modifier = Modifier
+                .clickable(onClick = onBack)
+                .padding(vertical = 8.dp)
+        )
 
         Box(
             modifier = Modifier

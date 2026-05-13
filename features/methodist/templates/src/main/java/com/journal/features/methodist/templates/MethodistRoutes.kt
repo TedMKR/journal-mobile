@@ -339,7 +339,7 @@ fun MethodistJournalCreateRoute(
 
     MethodologistScaffold(
         title = "Создание журнала",
-        actions = { SecondaryButton(text = "Назад", onClick = onBack) }
+        onBack = onBack
     ) {
         if (isLoading) {
             LoadingCard("Загружаю справочники...")
@@ -425,6 +425,7 @@ private suspend fun syncTopics(
 private fun MethodologistScaffold(
     title: String,
     subtitle: String? = null,
+    onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -436,6 +437,16 @@ private fun MethodologistScaffold(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        onBack?.let { backAction ->
+            Text(
+                text = "← Назад",
+                color = SecondaryText,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier
+                    .clickable(onClick = backAction)
+                    .padding(vertical = 8.dp)
+            )
+        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()
