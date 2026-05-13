@@ -59,6 +59,8 @@ tags:
     description: Academic periods (semesters)
   - name: groups
     description: Academic groups and student rosters
+  - name: catalogs
+    description: Read-only dictionaries for methodologist/admin setup screens
   - name: attendance
     description: Student attendance tracking
   - name: grades
@@ -109,7 +111,7 @@ tags:
 
       **Lifecycle:** `submit -> preview -> resolve conflicts -> apply`
 
-      **Roles:** `admin` only.
+      **Roles:** `admin`, `methodologist`.
 
 paths:
   # -- Health -------------------------------------------------------------
@@ -171,6 +173,8 @@ paths:
         Returns available academic periods (semesters) ordered by start date descending.
         The active (current) period is indicated by `is_active: true`.
         Clients use the returned `id` values when requesting reports or filtering the journal.
+
+        Roles: `teacher`, `admin`, `student`, `methodologist`.
       security:
         - bearerAuth: []
       parameters:
@@ -196,6 +200,193 @@ paths:
                       $ref: '#/components/schemas/AcademicPeriod'
         "401":
           $ref: '#/components/responses/Unauthorized'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Methodologist Catalogs --------------------------------------------------
+  /disciplines:
+    get:
+      tags: [catalogs]
+      operationId: listDisciplines
+      summary: List active disciplines for selector UI
+      description: |
+        Returns active, non-deleted disciplines. Methodologist/admin use this endpoint
+        to build setup screens for КТП assignment and roster management.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period_id
+          in: query
+          required: false
+          description: Restrict to disciplines that have lessons or teaching assignments in the period
+          schema:
+            type: string
+            format: uuid
+        - name: teacher_id
+          in: query
+          required: false
+          description: Restrict to disciplines taught by this internal teacher_profiles.id
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          required: false
+          description: Case-insensitive search by name or code
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 100
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Discipline selector values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DisciplineListResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /teachers:
+    get:
+      tags: [catalogs]
+      operationId: listTeachers
+      summary: List teacher profiles for selector UI
+      description: Returns teacher profiles known to the system through profile sync.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: discipline_id
+          in: query
+          required: false
+          description: Restrict to teachers that have lessons or assignments for the discipline
+          schema:
+            type: string
+            format: uuid
+        - name: group_id
+          in: query
+          required: false
+          description: Restrict to teachers that have lessons or assignments for the group
+          schema:
+            type: string
+            format: uuid
+        - name: period_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          required: false
+          description: Case-insensitive search by full name or email
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 100
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Teacher selector values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeacherListResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /groups:
+    get:
+      tags: [catalogs]
+      operationId: listGroups
+      summary: List active academic groups for selector UI
+      description: Returns non-deleted academic groups, optionally scoped by teacher, discipline and period.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: discipline_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: teacher_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: period_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: q
+          in: query
+          required: false
+          description: Case-insensitive search by group name or faculty
+          schema:
+            type: string
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 100
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Group selector values
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GroupListResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/InternalServerError'
 
@@ -354,8 +545,8 @@ paths:
         attendance records, assessment forms, grade records and edit permissions.
 
         Edge passes the authenticated Keycloak user id to Domain. Domain resolves it
-        to `teacher_profiles.id` and validates business access by teaching assignment
-        or active journal access grant.
+        to `teacher_profiles.id` for teachers. Methodologist/admin/dean callers pass
+        `teacher_id` to select the target journal context.
       security:
         - bearerAuth: []
       parameters:
@@ -380,6 +571,20 @@ paths:
           schema:
             type: string
             format: uuid
+        - name: teacher_id
+          in: query
+          required: false
+          description: Target teacher UUID. Required for methodologist/admin/dean; teachers may omit it for their own journal.
+          schema:
+            type: string
+            format: uuid
+        - name: lesson_type
+          in: query
+          required: false
+          description: Optional lesson type filter when the UI opens a specific journal type.
+          schema:
+            type: string
+            enum: [lecture, practice, lab, seminar]
         - name: subgroup_id
           in: query
           required: false
@@ -408,6 +613,92 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/JournalGridResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /journals:
+    get:
+      tags: [journal]
+      operationId: listJournals
+      summary: List created journal contexts
+      description: |
+        Returns explicit journal contexts created by `POST /journals`.
+        A journal context is `teacher + discipline + group + period + lesson_type`.
+        `lesson_count` counts only real dated `Lesson` rows that already exist
+        for the context.
+
+        Roles: `methodologist`, `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: discipline_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: group_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: teacher_id
+          in: query
+          schema: { type: string, format: uuid }
+        - name: lesson_type
+          in: query
+          schema:
+            type: string
+            enum: [lecture, practice, lab, seminar]
+        - name: q
+          in: query
+          schema: { type: string }
+      responses:
+        "200":
+          description: List of journal contexts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JournalContextListResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [journal]
+      operationId: createJournal
+      summary: Create or complete a journal context from a КТП plan
+      description: |
+        Idempotently fixes the journal context and active КТП assignment for
+        `teacher + discipline + group + period + lesson_type`.
+
+        It does not create dated lessons when real dates are absent. Lessons are
+        returned only after schedule sync or another real-dated lesson creation flow.
+
+        Roles: `methodologist`, `admin`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateJournalRequest'
+      responses:
+        "201":
+          description: Journal context with lesson creation counters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateJournalResponse'
         "400":
           $ref: '#/components/responses/ValidationError'
         "401":
@@ -670,19 +961,21 @@ paths:
     patch:
       tags: [grades]
       operationId: updateAssessmentForm
-      summary: Update title and/or status of an assessment form
+      summary: Update assessment form details
       description: |
-        Allows lifecycle management of an assessment form:
+        Updates editable fields of an assessment form:
 
         - **Rename** - update `title` to reflect a corrected name.
+        - **Change type** - update `form_type` when the teacher selected the wrong control form.
+        - **Change date** - update `date`; the backend re-resolves `period_id` from the new date.
         - **Close** (`status: "closed"`) - lock the form so no new grades can be added.
           Any teacher or admin can close a form they own.
         - **Reopen** (`status: "open"`) - only `admin` or `dean` can reopen a closed form
           (equivalent to a late-entry correction).
 
-        All other fields (form_type, date, discipline_id, group_id) are **immutable** after creation.
+        Journal binding fields (`discipline_id`, `group_id`, `teacher_id`) are immutable after creation.
 
-        At least one of `title` or `status` must be provided.
+        At least one editable field must be provided.
       security:
         - bearerAuth: []
       parameters:
@@ -702,6 +995,29 @@ paths:
                 $ref: '#/components/schemas/AssessmentForm'
         "400":
           $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags: [grades]
+      operationId: deleteAssessmentForm
+      summary: Delete an assessment form
+      description: |
+        Soft-deletes the assessment form. It disappears from normal list/detail
+        endpoints, while existing grade records remain in the database for audit/history.
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/AssessmentFormID'
+      responses:
+        "204":
+          description: Assessment form deleted
         "401":
           $ref: '#/components/responses/Unauthorized'
         "403":
@@ -1218,7 +1534,7 @@ paths:
       summary: Get full student card for one subject
       description: |
         Returns the complete aggregated view for the authenticated student
-        in a specific discipline and period.
+        in a specific discipline and academic period.
 
         Includes:
         - Student profile with `is_head_student` flag
@@ -1226,7 +1542,9 @@ paths:
         - Grade summary (avg, assessments completed/total)
         - Monthly attendance breakdown for a progress chart
 
-        `period_id` is required - the client should select from `GET /academic-periods`.
+        `period_id` is required because the same subject can exist in current
+        and archived academic periods; the client should pass the value returned
+        by `GET /students/me/subjects`.
       security:
         - bearerAuth: []
       parameters:
@@ -1598,6 +1916,42 @@ paths:
         "500":
           $ref: '#/components/responses/InternalServerError'
 
+  /lesson-templates/bulk:
+    post:
+      tags: [lesson-templates]
+      operationId: createLessonTemplateBulk
+      summary: Create a КТП template with topics in one JSON request
+      description: |
+        Creates a calendar-thematic plan and all topics atomically.
+        Frontend parses Excel/XLSX and sends this structured JSON; backend does not parse files.
+
+        Roles: `methodologist`, `admin`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateLessonTemplateBulkRequest'
+      responses:
+        "201":
+          description: Template and topics created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LessonTemplateDetail'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
   /lesson-templates/{template_id}:
     get:
       tags: [lesson-templates]
@@ -1956,11 +2310,10 @@ paths:
       operationId: updateLessonTopicDetails
       summary: Update a teacher's custom topic details for a lesson
       description: |
-        Allows a teacher (or methodologist / admin) to override the default topic text
-        from the КТП template with their own lesson-specific notes.
+        Allows a teacher (or methodologist / admin) to save lesson-specific topic notes.
 
         The result includes the original template topic (if any) alongside the custom
-        teacher text and a flag indicating whether the teacher has overridden the default.
+        teacher text and a flag indicating whether the teacher has edited the details.
       security:
         - bearerAuth: []
       parameters:
@@ -2182,6 +2535,57 @@ paths:
   #   POST /admin/imports/{id}/apply -> finalize: write EnrollmentHistory + AuditEvent
   #   DELETE /admin/imports/{id}     -> cancel (only if not completed/applying)
 
+  /admin/import-templates/{template_id}:
+    get:
+      tags: [admin-imports]
+      operationId: downloadImportTemplate
+      summary: Download an XLSX import template by numeric id
+      description: |
+        Returns a static XLSX template from the repository `docs/imports` directory.
+        The backend computes the project path automatically; clients only pass a stable numeric id.
+
+        Template ids:
+        - `1` — empty student roster template
+        - `2` — sample student roster template
+        - `3` — empty КТП lesson template topics file
+        - `4` — sample КТП lesson template topics file
+
+        **Roles:** `admin`, `methodologist`
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: template_id
+          in: path
+          required: true
+          description: Stable numeric template id
+          schema:
+            type: integer
+            minimum: 1
+            enum: [1, 2, 3, 4]
+      responses:
+        "200":
+          description: XLSX file
+          headers:
+            Content-Disposition:
+              description: Attachment filename
+              schema:
+                type: string
+          content:
+            application/vnd.openxmlformats-officedocument.spreadsheetml.sheet:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
   /admin/imports/students:
     post:
       tags: [admin-imports]
@@ -2201,7 +2605,7 @@ paths:
         - `conflicts_detected` - must resolve all conflicts first, then `/apply`
         - `failed` - structural validation failed (400-level errors in rows)
 
-        **Roles:** `admin`
+        **Roles:** `admin`, `methodologist`
       security:
         - bearerAuth: []
       requestBody:
@@ -2782,6 +3186,92 @@ components:
         version:
           type: string
 
+    JournalContext:
+      type: object
+      required: [id, group_id, group_name, discipline_id, discipline_name,
+                 teacher_id, teacher_name, period_id, period_name, lesson_type,
+                 lesson_count, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        group_id:
+          type: string
+          format: uuid
+        group_name:
+          type: string
+        discipline_id:
+          type: string
+          format: uuid
+        discipline_name:
+          type: string
+        teacher_id:
+          type: string
+          format: uuid
+        teacher_name:
+          type: string
+        period_id:
+          type: string
+          format: uuid
+        period_name:
+          type: string
+        lesson_type:
+          type: string
+          enum: [lecture, practice, lab, seminar]
+        lesson_count:
+          type: integer
+        created_at:
+          type: string
+          format: date-time
+
+    JournalContextListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/JournalContext'
+
+    CreateJournalRequest:
+      type: object
+      required: [group_id, discipline_id, period_id, teacher_id, lesson_type, plan_id]
+      properties:
+        group_id:
+          type: string
+          format: uuid
+        discipline_id:
+          type: string
+          format: uuid
+        period_id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          format: uuid
+        lesson_type:
+          type: string
+          enum: [lecture, practice, lab, seminar]
+        plan_id:
+          type: string
+          format: uuid
+
+    CreateJournalResponse:
+      type: object
+      required: [journal, lessons_found, lessons_created]
+      properties:
+        journal:
+          $ref: '#/components/schemas/JournalContext'
+        lessons_found:
+          type: integer
+        lessons_created:
+          type: integer
+          description: Always 0 in this endpoint; dated lessons are not synthesized.
+        assignment_id:
+          type: string
+          format: uuid
+          nullable: true
+
     # -- Student Workflow ---------------------------------------------------
     StudentProfile:
       type: object
@@ -2879,7 +3369,7 @@ components:
 
     StudentSubjectSummary:
       type: object
-      required: [discipline_id, discipline_name, teacher_name, group_name, lessons_attended, lessons_total]
+      required: [discipline_id, discipline_name, teacher_name, group_id, group_name, period_id, lessons_attended, lessons_total]
       description: Lightweight subject summary for the subjects list view
       properties:
         discipline_id:
@@ -2890,12 +3380,14 @@ components:
         teacher_name:
           type: string
           description: Abbreviated teacher name
+        group_id:
+          type: string
+          format: uuid
         group_name:
           type: string
         period_id:
           type: string
           format: uuid
-          nullable: true
         lessons_attended:
           type: integer
           description: Lessons where the student was present
@@ -2916,7 +3408,8 @@ components:
       type: object
       required: [student, discipline_id, discipline_name, teacher_name, period_id,
                  lessons_attended, lessons_total, absences_total, absences_valid_excuse,
-                 assessments_completed, assessments_total, attendance_by_month]
+                 assessments_completed, assessments_total, attendance_by_month,
+                 journal_lessons, journal_grades]
       description: Full aggregated view for a student in one subject
       properties:
         student:
@@ -2959,6 +3452,16 @@ components:
           description: Monthly attendance breakdown for progress chart
           items:
             $ref: '#/components/schemas/StudentAttendanceMonth'
+        journal_lessons:
+          type: array
+          description: The student's journal row across lessons in this subject and period.
+          items:
+            $ref: '#/components/schemas/StudentJournalLesson'
+        journal_grades:
+          type: array
+          description: The student's journal row across assessment forms in this subject and period.
+          items:
+            $ref: '#/components/schemas/StudentJournalGrade'
 
     StudentAttendanceMonth:
       type: object
@@ -2986,6 +3489,65 @@ components:
           format: float
           description: "attended / total_lessons * 100; 0 if total_lessons is 0"
           example: 87.5
+
+    StudentJournalLesson:
+      type: object
+      required: [lesson_id, date, scheduled_at, lesson_type]
+      properties:
+        lesson_id:
+          type: string
+          format: uuid
+        date:
+          type: string
+          format: date
+        scheduled_at:
+          type: string
+          format: date-time
+        lesson_type:
+          type: string
+          enum: [lecture, practice, lab, seminar]
+        topic:
+          type: string
+          nullable: true
+        attendance_status:
+          type: string
+          enum: [present, absent, valid_excuse]
+          nullable: true
+          description: Null means the attendance cell is empty.
+        attendance_comment:
+          type: string
+          nullable: true
+        attendance_updated_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    StudentJournalGrade:
+      type: object
+      required: [assessment_form_id, title, type, date]
+      properties:
+        assessment_form_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        type:
+          type: string
+          enum: [exam, quiz, homework, project]
+        date:
+          type: string
+          format: date-time
+        value:
+          type: string
+          nullable: true
+          description: Null means the grade cell is empty.
+        comment:
+          type: string
+          nullable: true
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
 
     HeadStudentGrant:
       type: object
@@ -3268,6 +3830,101 @@ components:
         is_active:
           type: boolean
           description: True if this is the currently active period
+
+    # -- Methodologist Catalogs ---------------------------------------------
+    ListMeta:
+      type: object
+      required: [total, limit, offset]
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+
+    Discipline:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        code:
+          type: string
+          nullable: true
+
+    DisciplineListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Discipline'
+        meta:
+          $ref: '#/components/schemas/ListMeta'
+
+    Teacher:
+      type: object
+      required: [id, full_name]
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Internal `teacher_profiles.id`.
+        keycloak_id:
+          type: string
+          format: uuid
+          nullable: true
+        full_name:
+          type: string
+        email:
+          type: string
+          nullable: true
+        external_schedule_ref:
+          type: string
+          nullable: true
+
+    TeacherListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Teacher'
+        meta:
+          $ref: '#/components/schemas/ListMeta'
+
+    AcademicGroup:
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        faculty:
+          type: string
+          nullable: true
+        year:
+          type: integer
+          nullable: true
+
+    GroupListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AcademicGroup'
+        meta:
+          $ref: '#/components/schemas/ListMeta'
 
     # -- Lessons / Schedule -------------------------------------------------
     Lesson:
@@ -3613,14 +4270,22 @@ components:
     UpdateAssessmentFormRequest:
       type: object
       description: |
-        At least one of `title` or `status` must be provided.
-        All other form fields are immutable after creation.
+        At least one of `title`, `form_type`, `date` or `status` must be provided.
+        `discipline_id`, `group_id` and `teacher_id` stay immutable after creation.
       properties:
         title:
           type: string
           minLength: 1
           maxLength: 255
           description: New title for the assessment form
+        form_type:
+          type: string
+          enum: [exam, quiz, homework, project]
+          description: New assessment form type
+        date:
+          type: string
+          format: date
+          description: New form date (YYYY-MM-DD); period_id is re-resolved from this date
         status:
           type: string
           enum: [open, closed]
@@ -3878,10 +4543,6 @@ components:
           type: string
           nullable: true
           description: Extended topic description
-        default_topic_details:
-          type: string
-          nullable: true
-          description: Default lesson notes pre-filled for each lesson mapped to this topic
         lesson_count:
           type: integer
           minimum: 1
@@ -3979,7 +4640,7 @@ components:
     LessonTopicInfo:
       type: object
       required: [lesson_id, topic_details_edited_by_teacher, updated_at]
-      description: Topic information for a specific lesson, combining template defaults with teacher overrides
+      description: Topic information for a specific lesson, combining template topic and teacher notes
       properties:
         lesson_id:
           type: string
@@ -3991,7 +4652,7 @@ components:
         topic_custom_details:
           type: string
           nullable: true
-          description: Teacher's custom lesson notes (overrides default_topic_details from the template)
+          description: Teacher's lesson notes for this lesson
         topic_details_edited_by_teacher:
           type: boolean
           description: True if the teacher has set their own custom details for this lesson
@@ -4046,11 +4707,6 @@ components:
           maxLength: 2000
           nullable: true
           description: Extended topic description
-        default_topic_details:
-          type: string
-          maxLength: 2000
-          nullable: true
-          description: Default lesson notes that are pre-filled for each lesson mapped to this topic
         lesson_count:
           type: integer
           minimum: 1
@@ -4068,10 +4724,6 @@ components:
           minLength: 1
           maxLength: 255
         topic_description:
-          type: string
-          maxLength: 2000
-          nullable: true
-        default_topic_details:
           type: string
           maxLength: 2000
           nullable: true
@@ -4105,6 +4757,13 @@ components:
       type: object
       required: [plan_id, discipline_id, group_id, period_id]
       properties:
+        teacher_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: |
+            Internal `teacher_profiles.id` or teacher Keycloak UUID. Required for `methodologist`/`admin`.
+            Teachers may omit it and can only assign templates to themselves.
         plan_id:
           type: string
           format: uuid
@@ -4123,6 +4782,31 @@ components:
           maxLength: 1000
           nullable: true
           description: Optional notes about this assignment
+
+    CreateLessonTemplateBulkRequest:
+      type: object
+      required: [discipline_id, name, topics]
+      description: |
+        Structured КТП payload produced by frontend after parsing Excel/XLSX.
+        Backend receives JSON only and creates the plan and topics atomically.
+      properties:
+        discipline_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+        topics:
+          type: array
+          minItems: 1
+          maxItems: 500
+          items:
+            $ref: '#/components/schemas/AddTopicRequest'
 
     UpdateLessonTopicDetailsRequest:
       type: object
@@ -4188,6 +4872,13 @@ components:
         Payload for creating a new student import batch.
         Clients parse Excel/CSV themselves and submit the JSON list.
       properties:
+        import_mode:
+          type: string
+          enum: [merge, replace_active_roster]
+          default: merge
+          description: |
+            `merge` adds/updates submitted rows without removing missing students.
+            `replace_active_roster` treats the submitted rows as the authoritative active roster for the group.
         group_id:
           type: string
           format: uuid
@@ -4298,6 +4989,10 @@ components:
         message:
           type: string
           nullable: true
+        error_code:
+          type: string
+          nullable: true
+          description: Machine-readable row-level error code, e.g. `STUDENT_ALREADY_EXISTS`
         student:
           $ref: '#/components/schemas/ImportStudentRow'
           nullable: true

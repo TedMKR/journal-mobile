@@ -89,16 +89,17 @@ fun TeacherJournalRoute(
     disciplineId: String,
     periodId: String,
     lessonType: String,
+    teacherId: String? = null,
     journalApi: JournalApi,
     onOpenStudentCard: (String) -> Unit,
     onBack: () -> Unit
 ) {
-    var journal by remember(groupId, disciplineId, periodId) { mutableStateOf<JournalGridResponse?>(null) }
-    var isLoading by remember(groupId, disciplineId, periodId) { mutableStateOf(true) }
-    var error by remember(groupId, disciplineId, periodId) { mutableStateOf<String?>(null) }
+    var journal by remember(groupId, disciplineId, periodId, teacherId, lessonType) { mutableStateOf<JournalGridResponse?>(null) }
+    var isLoading by remember(groupId, disciplineId, periodId, teacherId, lessonType) { mutableStateOf(true) }
+    var error by remember(groupId, disciplineId, periodId, teacherId, lessonType) { mutableStateOf<String?>(null) }
     var refreshKey by remember { mutableStateOf(0) }
 
-    LaunchedEffect(groupId, disciplineId, periodId, refreshKey) {
+    LaunchedEffect(groupId, disciplineId, periodId, teacherId, lessonType, refreshKey) {
         isLoading = true
         error = null
         runCatching {

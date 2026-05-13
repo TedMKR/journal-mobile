@@ -77,7 +77,8 @@ fun JournalNavHost(journalApi: JournalApi) {
                                     groupId = groupId,
                                     disciplineId = disciplineId,
                                     periodId = periodId,
-                                    lessonType = lesson.lessonType
+                                    lessonType = lesson.lessonType,
+                                    teacherId = lesson.teacherId
                                 )
                             )
                         }
@@ -94,7 +95,8 @@ fun JournalNavHost(journalApi: JournalApi) {
                                 groupId = target.groupId,
                                 disciplineId = target.disciplineId,
                                 periodId = target.periodId,
-                                lessonType = target.lessonType
+                                lessonType = target.lessonType,
+                                teacherId = target.teacherId
                             )
                         )
                     }
@@ -112,19 +114,16 @@ fun JournalNavHost(journalApi: JournalApi) {
                                 groupId = target.groupId,
                                 disciplineId = target.disciplineId,
                                 periodId = target.periodId,
-                                lessonType = target.lessonType
+                                lessonType = target.lessonType,
+                                teacherId = target.teacherId
                             )
                         )
                     },
-                    onCreateJournal = { navController.navigate(Routes.METHODIST_JOURNAL_CREATE) },
-                    onOpenTemplates = { navController.navigate(Routes.METHODIST_TEMPLATES) }
+                    onCreateJournal = { navController.navigate(Routes.METHODIST_JOURNAL_CREATE) }
                 )
             }
             composable(Routes.METHODIST_TEMPLATES) {
-                MethodistTemplatesRoute(
-                    journalApi = journalApi,
-                    onOpenJournals = { navController.navigate(Routes.METHODIST_JOURNALS) }
-                )
+                MethodistTemplatesRoute(journalApi = journalApi)
             }
             composable(Routes.METHODIST_JOURNAL_CREATE) {
                 MethodistJournalCreateRoute(
@@ -135,7 +134,8 @@ fun JournalNavHost(journalApi: JournalApi) {
                                 groupId = target.groupId,
                                 disciplineId = target.disciplineId,
                                 periodId = target.periodId,
-                                lessonType = target.lessonType
+                                lessonType = target.lessonType,
+                                teacherId = target.teacherId
                             )
                         )
                     },
@@ -148,7 +148,12 @@ fun JournalNavHost(journalApi: JournalApi) {
                     navArgument("groupId") { type = NavType.StringType },
                     navArgument("disciplineId") { type = NavType.StringType },
                     navArgument("periodId") { type = NavType.StringType },
-                    navArgument("lessonType") { type = NavType.StringType }
+                    navArgument("lessonType") { type = NavType.StringType },
+                    navArgument("teacherId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
                 )
             ) { entry ->
                 val groupId = entry.arguments?.getString("groupId").orEmpty()
@@ -159,6 +164,7 @@ fun JournalNavHost(journalApi: JournalApi) {
                     disciplineId = disciplineId,
                     periodId = periodId,
                     lessonType = entry.arguments?.getString("lessonType").orEmpty(),
+                    teacherId = entry.arguments?.getString("teacherId"),
                     journalApi = journalApi,
                     onOpenStudentCard = { studentId ->
                         navController.navigate(Routes.teacherStudentCard(groupId, disciplineId, periodId, studentId))

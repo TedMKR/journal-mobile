@@ -25,7 +25,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journal.core.model.teacher.TeacherLesson
 import java.time.OffsetDateTime
-import java.time.format.DateTimeFormatter
 
 private val BackgroundColor = Color(0xFFEDEEED)
 private val PrimaryText = Color(0xFF223268)
@@ -170,7 +169,7 @@ private fun LessonCard(
             ) {
                 Text(orderNumber.takeIf { it > 0 }?.toString().orEmpty(), color = PrimaryText, fontWeight = FontWeight.SemiBold)
             }
-            Text(formatLessonTime(lesson), color = PrimaryText, style = MaterialTheme.typography.bodyMedium)
+            Text(lessonSlotTime(orderNumber), color = PrimaryText, style = MaterialTheme.typography.bodyMedium)
             Text(lesson.disciplineName, color = PrimaryText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
         }
 
@@ -183,7 +182,6 @@ private fun LessonCard(
                 LessonBadge(text = lessonTypeName(lesson.lessonType), background = BadgeBackground)
                 LessonBadge(text = lesson.groupName, background = BadgeBackground)
             }
-            Text(text = "→", color = PrimaryText, style = MaterialTheme.typography.titleLarge)
         }
         lesson.location?.takeIf { it.isNotBlank() }?.let { location ->
             LessonBadge(text = location, background = BadgeBackground)
@@ -206,12 +204,15 @@ private fun lessonDayIndex(scheduledAt: String): Int = runCatching {
     OffsetDateTime.parse(scheduledAt).dayOfWeek.value - 1
 }.getOrDefault(-1)
 
-private fun formatLessonTime(lesson: TeacherLesson): String = runCatching {
-    val formatter = DateTimeFormatter.ofPattern("HH:mm")
-    val start = OffsetDateTime.parse(lesson.scheduledAt).format(formatter)
-    val end = lesson.endsAt?.let { OffsetDateTime.parse(it).format(formatter) }
-    if (end == null) start else "$start - $end"
-}.getOrElse { lesson.scheduledAt }
+private fun lessonSlotTime(orderNumber: Int): String = when (orderNumber) {
+    1 -> "09:00 - 10:30"
+    2 -> "10:40 - 12:10"
+    3 -> "12:50 - 14:20"
+    4 -> "14:30 - 16:00"
+    5 -> "16:10 - 17:40"
+    6 -> "17:50 - 19:20"
+    else -> ""
+}
 
 private fun lessonTypeName(type: String): String = when (type) {
     "lecture" -> "Лекция"

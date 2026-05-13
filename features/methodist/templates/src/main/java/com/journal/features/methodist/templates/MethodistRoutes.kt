@@ -1,5 +1,6 @@
 package com.journal.features.methodist.templates
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -10,17 +11,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -35,6 +37,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
@@ -67,14 +70,18 @@ private val DangerColor = Color(0xFFC44A4A)
 fun MethodistJournalsRoute(
     journalApi: JournalApi,
     onOpenJournal: (MethodistJournalTarget) -> Unit,
-    onCreateJournal: () -> Unit,
-    onOpenTemplates: () -> Unit
+    onCreateJournal: () -> Unit
 ) {
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
     var lessons by remember { mutableStateOf<List<TeacherLesson>>(emptyList()) }
     var periods by remember { mutableStateOf<List<AcademicPeriod>>(emptyList()) }
+    var disciplines by remember { mutableStateOf<List<Discipline>>(emptyList()) }
+    var groups by remember { mutableStateOf<List<AcademicGroup>>(emptyList()) }
     var search by remember { mutableStateOf("") }
+    var selectedPeriodId by remember { mutableStateOf("") }
+    var selectedDisciplineId by remember { mutableStateOf("") }
+    var selectedGroupId by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf("") }
 
     LaunchedEffect(Unit) {
@@ -82,15 +89,27 @@ fun MethodistJournalsRoute(
         error = null
         runCatching {
             val loadedPeriods = journalApi.getAcademicPeriods(includeClosed = true).data
+            val loadedDisciplines = journalApi.getDisciplines(limit = 200).data
+            val loadedGroups = journalApi.getGroups(limit = 200).data
             val loadedLessons = journalApi.getLessons(limit = 200).lessons
             periods = loadedPeriods
+            disciplines = loadedDisciplines
+            groups = loadedGroups
             lessons = loadedLessons
         }.onFailure { error = it.message ?: "Не удалось загрузить журналы" }
         isLoading = false
     }
 
     val periodNames = remember(periods) { periods.associate { it.id to it.name } }
-    val contexts = remember(lessons, periods, search, selectedType) {
+    val contexts = remember(
+        lessons,
+        periods,
+        search,
+        selectedPeriodId,
+        selectedDisciplineId,
+        selectedGroupId,
+        selectedType
+    ) {
         buildJournalContexts(lessons, periodNames)
             .filter { context ->
                 val query = search.trim().lowercase()
@@ -100,7 +119,11 @@ fun MethodistJournalsRoute(
                     context.teacherName,
                     context.periodName
                 ).any { it.lowercase().contains(query) }
-                matchesSearch && (selectedType.isBlank() || context.lessonType == selectedType)
+                matchesSearch &&
+                    (selectedPeriodId.isBlank() || context.periodId == selectedPeriodId) &&
+                    (selectedDisciplineId.isBlank() || context.disciplineId == selectedDisciplineId) &&
+                    (selectedGroupId.isBlank() || context.groupId == selectedGroupId) &&
+                    (selectedType.isBlank() || context.lessonType == selectedType)
             }
     }
 
@@ -112,9 +135,18 @@ fun MethodistJournalsRoute(
         }
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            SearchAndTypeFilters(
+            JournalFilters(
                 search = search,
                 onSearchChange = { search = it },
+                periods = periods,
+                selectedPeriodId = selectedPeriodId,
+                onPeriodChange = { selectedPeriodId = it },
+                disciplines = disciplines,
+                selectedDisciplineId = selectedDisciplineId,
+                onDisciplineChange = { selectedDisciplineId = it },
+                groups = groups,
+                selectedGroupId = selectedGroupId,
+                onGroupChange = { selectedGroupId = it },
                 selectedType = selectedType,
                 onTypeChange = { selectedType = it }
             )
@@ -132,8 +164,7 @@ fun MethodistJournalsRoute(
 
 @Composable
 fun MethodistTemplatesRoute(
-    journalApi: JournalApi,
-    onOpenJournals: () -> Unit
+    journalApi: JournalApi
 ) {
     val scope = rememberCoroutineScope()
     var isLoading by remember { mutableStateOf(true) }
@@ -191,17 +222,16 @@ fun MethodistTemplatesRoute(
                 label = { Text("Поиск: название, дисциплина, описание") },
                 modifier = Modifier.fillMaxWidth()
             )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(text = "Все", selected = selectedDisciplineId.isBlank()) {
-                    selectedDisciplineId = ""
+            CompactOptionFilter(
+                label = "Дисциплина",
+                options = listOf("" to "Все дисциплины") + disciplines.map { it.id to it.name },
+                selected = selectedDisciplineId,
+                onSelected = {
+                    selectedDisciplineId = it
                     loadTemplates()
                 }
-                disciplines.take(3).forEach { discipline ->
-                    FilterChip(text = discipline.name, selected = selectedDisciplineId == discipline.id) {
-                        selectedDisciplineId = discipline.id
-                        loadTemplates()
-                    }
-                }
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 FilterChip(text = "Архив", selected = includeArchived) {
                     includeArchived = !includeArchived
                     loadTemplates()
@@ -471,23 +501,110 @@ private fun MethodologistScaffold(
 }
 
 @Composable
-private fun SearchAndTypeFilters(
+private fun JournalFilters(
     search: String,
     onSearchChange: (String) -> Unit,
+    periods: List<AcademicPeriod>,
+    selectedPeriodId: String,
+    onPeriodChange: (String) -> Unit,
+    disciplines: List<Discipline>,
+    selectedDisciplineId: String,
+    onDisciplineChange: (String) -> Unit,
+    groups: List<AcademicGroup>,
+    selectedGroupId: String,
+    onGroupChange: (String) -> Unit,
     selectedType: String,
     onTypeChange: (String) -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         OutlinedTextField(
             value = search,
             onValueChange = onSearchChange,
             label = { Text("Поиск") },
+            placeholder = { Text("Дисциплина, группа, преподаватель") },
             modifier = Modifier.fillMaxWidth()
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip("Все", selectedType.isBlank()) { onTypeChange("") }
-            FilterChip("Лекции", selectedType == "lecture") { onTypeChange("lecture") }
-            FilterChip("Практики", selectedType == "practice") { onTypeChange("practice") }
+        CompactOptionFilter(
+            label = "Период",
+            options = listOf("" to "Все периоды") + periods.map { it.id to if (it.isActive) "${it.name} · активный" else it.name },
+            selected = selectedPeriodId,
+            onSelected = onPeriodChange
+        )
+        CompactOptionFilter(
+            label = "Дисциплина",
+            options = listOf("" to "Все дисциплины") + disciplines.map { it.id to it.name },
+            selected = selectedDisciplineId,
+            onSelected = onDisciplineChange
+        )
+        CompactOptionFilter(
+            label = "Группа",
+            options = listOf("" to "Все группы") + groups.map { it.id to it.name },
+            selected = selectedGroupId,
+            onSelected = onGroupChange
+        )
+        CompactOptionFilter(
+            label = "Тип занятия",
+            options = listOf(
+                "" to "Все типы",
+                "lecture" to "Лекция",
+                "practice" to "Практика",
+                "lab" to "Лабораторная",
+                "seminar" to "Семинар"
+            ),
+            selected = selectedType,
+            onSelected = onTypeChange
+        )
+    }
+}
+
+@Composable
+private fun CompactOptionFilter(
+    label: String,
+    options: List<Pair<String, String>>,
+    selected: String,
+    onSelected: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val selectedText = options.firstOrNull { it.first == selected }?.second ?: options.firstOrNull()?.second.orEmpty()
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, color = PrimaryText, fontWeight = FontWeight.SemiBold)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White, RoundedCornerShape(12.dp))
+                .border(1.dp, PrimaryText, RoundedCornerShape(12.dp))
+                .clickable { expanded = true }
+                .padding(horizontal = 12.dp, vertical = 11.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    selectedText,
+                    color = PrimaryText,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f)
+                )
+                Image(
+                    painter = painterResource(id = R.drawable.arrow_bottom),
+                    contentDescription = null,
+                    modifier = Modifier.size(width = 13.dp, height = 9.dp)
+                )
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                options.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.second, color = PrimaryText, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        onClick = {
+                            onSelected(option.first)
+                            expanded = false
+                        }
+                    )
+                }
+            }
         }
     }
 }
@@ -722,27 +839,12 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
 
 @Composable
 private fun SelectCard(label: String, options: List<Pair<String, String>>, selected: String, onSelected: (String) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(label, color = PrimaryText, fontWeight = FontWeight.SemiBold)
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(if (options.size > 4) 168.dp else ((options.size.coerceAtLeast(1) * 44).dp)),
-            verticalArrangement = Arrangement.spacedBy(6.dp)
-        ) {
-            items(options) { option ->
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .background(if (selected == option.first) AccentBlue else LightBlue, RoundedCornerShape(12.dp))
-                        .clickable { onSelected(option.first) }
-                        .padding(horizontal = 12.dp, vertical = 10.dp)
-                ) {
-                    Text(option.second, color = if (selected == option.first) Color.White else PrimaryText, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-            }
-        }
-    }
+    CompactOptionFilter(
+        label = label,
+        options = options,
+        selected = selected,
+        onSelected = onSelected
+    )
 }
 
 @Composable

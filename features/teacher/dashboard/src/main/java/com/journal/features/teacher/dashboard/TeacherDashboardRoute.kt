@@ -1,6 +1,7 @@
 package com.journal.features.teacher.dashboard
 
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,10 +12,15 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.border
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -23,6 +29,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -32,11 +39,16 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
+import com.journal.core.model.teacher.GrantJournalAccessRequest
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.TeacherLesson
+import com.journal.core.model.teacher.TeacherProfile
 import com.journal.core.network.api.JournalApi
+import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -107,8 +119,11 @@ private fun TeacherDashboardContent(
         Header(onBack = onBack)
         ProfileSummary(state)
         TodayScheduleCard(state.todayLessons)
-        AnalyticsCard(state = state, onOpenJournal = onOpenJournal)
-        GroupPerformanceCard(state.groupPerformance)
+        AnalyticsCard(
+            state = state,
+            journalApi = state.journalApi,
+            onOpenJournal = onOpenJournal
+        )
     }
 }
 
@@ -211,24 +226,151 @@ private fun TodayScheduleCard(lessons: List<TeacherLesson>) {
 @Composable
 private fun AnalyticsCard(
     state: TeacherDashboardUiState,
+    journalApi: JournalApi,
     onOpenJournal: (TeacherDashboardJournalTarget) -> Unit
 ) {
+    var selectedType by remember { mutableStateOf("practice") }
+    var selectedDisciplineId by remember { mutableStateOf("") }
+    var selectedGroupId by remember { mutableStateOf("") }
+    var appliedTarget by remember { mutableStateOf<TeacherDashboardJournalTarget?>(null) }
+    var showAccessDialog by remember { mutableStateOf(false) }
+
+    val selectedTarget = appliedTarget ?: state.defaultJournalTarget
+    val canApply = selectedDisciplineId.isNotBlank() && selectedGroupId.isNotBlank()
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(CardBackground, RoundedCornerShape(16.dp))
             .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text("Аналитика", color = PrimaryText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        Text(state.analyticsTitle, color = SecondaryText, style = MaterialTheme.typography.bodySmall)
-        AttendanceLineChart(state.attendanceByMonth)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            ActionTile("Студентов\nв группе", state.selectedStudentsCount.toString(), Modifier.weight(1f)) {
-                state.defaultJournalTarget?.let(onOpenJournal)
+        Text("Анализ", color = PrimaryText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        AnalysisSelect(
+            label = "Тип занятий",
+            selectedText = lessonTypeName(selectedType),
+            options = lessonTypeOptions,
+            onSelect = { selectedType = it }
+        )
+        AnalysisSelect(
+            label = "Предмет",
+            selectedText = state.disciplines.firstOrNull { it.id == selectedDisciplineId }?.name ?: "Выберите предмет",
+            options = state.disciplines.map { it.id to it.name },
+            onSelect = { selectedDisciplineId = it }
+        )
+        AnalysisSelect(
+            label = "Группа",
+            selectedText = state.groups.firstOrNull { it.id == selectedGroupId }?.name ?: "Выберите группу",
+            options = state.groups.map { it.id to it.name },
+            onSelect = { selectedGroupId = it }
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = {
+                    val periodId = state.defaultJournalTarget?.periodId.orEmpty()
+                    appliedTarget = TeacherDashboardJournalTarget(
+                        groupId = selectedGroupId,
+                        disciplineId = selectedDisciplineId,
+                        periodId = periodId,
+                        teacherId = null,
+                        lessonType = selectedType
+                    )
+                },
+                enabled = canApply,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = AccentBackground,
+                    contentColor = Color.White,
+                    disabledContainerColor = AccentBackground,
+                    disabledContentColor = Color.White
+                ),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Применить")
             }
-            ActionTile("Открыть\nжурнал", "→", Modifier.weight(1f)) {
-                state.defaultJournalTarget?.let(onOpenJournal)
+            Button(
+                onClick = { showAccessDialog = true },
+                enabled = selectedTarget != null,
+                colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
+                shape = RoundedCornerShape(12.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Text("Открыть доступ")
+            }
+        }
+
+        if (canApply && selectedTarget != null) {
+            AttendanceLineChart(state.attendanceByMonth)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                ActionTile("Студентов\nв группе", state.selectedStudentsCount.toString(), Modifier.weight(1f)) {
+                    onOpenJournal(selectedTarget)
+                }
+                ActionTile("Открыть\nжурнал", "→", Modifier.weight(1f)) {
+                    onOpenJournal(selectedTarget)
+                }
+            }
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(LessonBackground, RoundedCornerShape(14.dp))
+                    .padding(vertical = 28.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Выберите предмет и группу для просмотра аналитики", color = SecondaryText)
+            }
+        }
+    }
+
+    if (showAccessDialog) {
+        AccessGrantDialog(
+            journalApi = journalApi,
+            target = selectedTarget,
+            onDismiss = { showAccessDialog = false }
+        )
+    }
+}
+
+@Composable
+private fun AnalysisSelect(
+    label: String,
+    selectedText: String,
+    options: List<Pair<String, String>>,
+    onSelect: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, color = PrimaryText, fontWeight = FontWeight.SemiBold)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White, RoundedCornerShape(12.dp))
+                .border(1.dp, PrimaryText, RoundedCornerShape(12.dp))
+                .clickable { expanded = true }
+                .padding(horizontal = 12.dp, vertical = 11.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(selectedText, color = PrimaryText, modifier = Modifier.weight(1f))
+                Image(
+                    painter = painterResource(id = R.drawable.arrow_bottom),
+                    contentDescription = null,
+                    modifier = Modifier.size(width = 13.dp, height = 9.dp)
+                )
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                options.forEach { (value, title) ->
+                    DropdownMenuItem(
+                        text = { Text(title, color = PrimaryText) },
+                        onClick = {
+                            onSelect(value)
+                            expanded = false
+                        }
+                    )
+                }
             }
         }
     }
@@ -249,39 +391,139 @@ private fun ActionTile(title: String, value: String, modifier: Modifier = Modifi
 }
 
 @Composable
-private fun GroupPerformanceCard(items: List<GroupPerformance>) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(16.dp))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Text("Успеваемость по группам", color = PrimaryText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        if (items.isEmpty()) {
-            Text("Нет данных", color = SecondaryText)
-        } else {
-            items.take(8).forEach { item ->
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(item.groupName, color = PrimaryText, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodySmall)
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(8.dp)
-                            .background(AccentBackground, RoundedCornerShape(6.dp))
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth((item.avgGrade / 5f).coerceIn(0f, 1f))
-                                .height(8.dp)
-                                .background(PrimaryText, RoundedCornerShape(6.dp))
+private fun AccessGrantDialog(
+    journalApi: JournalApi,
+    target: TeacherDashboardJournalTarget?,
+    onDismiss: () -> Unit
+) {
+    val scope = rememberCoroutineScope()
+    var teachers by remember { mutableStateOf<List<TeacherProfile>>(emptyList()) }
+    var selectedTeacher by remember { mutableStateOf<TeacherProfile?>(null) }
+    var accessLevel by remember { mutableStateOf("read") }
+    var isLoading by remember { mutableStateOf(true) }
+    var isSaving by remember { mutableStateOf(false) }
+    var message by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(Unit) {
+        runCatching { journalApi.getTeachers(limit = 200).data }
+            .onSuccess { loaded ->
+                teachers = loaded.filter { !it.keycloakId.isNullOrBlank() }
+                isLoading = false
+            }
+            .onFailure { throwable ->
+                message = throwable.message ?: "Не удалось загрузить преподавателей"
+                isLoading = false
+            }
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White, RoundedCornerShape(18.dp))
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text("Открыть доступ", color = PrimaryText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+            Text("Выберите преподавателя и уровень доступа к текущему журналу.", color = SecondaryText, style = MaterialTheme.typography.bodySmall)
+
+            if (isLoading) {
+                CircularProgressIndicator()
+            } else {
+                Text("Преподаватель", color = PrimaryText, fontWeight = FontWeight.SemiBold)
+                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    teachers.take(6).forEach { teacher ->
+                        SelectRow(
+                            text = teacher.fullName,
+                            selected = selectedTeacher?.id == teacher.id,
+                            onClick = { selectedTeacher = teacher }
                         )
                     }
-                    Text(formatGrade(item.avgGrade), color = PrimaryText, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(32.dp))
+                }
+
+                Text("Уровень доступа", color = PrimaryText, fontWeight = FontWeight.SemiBold)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    SelectRow(
+                        text = "Чтение",
+                        selected = accessLevel == "read",
+                        modifier = Modifier.weight(1f),
+                        onClick = { accessLevel = "read" }
+                    )
+                    SelectRow(
+                        text = "Запись",
+                        selected = accessLevel == "write",
+                        modifier = Modifier.weight(1f),
+                        onClick = { accessLevel = "write" }
+                    )
+                }
+            }
+
+            message?.let { Text(it, color = PrimaryText, style = MaterialTheme.typography.bodySmall) }
+
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "Отмена",
+                    color = SecondaryText,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier
+                        .clickable(onClick = onDismiss)
+                        .padding(12.dp)
+                )
+                Button(
+                    onClick = {
+                        val granteeId = selectedTeacher?.keycloakId
+                        if (target == null || granteeId.isNullOrBlank()) {
+                            message = "Выберите преподавателя"
+                            return@Button
+                        }
+                        scope.launch {
+                            isSaving = true
+                            runCatching {
+                                journalApi.grantJournalAccess(
+                                    GrantJournalAccessRequest(
+                                        granteeId = granteeId,
+                                        disciplineId = target.disciplineId,
+                                        groupId = target.groupId,
+                                        periodId = target.periodId,
+                                        accessLevel = accessLevel
+                                    )
+                                )
+                            }.onSuccess {
+                                isSaving = false
+                                onDismiss()
+                            }.onFailure { throwable ->
+                                message = throwable.message ?: "Не удалось открыть доступ"
+                                isSaving = false
+                            }
+                        }
+                    },
+                    enabled = !isSaving && !isLoading,
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Text(if (isSaving) "Сохранение..." else "Сохранить")
                 }
             }
         }
     }
+}
+
+@Composable
+private fun SelectRow(
+    text: String,
+    selected: Boolean,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Text(
+        text = text,
+        color = PrimaryText,
+        style = MaterialTheme.typography.bodyMedium,
+        modifier = modifier
+            .background(if (selected) AccentBackground else BackgroundColor, RoundedCornerShape(10.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 9.dp)
+    )
 }
 
 @Composable
@@ -345,7 +587,6 @@ private suspend fun buildDashboardState(
     journalApi: JournalApi,
     lessons: List<TeacherLesson>
 ): TeacherDashboardUiState {
-    val uniqueDisciplines = lessons.mapNotNull { lesson -> lesson.disciplineId?.let { it to lesson.disciplineName } }.distinctBy { it.first }
     val defaultLesson = lessons.firstOrNull { it.groupId != null && it.disciplineId != null && it.periodId != null }
     val defaultJournal = defaultLesson?.let { lesson ->
         runCatching {
@@ -356,9 +597,10 @@ private suspend fun buildDashboardState(
             )
         }.getOrNull()
     }
+    val uniqueDisciplines = lessons.mapNotNull { lesson -> lesson.disciplineId?.let { it to lesson.disciplineName } }.distinctBy { it.first }
 
     return TeacherDashboardUiState(
-        teacherName = defaultJournal?.teacher?.fullName,
+        teacherName = defaultJournal?.teacher?.fullName ?: defaultLesson?.teacherName,
         totalStudents = defaultJournal?.students?.size ?: 0,
         totalDisciplines = uniqueDisciplines.size,
         hoursInSchedule = formatHours(lessons.sumOf { lessonDurationMinutes(it) }),
@@ -367,12 +609,19 @@ private suspend fun buildDashboardState(
         analyticsTitle = defaultJournal?.let { "${it.discipline.name} · ${it.group.name}" } ?: "Нет выбранного журнала",
         selectedStudentsCount = defaultJournal?.students?.size ?: 0,
         attendanceByMonth = attendanceByMonth(defaultJournal),
-        groupPerformance = groupPerformance(lessons = lessons, defaultJournal = defaultJournal),
+        disciplines = lessons.mapNotNull { lesson -> lesson.disciplineId?.let { it to lesson.disciplineName } }
+            .distinctBy { it.first }
+            .map { SelectOption(it.first, it.second) },
+        groups = lessons.mapNotNull { lesson -> lesson.groupId?.let { it to lesson.groupName } }
+            .distinctBy { it.first }
+            .map { SelectOption(it.first, it.second) },
+        journalApi = journalApi,
         defaultJournalTarget = defaultLesson?.let {
             TeacherDashboardJournalTarget(
                 groupId = it.groupId.orEmpty(),
                 disciplineId = it.disciplineId.orEmpty(),
                 periodId = it.periodId.orEmpty(),
+                teacherId = it.teacherId,
                 lessonType = it.lessonType
             )
         }
@@ -400,25 +649,6 @@ private fun attendanceByMonth(journal: JournalGridResponse?): List<AttendanceMon
                 percent = if (totalPossible > 0) present * 100 / totalPossible else 0
             )
         }
-}
-
-private fun groupPerformance(lessons: List<TeacherLesson>, defaultJournal: JournalGridResponse?): List<GroupPerformance> {
-    val groupNames = lessons
-        .mapNotNull { lesson -> lesson.groupId?.let { it to lesson.groupName } }
-        .distinctBy { it.first }
-        .map { it.second }
-    val defaultGroup = defaultJournal?.group?.name
-    val defaultAvg = defaultJournal?.grades.orEmpty()
-        .mapNotNull { it.value.toFloatOrNull() }
-        .takeIf { it.isNotEmpty() }
-        ?.average()
-        ?.toFloat()
-    return groupNames.map { groupName ->
-        GroupPerformance(
-            groupName = groupName,
-            avgGrade = if (groupName == defaultGroup && defaultAvg != null) defaultAvg else 0f
-        )
-    }.sortedByDescending { it.avgGrade }
 }
 
 private fun averageGrade(journal: JournalGridResponse?): String {
@@ -457,7 +687,12 @@ private fun monthLabel(date: String): String = runCatching {
     LocalDate.parse(date.take(10)).format(DateTimeFormatter.ofPattern("LLLL", Locale("ru")))
 }.getOrElse { date }
 
-private fun formatGrade(value: Float): String = String.format(Locale.US, "%.1f", value)
+private val lessonTypeOptions = listOf(
+    "practice" to "Практические занятия",
+    "lecture" to "Лекции",
+    "lab" to "Лабораторные работы",
+    "seminar" to "Семинары"
+)
 
 private data class TeacherDashboardUiState(
     val teacherName: String?,
@@ -469,7 +704,9 @@ private data class TeacherDashboardUiState(
     val analyticsTitle: String,
     val selectedStudentsCount: Int,
     val attendanceByMonth: List<AttendanceMonth>,
-    val groupPerformance: List<GroupPerformance>,
+    val disciplines: List<SelectOption>,
+    val groups: List<SelectOption>,
+    val journalApi: JournalApi,
     val defaultJournalTarget: TeacherDashboardJournalTarget?
 )
 
@@ -477,6 +714,7 @@ data class TeacherDashboardJournalTarget(
     val groupId: String,
     val disciplineId: String,
     val periodId: String,
+    val teacherId: String?,
     val lessonType: String
 )
 
@@ -485,7 +723,8 @@ private data class AttendanceMonth(
     val percent: Int
 )
 
-private data class GroupPerformance(
-    val groupName: String,
-    val avgGrade: Float
+private data class SelectOption(
+    val id: String,
+    val name: String
 )
+

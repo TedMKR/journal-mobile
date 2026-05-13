@@ -10,13 +10,20 @@ import com.journal.core.model.teacher.CreateJournalResponse
 import com.journal.core.model.teacher.CreateLessonTemplateBulkRequest
 import com.journal.core.model.teacher.CreateGradeRequest
 import com.journal.core.model.teacher.Discipline
+import com.journal.core.model.teacher.GrantJournalAccessRequest
+import com.journal.core.model.teacher.GroupsPerformanceResponse
+import com.journal.core.model.teacher.JournalAccessGrantResponse
+import com.journal.core.model.teacher.JournalAccessGrantsResponse
 import com.journal.core.model.teacher.JournalGridResponse
+import com.journal.core.model.teacher.JournalsResponse
 import com.journal.core.model.teacher.LessonTemplate
 import com.journal.core.model.teacher.LessonTemplateDetail
 import com.journal.core.model.teacher.LessonsResponse
 import com.journal.core.model.teacher.MarkAttendanceRequest
 import com.journal.core.model.teacher.TeacherProfile
+import com.journal.core.model.teacher.TeacherStats
 import com.journal.core.model.teacher.TopicPayload
+import com.journal.core.model.teacher.AttendanceSummaryResponse
 import com.journal.core.model.teacher.UpdateAssessmentFormRequest
 import com.journal.core.model.teacher.UpdateGradeRequest
 import com.journal.core.model.teacher.UpdateLessonTemplateRequest
@@ -39,18 +46,26 @@ interface JournalApi {
 
     @GET("disciplines")
     suspend fun getDisciplines(
+        @Query("period_id") periodId: String? = null,
+        @Query("teacher_id") teacherId: String? = null,
         @Query("q") query: String? = null,
         @Query("limit") limit: Int = 200
     ): CatalogResponse<Discipline>
 
     @GET("teachers")
     suspend fun getTeachers(
+        @Query("discipline_id") disciplineId: String? = null,
+        @Query("group_id") groupId: String? = null,
+        @Query("period_id") periodId: String? = null,
         @Query("q") query: String? = null,
         @Query("limit") limit: Int = 200
     ): CatalogResponse<TeacherProfile>
 
     @GET("groups")
     suspend fun getGroups(
+        @Query("period_id") periodId: String? = null,
+        @Query("discipline_id") disciplineId: String? = null,
+        @Query("teacher_id") teacherId: String? = null,
         @Query("q") query: String? = null,
         @Query("limit") limit: Int = 200
     ): CatalogResponse<AcademicGroup>
@@ -73,6 +88,8 @@ interface JournalApi {
         @Path("group_id") groupId: String,
         @Query("discipline_id") disciplineId: String,
         @Query("academic_period_id") academicPeriodId: String,
+        @Query("teacher_id") teacherId: String? = null,
+        @Query("lesson_type") lessonType: String? = null,
         @Query("subgroup_id") subgroupId: String? = null,
         @Query("date_from") dateFrom: String? = null,
         @Query("date_to") dateTo: String? = null
@@ -116,6 +133,51 @@ interface JournalApi {
         @Path("lesson_id") lessonId: String,
         @Body request: UpdateLessonTopicDetailsRequest
     )
+
+    @GET("teacher/stats")
+    suspend fun getTeacherStats(): TeacherStats
+
+    @GET("teacher/attendance-summary")
+    suspend fun getAttendanceSummary(
+        @Query("group_id") groupId: String,
+        @Query("discipline_id") disciplineId: String,
+        @Query("period_id") periodId: String? = null
+    ): AttendanceSummaryResponse
+
+    @GET("teacher/groups-performance")
+    suspend fun getGroupsPerformance(
+        @Query("period_id") periodId: String? = null
+    ): GroupsPerformanceResponse
+
+    @GET("journal-access-grants")
+    suspend fun getJournalAccessGrants(
+        @Query("grantee_id") granteeId: String? = null,
+        @Query("granter_id") granterId: String? = null,
+        @Query("discipline_id") disciplineId: String? = null,
+        @Query("group_id") groupId: String? = null,
+        @Query("active_only") activeOnly: Boolean? = null
+    ): JournalAccessGrantsResponse
+
+    @POST("journal-access-grants")
+    suspend fun grantJournalAccess(
+        @Body request: GrantJournalAccessRequest
+    ): JournalAccessGrantResponse
+
+    @DELETE("journal-access-grants/{grant_id}")
+    suspend fun revokeJournalAccessGrant(
+        @Path("grant_id") grantId: String
+    )
+
+    @GET("journals")
+    suspend fun getJournals(
+        @Query("period_id") periodId: String? = null,
+        @Query("discipline_id") disciplineId: String? = null,
+        @Query("group_id") groupId: String? = null,
+        @Query("teacher_id") teacherId: String? = null,
+        @Query("lesson_type") lessonType: String? = null,
+        @Query("limit") limit: Int? = null,
+        @Query("offset") offset: Int? = null
+    ): JournalsResponse
 
     @GET("lesson-templates")
     suspend fun getLessonTemplates(

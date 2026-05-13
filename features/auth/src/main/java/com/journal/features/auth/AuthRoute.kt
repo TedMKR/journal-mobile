@@ -1,6 +1,6 @@
 package com.journal.features.auth
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -10,7 +10,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -28,8 +28,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -38,7 +39,6 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 
-private val BgColor = Color(0xFFEDEEED)
 private val PrimaryText = Color(0xFF223268)
 
 @EntryPoint
@@ -59,30 +59,32 @@ fun AuthRoute(onContinue: (String) -> Unit) {
         AuthRoleEntryPoint::class.java
     )
 
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(BgColor)
-    ) {
-        DecorativeLines(modifier = Modifier.align(Alignment.TopCenter))
-        DecorativeLines(modifier = Modifier.align(Alignment.BottomCenter))
+    Box(modifier = Modifier.fillMaxSize()) {
+        Image(
+            painter = painterResource(id = R.drawable.background),
+            contentDescription = null,
+            modifier = Modifier.fillMaxSize(),
+            contentScale = ContentScale.Crop
+        )
 
         Card(
             modifier = Modifier
                 .align(Alignment.Center)
                 .fillMaxWidth(0.78f),
             shape = RoundedCornerShape(20.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF7F7F7))
+            colors = CardDefaults.cardColors(containerColor = Color.White)
         ) {
             Column(
                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "Вход в систему",
-                    color = PrimaryText,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.SemiBold
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = "Логотип",
+                    modifier = Modifier
+                        .align(Alignment.CenterHorizontally)
+                        .size(width = 190.dp, height = 74.dp),
+                    contentScale = ContentScale.Fit
                 )
 
                 OutlinedTextField(
@@ -152,24 +154,3 @@ private fun RoleChip(text: String, selected: Boolean, onClick: () -> Unit) {
     )
 }
 
-@Composable
-private fun DecorativeLines(modifier: Modifier = Modifier) {
-    Canvas(
-        modifier = modifier
-            .fillMaxWidth()
-            .height(180.dp)
-    ) {
-        val stroke = 1f
-        val color = PrimaryText.copy(alpha = 0.35f)
-        var y = -size.height * 0.3f
-        while (y < size.height * 1.3f) {
-            drawLine(
-                color = color,
-                start = Offset(0f, y),
-                end = Offset(size.width, y + size.height * 0.5f),
-                strokeWidth = stroke
-            )
-            y += 6f
-        }
-    }
-}
