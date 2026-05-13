@@ -361,7 +361,11 @@ private fun AnalysisSelect(
                     modifier = Modifier.size(width = 13.dp, height = 9.dp)
                 )
             }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.background(Color.White)
+            ) {
                 options.forEach { (value, title) ->
                     DropdownMenuItem(
                         text = { Text(title, color = PrimaryText) },

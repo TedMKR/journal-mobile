@@ -212,48 +212,37 @@ fun MethodistTemplatesRoute(
         title = "КТП шаблоны",
         actions = {
             PrimaryButton(text = "Добавить КТП", onClick = { showCreateDialog = true })
-        }
+        },
+        useContentCard = false
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            MessageCards(error = error, success = success)
-            OutlinedTextField(
-                value = search,
-                onValueChange = { search = it },
-                label = { Text("Поиск: название, дисциплина, описание") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            CompactOptionFilter(
-                label = "Дисциплина",
-                options = listOf("" to "Все дисциплины") + disciplines.map { it.id to it.name },
-                selected = selectedDisciplineId,
-                onSelected = {
+            TemplateListBlock(
+                error = error,
+                success = success,
+                search = search,
+                onSearchChange = { search = it },
+                disciplines = disciplines,
+                selectedDisciplineId = selectedDisciplineId,
+                onDisciplineSelected = {
                     selectedDisciplineId = it
                     loadTemplates()
-                }
-            )
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(text = "Архив", selected = includeArchived) {
+                },
+                includeArchived = includeArchived,
+                onToggleArchived = {
                     includeArchived = !includeArchived
                     loadTemplates()
+                },
+                isLoading = isLoading,
+                templates = filteredTemplates,
+                selectedTemplateId = selectedTemplate?.id,
+                onOpenTemplate = { template ->
+                    scope.launch {
+                        runCatching { journalApi.getLessonTemplate(template.id) }
+                            .onSuccess { selectedTemplate = it }
+                            .onFailure { error = it.message ?: "Не удалось открыть КТП" }
+                    }
                 }
-            }
-            when {
-                isLoading -> LoadingCard("Загрузка шаблонов...")
-                filteredTemplates.isEmpty() -> StateCard("КТП не найдены")
-                else -> filteredTemplates.forEach { template ->
-                    TemplateCard(
-                        template = template,
-                        selected = selectedTemplate?.id == template.id,
-                        onClick = {
-                            scope.launch {
-                                runCatching { journalApi.getLessonTemplate(template.id) }
-                                    .onSuccess { selectedTemplate = it }
-                                    .onFailure { error = it.message ?: "Не удалось открыть КТП" }
-                            }
-                        }
-                    )
-                }
-            }
+            )
             selectedTemplate?.let { detail ->
                 TemplateEditorCard(
                     detail = detail,
@@ -455,6 +444,7 @@ private fun MethodologistScaffold(
     subtitle: String? = null,
     onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
+    useContentCard: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(
@@ -489,14 +479,22 @@ private fun MethodologistScaffold(
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), content = actions)
         }
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(CardBackground, RoundedCornerShape(20.dp))
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            content = content
-        )
+        if (useContentCard) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(CardBackground, RoundedCornerShape(20.dp))
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                content = content
+            )
+        } else {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                content = content
+            )
+        }
     }
 }
 
@@ -594,7 +592,11 @@ private fun CompactOptionFilter(
                     modifier = Modifier.size(width = 13.dp, height = 9.dp)
                 )
             }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.background(Color.White)
+            ) {
                 options.forEach { option ->
                     DropdownMenuItem(
                         text = { Text(option.second, color = PrimaryText, maxLines = 1, overflow = TextOverflow.Ellipsis) },
@@ -604,6 +606,60 @@ private fun CompactOptionFilter(
                         }
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TemplateListBlock(
+    error: String?,
+    success: String?,
+    search: String,
+    onSearchChange: (String) -> Unit,
+    disciplines: List<Discipline>,
+    selectedDisciplineId: String,
+    onDisciplineSelected: (String) -> Unit,
+    includeArchived: Boolean,
+    onToggleArchived: () -> Unit,
+    isLoading: Boolean,
+    templates: List<LessonTemplate>,
+    selectedTemplateId: String?,
+    onOpenTemplate: (LessonTemplate) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground, RoundedCornerShape(20.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("Список КТП", color = PrimaryText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        MessageCards(error = error, success = success)
+        OutlinedTextField(
+            value = search,
+            onValueChange = onSearchChange,
+            label = { Text("Поиск: название, дисциплина, описание") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        CompactOptionFilter(
+            label = "Дисциплина",
+            options = listOf("" to "Все дисциплины") + disciplines.map { it.id to it.name },
+            selected = selectedDisciplineId,
+            onSelected = onDisciplineSelected
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(text = "Архив", selected = includeArchived, onClick = onToggleArchived)
+        }
+        when {
+            isLoading -> LoadingCard("Загрузка шаблонов...")
+            templates.isEmpty() -> StateCard("КТП не найдены")
+            else -> templates.forEach { template ->
+                TemplateCard(
+                    template = template,
+                    selected = selectedTemplateId == template.id,
+                    onClick = { onOpenTemplate(template) }
+                )
             }
         }
     }
@@ -667,11 +723,11 @@ private fun TemplateEditorCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(16.dp))
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .background(CardBackground, RoundedCornerShape(20.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Редактирование", color = PrimaryText, fontWeight = FontWeight.Bold)
+        Text("Редактирование шаблона", color = PrimaryText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Название") }, modifier = Modifier.fillMaxWidth())
         OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Описание") }, modifier = Modifier.fillMaxWidth())
         TopicsEditor(topics = topics, onTopicsChange = { topics = it })
