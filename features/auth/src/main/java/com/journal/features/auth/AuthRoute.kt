@@ -123,7 +123,7 @@ fun AuthRoute(onContinue: (String) -> Unit) {
                     contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryText)
                 ) {
-                    Text("Войти")
+                    Text("Войти", color = Color.White)
                 }
 
                 Text(
