@@ -61,7 +61,7 @@ fun AuthRoute(onContinue: (String) -> Unit) {
 
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
-            painter = painterResource(id = R.drawable.background),
+            painter = painterResource(id = R.drawable.auth_white_section_background),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
@@ -79,7 +79,7 @@ fun AuthRoute(onContinue: (String) -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Image(
-                    painter = painterResource(id = R.drawable.logo),
+                    painter = painterResource(id = R.drawable.auth_logo),
                     contentDescription = "Логотип",
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
