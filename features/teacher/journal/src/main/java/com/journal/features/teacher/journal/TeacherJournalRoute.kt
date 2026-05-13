@@ -30,6 +30,7 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,6 +48,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import com.journal.core.model.teacher.CreateAssessmentFormRequest
 import com.journal.core.model.teacher.CreateGradeRequest
@@ -802,55 +804,178 @@ private fun AssessmentDialog(
         }
     }
 
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (state.form == null) "Добавить контроль" else "Редактировать контроль") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                OutlinedTextField(value = title, onValueChange = { title = it }, label = { Text("Название работы") })
-                Text("Тип контроля", color = PrimaryText, fontWeight = FontWeight.SemiBold)
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White, RoundedCornerShape(16.dp))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Text(
+                text = if (state.form == null) "Добавить контроль" else "Редактировать контроль",
+                color = Color(0xFF111827),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+
+            WebFormField(label = "Название работы") {
+                WebOutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    placeholder = "Например: Лабораторная работа №1"
+                )
+            }
+
+            WebFormField(label = "Тип контроля") {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("exam", "quiz", "homework", "project").forEach { option ->
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(if (type == option) AccentBlue else HeaderBackground, RoundedCornerShape(10.dp))
-                                .clickable { type = option }
-                                .padding(horizontal = 10.dp, vertical = 8.dp)
-                        ) {
-                            Text(formTypeName(option), color = if (type == option) Color.White else PrimaryText)
-                        }
+                        WebSelectOption(
+                            text = formTypeName(option),
+                            selected = type == option,
+                            onClick = { type = option }
+                        )
                     }
                 }
+            }
+
+            WebFormField(label = "Дата проведения") {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    OutlinedTextField(
+                    WebOutlinedTextField(
                         value = date,
-                        onValueChange = { date = it },
-                        label = { Text("Дата") },
+                        onValueChange = {},
                         readOnly = true,
+                        placeholder = "YYYY-MM-DD",
                         modifier = Modifier.weight(1f)
                     )
-                    DialogPrimaryButton(text = "Выбрать", onClick = { showDatePicker = true })
-                }
-                state.form?.let { form ->
-                    TextButton(onClick = { onDelete(form) }) {
-                        Text("Удалить контроль", color = DangerColor, fontWeight = FontWeight.SemiBold)
-                    }
+                    WebSecondaryButton(text = "Выбрать", onClick = { showDatePicker = true })
                 }
             }
-        },
-        confirmButton = {
-            DialogPrimaryButton(
-                text = "Сохранить",
-                enabled = title.isNotBlank() && date.isNotBlank(),
-                onClick = { onSave(title.trim(), type, date.trim()) }
-            )
-        },
-        dismissButton = { DialogTextButton(text = "Отмена", onClick = onDismiss) }
+
+            state.form?.let { form ->
+                TextButton(onClick = { onDelete(form) }) {
+                    Text("Удалить контроль", color = DangerColor, fontWeight = FontWeight.SemiBold)
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End
+            ) {
+                WebSecondaryButton(text = "Отмена", onClick = onDismiss)
+                WebPrimaryButton(
+                    text = "Сохранить",
+                    enabled = title.isNotBlank() && date.isNotBlank(),
+                    onClick = { onSave(title.trim(), type, date.trim()) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WebFormField(
+    label: String,
+    content: @Composable () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            text = label,
+            color = Color(0xFF374151),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = FontWeight.SemiBold
+        )
+        content()
+    }
+}
+
+@Composable
+private fun WebOutlinedTextField(
+    value: String,
+    onValueChange: (String) -> Unit,
+    placeholder: String,
+    modifier: Modifier = Modifier,
+    readOnly: Boolean = false
+) {
+    OutlinedTextField(
+        value = value,
+        onValueChange = onValueChange,
+        readOnly = readOnly,
+        singleLine = true,
+        placeholder = { Text(placeholder, color = Color(0xFF9CA3AF)) },
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = Color(0xFF111827),
+            unfocusedTextColor = Color(0xFF111827),
+            focusedContainerColor = Color.White,
+            unfocusedContainerColor = Color.White,
+            focusedBorderColor = Color(0xFF223268),
+            unfocusedBorderColor = Color(0xFFD1D5DB),
+            cursorColor = Color(0xFF223268)
+        ),
+        modifier = modifier.fillMaxWidth()
     )
+}
+
+@Composable
+private fun WebSelectOption(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(if (selected) Color(0xFFE8ECF8) else Color.White, RoundedCornerShape(8.dp))
+            .border(1.dp, if (selected) AccentBlue else Color(0xFFD1D5DB), RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 12.dp, vertical = 10.dp)
+    ) {
+        Text(
+            text = text,
+            color = Color(0xFF111827),
+            style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+        )
+    }
+}
+
+@Composable
+private fun WebPrimaryButton(
+    text: String,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    Button(
+        onClick = onClick,
+        enabled = enabled,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = AccentBlue,
+            contentColor = Color.White,
+            disabledContainerColor = Color(0xFFCBD5E1),
+            disabledContentColor = Color.White
+        ),
+        shape = RoundedCornerShape(8.dp),
+        modifier = Modifier.padding(start = 8.dp)
+    ) {
+        Text(text)
+    }
+}
+
+@Composable
+private fun WebSecondaryButton(text: String, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = Color(0xFFE5E7EB),
+            contentColor = Color(0xFF374151)
+        ),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Text(text)
+    }
 }
 
 @Composable

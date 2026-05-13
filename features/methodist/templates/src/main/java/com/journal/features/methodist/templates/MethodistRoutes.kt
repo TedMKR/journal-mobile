@@ -18,7 +18,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -38,6 +37,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriod
@@ -582,35 +582,102 @@ private fun TemplateCreateDialog(
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var topics by remember { mutableStateOf(listOf(TopicDraft.local(1))) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text("Новый КТП") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.verticalScroll(rememberScrollState())) {
-                SelectCard("Дисциплина", disciplines.map { it.id to it.name }, disciplineId) { disciplineId = it }
-                OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Название") }, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Описание") }, modifier = Modifier.fillMaxWidth())
-                TopicsEditor(topics = topics, onTopicsChange = { topics = it })
+
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White, RoundedCornerShape(20.dp))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Создание", color = SecondaryText, style = MaterialTheme.typography.labelMedium)
+                    Text("Новый КТП", color = PrimaryText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                }
+                Text(
+                    text = "×",
+                    color = SecondaryText,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.clickable(onClick = onDismiss)
+                )
             }
-        },
-        confirmButton = {
-            PrimaryButton(
-                text = if (saving) "Создаю..." else "Создать",
-                enabled = !saving && disciplineId.isNotBlank() && name.isNotBlank() && topics.any { it.name.isNotBlank() },
-                onClick = {
-                    onCreate(
-                        disciplineId,
-                        name.trim(),
-                        description.trim().ifBlank { null },
-                        topics.filter { it.name.isNotBlank() }.mapIndexed { index, topic ->
-                            TopicPayload(topic.name.trim(), topic.description.trim().ifBlank { null }, topic.lessonCount, index + 1)
-                        }
+
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                WebFormField(label = "Дисциплина") {
+                    SelectCard("", disciplines.map { it.id to it.name }, disciplineId) { disciplineId = it }
+                }
+                WebFormField(label = "Название") {
+                    OutlinedTextField(
+                        value = name,
+                        onValueChange = { name = it },
+                        placeholder = { Text("КТП по дисциплине") },
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
-            )
-        },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
-    )
+                WebFormField(label = "Описание") {
+                    OutlinedTextField(
+                        value = description,
+                        onValueChange = { description = it },
+                        placeholder = { Text("Семестр, поток, комментарии") },
+                        minLines = 3,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+                TopicsEditor(topics = topics, onTopicsChange = { topics = it })
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TextButton(onClick = {
+                    disciplineId = disciplines.firstOrNull()?.id.orEmpty()
+                    name = ""
+                    description = ""
+                    topics = listOf(TopicDraft.local(1))
+                }) {
+                    Text("Очистить", color = AccentBlue, fontWeight = FontWeight.SemiBold)
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Отмена", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                }
+                PrimaryButton(
+                    text = if (saving) "Создание..." else "Создать КТП",
+                    enabled = !saving && disciplineId.isNotBlank() && name.isNotBlank() && topics.any { it.name.isNotBlank() },
+                    onClick = {
+                        onCreate(
+                            disciplineId,
+                            name.trim(),
+                            description.trim().ifBlank { null },
+                            topics.filter { it.name.isNotBlank() }.mapIndexed { index, topic ->
+                                TopicPayload(topic.name.trim(), topic.description.trim().ifBlank { null }, topic.lessonCount, index + 1)
+                            }
+                        )
+                    }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun WebFormField(label: String, content: @Composable () -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, color = PrimaryText, fontWeight = FontWeight.SemiBold)
+        content()
+    }
 }
 
 @Composable
