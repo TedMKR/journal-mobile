@@ -751,7 +751,8 @@ private fun TemplateCreateDialog(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White, RoundedCornerShape(20.dp))
-                .padding(20.dp),
+                .padding(20.dp)
+                .verticalScroll(rememberScrollState()),  // ← Только скролл, без fillMaxHeight
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
             Row(
@@ -771,36 +772,29 @@ private fun TemplateCreateDialog(
                 )
             }
 
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(14.dp)
-            ) {
-                WebFormField(label = "Дисциплина") {
-                    SelectCard("", disciplines.map { it.id to it.name }, disciplineId) { disciplineId = it }
-                }
-                WebFormField(label = "Название") {
-                    OutlinedTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        placeholder = { Text("КТП по дисциплине") },
-                        textStyle = LocalTextStyle.current.copy(color = Color.Black),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                WebFormField(label = "Описание") {
-                    OutlinedTextField(
-                        value = description,
-                        onValueChange = { description = it },
-                        placeholder = { Text("Семестр, поток, комментарии") },
-                        minLines = 3,
-                        textStyle = LocalTextStyle.current.copy(color = Color.Black),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                TopicsEditor(topics = topics, onTopicsChange = { topics = it })
+            WebFormField(label = "Дисциплина") {
+                SelectCard("", disciplines.map { it.id to it.name }, disciplineId) { disciplineId = it }
             }
+            WebFormField(label = "Название") {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    placeholder = { Text("КТП по дисциплине") },
+                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            WebFormField(label = "Описание") {
+                OutlinedTextField(
+                    value = description,
+                    onValueChange = { description = it },
+                    placeholder = { Text("Семестр, поток, комментарии") },
+                    minLines = 3,
+                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            TopicsEditor(topics = topics, onTopicsChange = { topics = it })
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
