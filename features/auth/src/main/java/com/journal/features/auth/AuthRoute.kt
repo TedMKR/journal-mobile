@@ -107,6 +107,7 @@ fun AuthRoute(onContinue: (String) -> Unit) {
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     RoleChip("teacher", selectedRole == "teacher") { selectedRole = "teacher" }
+                    RoleChip("student", selectedRole == "student") { selectedRole = "student" }
                     RoleChip("methodologist", selectedRole == "methodologist") { selectedRole = "methodologist" }
                 }
 

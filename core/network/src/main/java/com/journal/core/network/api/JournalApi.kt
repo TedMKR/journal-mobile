@@ -20,6 +20,10 @@ import com.journal.core.model.teacher.LessonTemplate
 import com.journal.core.model.teacher.LessonTemplateDetail
 import com.journal.core.model.teacher.LessonsResponse
 import com.journal.core.model.teacher.MarkAttendanceRequest
+import com.journal.core.model.teacher.StudentJournalData
+import com.journal.core.model.teacher.StudentLessonsResponse
+import com.journal.core.model.teacher.StudentProfile
+import com.journal.core.model.teacher.StudentSubjectsResponse
 import com.journal.core.model.teacher.TeacherProfile
 import com.journal.core.model.teacher.TeacherStats
 import com.journal.core.model.teacher.TopicPayload
@@ -38,6 +42,29 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface JournalApi {
+
+    @GET("students/me")
+    suspend fun getStudentProfile(): StudentProfile
+
+    @GET("students/me/lessons")
+    suspend fun getStudentLessons(
+        @Query("date_from") dateFrom: String? = null,
+        @Query("date_to") dateTo: String? = null,
+        @Query("limit") limit: Int = 200
+    ): StudentLessonsResponse
+
+    @GET("students/me/subjects")
+    suspend fun getStudentSubjects(
+        @Query("period_id") periodId: String? = null
+    ): StudentSubjectsResponse
+
+    @GET("students/me/journal")
+    suspend fun getStudentJournal(
+        @Query("discipline_id") disciplineId: String,
+        @Query("academic_period_id") academicPeriodId: String,
+        @Query("date_from") dateFrom: String? = null,
+        @Query("date_to") dateTo: String? = null
+    ): StudentJournalData
 
     @GET("academic-periods")
     suspend fun getAcademicPeriods(

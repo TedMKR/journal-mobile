@@ -36,6 +36,8 @@ import com.journal.features.auth.AuthRoute
 import com.journal.features.methodist.templates.MethodistJournalCreateRoute
 import com.journal.features.methodist.templates.MethodistJournalsRoute
 import com.journal.features.methodist.templates.MethodistTemplatesRoute
+import com.journal.features.student.home.StudentDashboardRoute
+import com.journal.features.student.home.StudentScheduleRoute
 import com.journal.features.teacher.dashboard.TeacherDashboardRoute
 import com.journal.features.teacher.home.TeacherHomeRoute
 import com.journal.features.teacher.journal.TeacherJournalRoute
@@ -62,7 +64,12 @@ fun JournalNavHost(journalApi: JournalApi) {
             composable(Routes.AUTH) {
                 AuthRoute { selectedRole ->
                     role = selectedRole
-                    navController.navigate(if (selectedRole == "methodologist") Routes.METHODIST_JOURNALS else Routes.TEACHER_HOME)
+                    val startRoute = when (selectedRole) {
+                        "methodologist" -> Routes.METHODIST_JOURNALS
+                        "student" -> Routes.STUDENT_SCHEDULE
+                        else -> Routes.TEACHER_HOME
+                    }
+                    navController.navigate(startRoute)
                 }
             }
             composable(Routes.TEACHER_HOME) {
@@ -104,6 +111,15 @@ fun JournalNavHost(journalApi: JournalApi) {
             }
             composable(Routes.TEACHER_VED) {
                 TeacherVedRoute(onBack = { navController.popBackStack() })
+            }
+            composable(Routes.STUDENT_SCHEDULE) {
+                StudentScheduleRoute(journalApi = journalApi)
+            }
+            composable(Routes.STUDENT_DASHBOARD) {
+                StudentDashboardRoute(
+                    journalApi = journalApi,
+                    onBack = { navController.popBackStack() }
+                )
             }
             composable(Routes.METHODIST_JOURNALS) {
                 MethodistJournalsRoute(
@@ -270,7 +286,14 @@ private fun RightSideMenu(
             ) {
                 Column {
                     Text("Меню", color = MenuPrimary, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text(if (role == "methodologist") "Методист" else "Преподаватель", color = MenuPrimary.copy(alpha = 0.65f))
+                    Text(
+                        when (role) {
+                            "methodologist" -> "Методист"
+                            "student" -> "Студент"
+                            else -> "Преподаватель"
+                        },
+                        color = MenuPrimary.copy(alpha = 0.65f)
+                    )
                 }
                 Text(
                     text = "×",
@@ -282,13 +305,16 @@ private fun RightSideMenu(
                 )
             }
 
-            val items = if (role == "methodologist") {
-                listOf(
+            val items = when (role) {
+                "methodologist" -> listOf(
                     MenuItem("Журналы", Routes.METHODIST_JOURNALS),
                     MenuItem("КТП", Routes.METHODIST_TEMPLATES)
                 )
-            } else {
-                listOf(
+                "student" -> listOf(
+                    MenuItem("Расписание", Routes.STUDENT_SCHEDULE),
+                    MenuItem("Личный кабинет", Routes.STUDENT_DASHBOARD)
+                )
+                else -> listOf(
                     MenuItem("Главная", Routes.TEACHER_HOME),
                     MenuItem("Личный кабинет", Routes.TEACHER_DASHBOARD),
                     MenuItem("Ведомости", Routes.TEACHER_VED)
