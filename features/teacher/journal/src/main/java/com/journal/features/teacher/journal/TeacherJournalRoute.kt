@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -18,9 +19,10 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -139,6 +141,7 @@ fun TeacherJournalRoute(
     }
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun JournalContent(
     journal: JournalGridResponse,
@@ -152,6 +155,10 @@ private fun JournalContent(
     var currentType by remember(selectedLessonType) { mutableStateOf(selectedLessonType.ifBlank { journal.lessons.firstOrNull()?.lessonType.orEmpty() }) }
     var assessmentDialog by remember { mutableStateOf<AssessmentEditState?>(null) }
     var deleteAssessmentDialog by remember { mutableStateOf<JournalGridAssessmentForm?>(null) }
+    var attendanceDialog by remember { mutableStateOf<AttendanceEditState?>(null) }
+    var gradeDialog by remember { mutableStateOf<GradeEditState?>(null) }
+    var topicDialog by remember { mutableStateOf<TopicEditState?>(null) }
+    val horizontalScroll = rememberScrollState()
 
     val availableTypes = journal.lessons.map { it.lessonType }.distinct().ifEmpty { listOf(currentType) }.filter { it.isNotBlank() }
     val filteredLessons = journal.lessons
@@ -160,54 +167,94 @@ private fun JournalContent(
     val visibleAttendance = journal.attendance.filter { attendance -> filteredLessons.any { it.lessonId == attendance.lessonId } }
     val sortedAssessmentForms = journal.assessmentForms.sortedBy { it.date }
     val showGrades = currentType != "lecture"
-    val canEditAssessments = showGrades && journal.permissions.canEditGrades && !journal.academicPeriod.isClosed
+    val visibleForms = if (showGrades) sortedAssessmentForms else emptyList()
+    val canEditAttendance = journal.permissions.canEditAttendance && !journal.academicPeriod.isClosed
+    val canEditGrades = journal.permissions.canEditGrades && !journal.academicPeriod.isClosed
+    val canEditAssessments = showGrades && canEditGrades
 
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        JournalHeader(journal = journal, currentType = currentType)
-        LessonTypeTabs(types = availableTypes, selectedType = currentType, onSelect = { currentType = it })
-        JournalActions(
-            canEditAssessments = canEditAssessments,
-            onExport = {
-                shareJournalCsv(
-                    context = context,
-                    journal = journal,
-                    lessons = filteredLessons,
-                    attendance = visibleAttendance,
-                    assessmentForms = sortedAssessmentForms,
-                    grades = journal.grades,
-                    showGrades = showGrades
-                )
-            },
-            onAddAssessment = {
-                assessmentDialog = AssessmentEditState(
-                    form = null,
-                    initialTitle = "",
-                    initialType = "quiz",
-                    initialDate = LocalDate.now().toString()
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item { JournalHeader(journal = journal, currentType = currentType) }
+        item { LessonTypeTabs(types = availableTypes, selectedType = currentType, onSelect = { currentType = it }) }
+        item {
+            JournalActions(
+                canEditAssessments = canEditAssessments,
+                onExport = {
+                    shareJournalCsv(
+                        context = context,
+                        journal = journal,
+                        lessons = filteredLessons,
+                        attendance = visibleAttendance,
+                        assessmentForms = sortedAssessmentForms,
+                        grades = journal.grades,
+                        showGrades = showGrades
+                    )
+                },
+                onAddAssessment = {
+                    assessmentDialog = AssessmentEditState(
+                        form = null,
+                        initialTitle = "",
+                        initialType = "quiz",
+                        initialDate = LocalDate.now().toString()
+                    )
+                }
+            )
+        }
+        item { JournalTableTop() }
+        stickyHeader {
+            JournalStickyTableHeader(
+                horizontalScroll = horizontalScroll,
+                lessons = filteredLessons,
+                assessmentForms = visibleForms,
+                canEditGrades = canEditGrades,
+                onLessonClick = { lesson -> topicDialog = TopicEditState(lesson) },
+                onEditAssessment = { form ->
+                    assessmentDialog = AssessmentEditState(
+                        form = form,
+                        initialTitle = form.title,
+                        initialType = form.type,
+                        initialDate = formatApiDate(form.date)
+                    )
+                }
+            )
+        }
+        itemsIndexed(journal.students) { index, student ->
+            val studentAttendance = visibleAttendance.filter { it.studentId == student.studentId }
+            val studentGrades = journal.grades.filter { it.studentId == student.studentId }
+            JournalTableStudentItem(
+                horizontalScroll = horizontalScroll,
+                index = index + 1,
+                student = student,
+                lessons = filteredLessons,
+                attendance = studentAttendance,
+                assessmentForms = visibleForms,
+                grades = studentGrades,
+                canEditAttendance = canEditAttendance,
+                canEditGrades = canEditGrades,
+                onOpenStudentCard = onOpenStudentCard,
+                onAttendanceClick = { lesson, record ->
+                    if (canEditAttendance) attendanceDialog = AttendanceEditState(student, lesson, record)
+                },
+                onGradeClick = { form, grade ->
+                    if (canEditGrades) gradeDialog = GradeEditState(student, form, grade)
+                }
+            )
+        }
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(CardBackground, RoundedCornerShape(bottomStart = 18.dp, bottomEnd = 18.dp))
+                    .padding(horizontal = 8.dp, vertical = 8.dp)
+            ) {
+                HorizontalScrollIndicator(
+                    scrollValue = horizontalScroll.value,
+                    maxValue = horizontalScroll.maxValue
                 )
             }
-        )
-        JournalTable(
-            students = journal.students,
-            lessons = filteredLessons,
-            attendance = visibleAttendance,
-            assessmentForms = sortedAssessmentForms,
-            grades = journal.grades,
-            canEditAttendance = journal.permissions.canEditAttendance && !journal.academicPeriod.isClosed,
-            canEditGrades = journal.permissions.canEditGrades && !journal.academicPeriod.isClosed,
-            showGrades = showGrades,
-            journalApi = journalApi,
-            onOpenStudentCard = onOpenStudentCard,
-            onEditAssessment = { form ->
-                assessmentDialog = AssessmentEditState(
-                    form = form,
-                    initialTitle = form.title,
-                    initialType = form.type,
-                    initialDate = formatApiDate(form.date)
-                )
-            },
-            onRefresh = onRefresh
-        )
+        }
     }
 
     assessmentDialog?.let { state ->
@@ -265,158 +312,6 @@ private fun JournalContent(
                     }
                 }
             }
-        )
-    }
-}
-
-@Composable
-private fun JournalHeader(journal: JournalGridResponse, currentType: String) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(18.dp))
-            .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        Text(
-            text = journal.discipline.name,
-            color = PrimaryText,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
-        Tag(journal.group.name)
-        Tag(journal.academicPeriod.name)
-        Tag(lessonTypeName(currentType))
-    }
-}
-
-@Composable
-private fun LessonTypeTabs(types: List<String>, selectedType: String, onSelect: (String) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-        types.forEach { type ->
-            val selected = type == selectedType
-            Box(
-                modifier = Modifier
-                    .background(if (selected) AccentBlue else CardBackground, RoundedCornerShape(14.dp))
-                    .clickable { onSelect(type) }
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
-            ) {
-                Text(
-                    text = lessonTypeName(type),
-                    color = if (selected) Color.White else PrimaryText,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun JournalActions(
-    canEditAssessments: Boolean,
-    onExport: () -> Unit,
-    onAddAssessment: () -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        JournalActionButton(text = "Экспорт", onClick = onExport)
-        if (canEditAssessments) {
-            JournalActionButton(text = "Добавить контроль", onClick = onAddAssessment)
-        }
-    }
-}
-
-@Composable
-private fun JournalActionButton(text: String, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = AccentBlue,
-            contentColor = Color.White
-        )
-    ) {
-        Text(text, fontWeight = FontWeight.SemiBold)
-    }
-}
-
-@Composable
-private fun JournalTable(
-    students: List<JournalGridStudent>,
-    lessons: List<JournalGridLesson>,
-    attendance: List<JournalGridAttendance>,
-    assessmentForms: List<JournalGridAssessmentForm>,
-    grades: List<JournalGridGrade>,
-    canEditAttendance: Boolean,
-    canEditGrades: Boolean,
-    showGrades: Boolean,
-    journalApi: JournalApi,
-    onOpenStudentCard: (String) -> Unit,
-    onEditAssessment: (JournalGridAssessmentForm) -> Unit,
-    onRefresh: () -> Unit
-) {
-    val horizontalScroll = rememberScrollState()
-    val verticalScroll = rememberScrollState()
-    val scope = rememberCoroutineScope()
-    var attendanceDialog by remember { mutableStateOf<AttendanceEditState?>(null) }
-    var gradeDialog by remember { mutableStateOf<GradeEditState?>(null) }
-    var topicDialog by remember { mutableStateOf<TopicEditState?>(null) }
-    val visibleForms = if (showGrades) assessmentForms else emptyList()
-
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(18.dp))
-            .padding(8.dp)
-    ) {
-        Box {
-            Column(modifier = Modifier.horizontalScroll(horizontalScroll)) {
-                JournalTableHeader(
-                    lessons = lessons,
-                    assessmentForms = visibleForms,
-                    canEditGrades = canEditGrades,
-                    onLessonClick = { lesson -> topicDialog = TopicEditState(lesson) },
-                    onEditAssessment = onEditAssessment
-                )
-                Column(
-                    modifier = Modifier
-                        .height(290.dp)
-                        .verticalScroll(verticalScroll)
-                ) {
-                    students.forEachIndexed { index, student ->
-                        val studentAttendance = attendance.filter { it.studentId == student.studentId }
-                        val studentGrades = grades.filter { it.studentId == student.studentId }
-                        JournalStudentRow(
-                            index = index + 1,
-                            student = student,
-                            lessons = lessons,
-                            attendance = studentAttendance,
-                            assessmentForms = visibleForms,
-                            grades = studentGrades,
-                            canEditAttendance = canEditAttendance,
-                            canEditGrades = canEditGrades,
-                            onOpenStudentCard = onOpenStudentCard,
-                            onAttendanceClick = { lesson, record ->
-                                if (canEditAttendance) attendanceDialog = AttendanceEditState(student, lesson, record)
-                            },
-                            onGradeClick = { form, grade ->
-                                if (canEditGrades) gradeDialog = GradeEditState(student, form, grade)
-                            }
-                        )
-                    }
-                }
-            }
-            VerticalScrollIndicator(
-                scrollValue = verticalScroll.value,
-                maxValue = verticalScroll.maxValue,
-                modifier = Modifier.align(Alignment.CenterEnd)
-            )
-        }
-        HorizontalScrollIndicator(
-            scrollValue = horizontalScroll.value,
-            maxValue = horizontalScroll.maxValue
         )
     }
 
@@ -500,6 +395,79 @@ private fun JournalTable(
 }
 
 @Composable
+private fun JournalHeader(journal: JournalGridResponse, currentType: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground, RoundedCornerShape(18.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(
+            text = journal.discipline.name,
+            color = PrimaryText,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Tag(journal.group.name)
+        Tag(journal.academicPeriod.name)
+        Tag(lessonTypeName(currentType))
+    }
+}
+
+@Composable
+private fun LessonTypeTabs(types: List<String>, selectedType: String, onSelect: (String) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
+        types.forEach { type ->
+            val selected = type == selectedType
+            Box(
+                modifier = Modifier
+                    .background(if (selected) AccentBlue else CardBackground, RoundedCornerShape(14.dp))
+                    .clickable { onSelect(type) }
+                    .padding(horizontal = 14.dp, vertical = 8.dp)
+            ) {
+                Text(
+                    text = lessonTypeName(type),
+                    color = if (selected) Color.White else PrimaryText,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun JournalActions(
+    canEditAssessments: Boolean,
+    onExport: () -> Unit,
+    onAddAssessment: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        JournalActionButton(text = "Экспорт", onClick = onExport)
+        if (canEditAssessments) {
+            JournalActionButton(text = "Добавить контроль", onClick = onAddAssessment)
+        }
+    }
+}
+
+@Composable
+private fun JournalActionButton(text: String, onClick: () -> Unit) {
+    Button(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = AccentBlue,
+            contentColor = Color.White
+        )
+    ) {
+        Text(text, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@Composable
 private fun HorizontalScrollIndicator(scrollValue: Int, maxValue: Int) {
     Box(
         modifier = Modifier
@@ -519,21 +487,80 @@ private fun HorizontalScrollIndicator(scrollValue: Int, maxValue: Int) {
 }
 
 @Composable
-private fun VerticalScrollIndicator(scrollValue: Int, maxValue: Int, modifier: Modifier = Modifier) {
+private fun JournalTableTop() {
     Box(
-        modifier = modifier
-            .width(8.dp)
-            .height(350.dp)
-            .background(HeaderBackground, RoundedCornerShape(8.dp))
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground, RoundedCornerShape(topStart = 18.dp, topEnd = 18.dp))
+            .padding(horizontal = 8.dp, vertical = 8.dp)
     ) {
-        val progress = if (maxValue > 0) scrollValue.toFloat() / maxValue.toFloat() else 0f
-        Box(
-            modifier = Modifier
-                .width(8.dp)
-                .height(if (maxValue > 0) 70.dp else 350.dp)
-                .offset(y = (280 * progress).dp)
-                .background(AccentBlue, RoundedCornerShape(8.dp))
-        )
+        Text("Таблица журнала", color = PrimaryText, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun JournalStickyTableHeader(
+    horizontalScroll: ScrollState,
+    lessons: List<JournalGridLesson>,
+    assessmentForms: List<JournalGridAssessmentForm>,
+    canEditGrades: Boolean,
+    onLessonClick: (JournalGridLesson) -> Unit,
+    onEditAssessment: (JournalGridAssessmentForm) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground)
+            .padding(horizontal = 8.dp)
+    ) {
+        Box(modifier = Modifier.horizontalScroll(horizontalScroll)) {
+            JournalTableHeader(
+                lessons = lessons,
+                assessmentForms = assessmentForms,
+                canEditGrades = canEditGrades,
+                onLessonClick = onLessonClick,
+                onEditAssessment = onEditAssessment
+            )
+        }
+    }
+}
+
+@Composable
+private fun JournalTableStudentItem(
+    horizontalScroll: ScrollState,
+    index: Int,
+    student: JournalGridStudent,
+    lessons: List<JournalGridLesson>,
+    attendance: List<JournalGridAttendance>,
+    assessmentForms: List<JournalGridAssessmentForm>,
+    grades: List<JournalGridGrade>,
+    canEditAttendance: Boolean,
+    canEditGrades: Boolean,
+    onOpenStudentCard: (String) -> Unit,
+    onAttendanceClick: (JournalGridLesson, JournalGridAttendance?) -> Unit,
+    onGradeClick: (JournalGridAssessmentForm, JournalGridGrade?) -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground)
+            .padding(horizontal = 8.dp)
+    ) {
+        Box(modifier = Modifier.horizontalScroll(horizontalScroll)) {
+            JournalStudentRow(
+                index = index,
+                student = student,
+                lessons = lessons,
+                attendance = attendance,
+                assessmentForms = assessmentForms,
+                grades = grades,
+                canEditAttendance = canEditAttendance,
+                canEditGrades = canEditGrades,
+                onOpenStudentCard = onOpenStudentCard,
+                onAttendanceClick = onAttendanceClick,
+                onGradeClick = onGradeClick
+            )
+        }
     }
 }
 
