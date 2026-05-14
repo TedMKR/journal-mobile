@@ -179,7 +179,7 @@ private fun JournalContent(
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+        verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         item { JournalHeader(journal = journal, currentType = currentType) }
         item { LessonTypeTabs(types = availableTypes, selectedType = currentType, onSelect = { currentType = it }) }

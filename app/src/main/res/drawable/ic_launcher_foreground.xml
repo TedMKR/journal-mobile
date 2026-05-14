@@ -1,13 +1,22 @@
-<?xml version="1.0" encoding="utf-8"?>
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
-    android:width="108dp"
-    android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
+    android:width="50dp"
+    android:height="50dp"
+    android:viewportWidth="50"
+    android:viewportHeight="50">
+    <!-- Белый фон -->
     <path
         android:fillColor="#FFFFFF"
-        android:pathData="M24,24h60v60h-60z" />
+        android:pathData="M0,0h50v50h-50z" />
+    <!-- Левая створка книги -->
     <path
-        android:fillColor="#223268"
-        android:pathData="M40,40h28v28h-28z" />
+        android:strokeColor="#223268"
+        android:strokeWidth="2"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M24.647,39.997C24.776,39.869 24.647,13.769 24.647,13.769C24.647,13.769 20.475,9 15.11,9C10.342,9 5.735,11.221 5.572,11.384C5.41,11.548 5.572,37.017 5.572,37.613C5.572,38.209 9.745,34.632 15.11,35.228C20.442,35.821 24.519,40.126 24.647,39.997Z" />
+    <!-- Правая створка книги -->
+    <path
+        android:strokeColor="#223268"
+        android:strokeWidth="2"
+        android:fillColor="@android:color/transparent"
+        android:pathData="M24.704,39.997C24.576,39.869 24.704,13.769 24.704,13.769C24.704,13.769 28.876,9 34.242,9C39.01,9 43.617,11.221 43.779,11.384C43.942,11.548 43.779,37.017 43.779,37.613C43.779,38.209 39.606,34.632 34.242,35.228C28.909,35.821 24.833,40.126 24.704,39.997Z" />
 </vector>
