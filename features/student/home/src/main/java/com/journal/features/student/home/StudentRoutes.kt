@@ -338,7 +338,21 @@ private fun SubjectRow(subject: StudentSubjectSummary) {
                     style = MaterialTheme.typography.bodySmall
                 )
             }
-            Text(subject.avgGrade?.let { String.format(Locale.US, "%.1f", it) } ?: "—", color = PrimaryText, fontWeight = FontWeight.Bold)
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(2.dp)
+            ) {
+                Text(
+                    text = "Средний балл",
+                    color = MutedText,
+                    style = MaterialTheme.typography.labelSmall
+                )
+                Text(
+                    text = subject.avgGrade?.let { String.format(Locale.US, "%.1f", it) } ?: "—",
+                    color = PrimaryText,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
         Box(modifier = Modifier.fillMaxWidth().background(Color(0xFFE5E7EB)).padding(top = 1.dp))
     }
