@@ -352,7 +352,7 @@ private fun RightSideMenu(
                     MenuItem("Личный кабинет", Routes.STUDENT_DASHBOARD)
                 )
                 else -> listOf(
-                    MenuItem("Главная", Routes.TEACHER_HOME),
+                    MenuItem("Расписание", Routes.TEACHER_HOME),
                     MenuItem("Личный кабинет", Routes.TEACHER_DASHBOARD),
                     MenuItem("Ведомости", Routes.TEACHER_VED)
                 )

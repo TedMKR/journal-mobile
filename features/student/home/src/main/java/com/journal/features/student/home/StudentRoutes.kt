@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
@@ -244,49 +245,64 @@ private fun StudentDashboardContent(
     profile: StudentProfile?,
     subjects: List<StudentSubjectSummary>
 ) {
-    ProfileCard(profile)
-    SummaryStats(subjects)
-    SubjectsCard(subjects)
+    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        item { ProfileSummaryCard(profile = profile, subjects = subjects) }
+        item { SubjectsCard(subjects) }
+    }
 }
 
 @Composable
-private fun ProfileCard(profile: StudentProfile?) {
+private fun ProfileSummaryCard(
+    profile: StudentProfile?,
+    subjects: List<StudentSubjectSummary>
+) {
+    val avgGrade = subjects.mapNotNull { it.avgGrade }.takeIf { it.isNotEmpty() }?.average()
+    val attendance = subjects.takeIf { it.isNotEmpty() }?.map { it.attendancePct }?.average() ?: 0.0
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(20.dp))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp)
+            .background(PrimaryText, RoundedCornerShape(16.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Text(profile?.fullName ?: "Профиль студента", color = PrimaryText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        profile?.studentCode?.takeIf { it.isNotBlank() }?.let { Text("Код: $it", color = MutedText) }
-        profile?.groupName?.takeIf { it.isNotBlank() }?.let { Text("Группа: $it", color = MutedText) }
-        if (profile?.isHeadStudent == true) InfoChip("Староста")
+        Text(
+            text = profile?.fullName ?: "Профиль студента",
+            color = Color.White,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            profile?.studentCode?.takeIf { it.isNotBlank() }?.let { Text("Код: $it", color = Color.White.copy(alpha = 0.84f)) }
+            profile?.groupName?.takeIf { it.isNotBlank() }?.let { Text("Группа: $it", color = Color.White.copy(alpha = 0.84f)) }
+            if (profile?.isHeadStudent == true) InfoChip("Староста")
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            StatTile("Всего\nпредметов", subjects.size.toString(), Modifier.weight(1f))
+            StatTile("Средний\nбалл", avgGrade?.let { String.format(Locale.US, "%.1f", it) } ?: "—", Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            StatTile("Посещаемость", "${attendance.toInt()}%", Modifier.weight(1f))
+        }
     }
 }
 
 @Composable
-private fun SummaryStats(subjects: List<StudentSubjectSummary>) {
-    val avgGrade = subjects.mapNotNull { it.avgGrade }.takeIf { it.isNotEmpty() }?.average()
-    val attendance = subjects.takeIf { it.isNotEmpty() }?.map { it.attendancePct }?.average() ?: 0.0
-    Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        StatCard(title = "Предметы", value = subjects.size.toString(), modifier = Modifier.weight(1f))
-        StatCard(title = "Средний балл", value = avgGrade?.let { String.format(Locale.US, "%.1f", it) } ?: "—", modifier = Modifier.weight(1f))
-        StatCard(title = "Посещаемость", value = "${attendance.toInt()}%", modifier = Modifier.weight(1f))
-    }
-}
-
-@Composable
-private fun StatCard(title: String, value: String, modifier: Modifier = Modifier) {
+private fun StatTile(title: String, value: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
-            .background(CardBackground, RoundedCornerShape(18.dp))
+            .background(Color.White, RoundedCornerShape(12.dp))
             .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        verticalArrangement = Arrangement.spacedBy(6.dp)
     ) {
-        Text(value, color = PrimaryText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-        Text(title, color = MutedText, style = MaterialTheme.typography.bodySmall)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(5.dp)
+                .background(PrimaryText, RoundedCornerShape(4.dp))
+        )
+        Text(title, color = PrimaryText, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+        Text(value, color = PrimaryText, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
     }
 }
 
