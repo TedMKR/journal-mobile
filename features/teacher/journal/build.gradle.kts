@@ -36,6 +36,7 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
+    implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.3")
     implementation("com.google.dagger:hilt-android:2.51.1")
 }

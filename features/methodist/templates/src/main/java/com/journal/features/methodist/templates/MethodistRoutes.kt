@@ -437,8 +437,8 @@ private suspend fun syncTopics(
 
 @Composable
 private fun MethodologistScaffold(
-    title: String,
-    subtitle: String? = null,
+    @Suppress("UNUSED_PARAMETER") title: String,
+    @Suppress("UNUSED_PARAMETER") subtitle: String? = null,
     actions: @Composable RowScope.() -> Unit = {},
     useContentCard: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
@@ -452,19 +452,11 @@ private fun MethodologistScaffold(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(CardBackground, RoundedCornerShape(20.dp))
-                .padding(18.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                subtitle?.let { Text(it, color = SecondaryText) }
-                Text(title, color = PrimaryText, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), content = actions)
-        }
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.End,
+            verticalAlignment = Alignment.CenterVertically,
+            content = actions
+        )
         if (useContentCard) {
             Column(
                 modifier = Modifier

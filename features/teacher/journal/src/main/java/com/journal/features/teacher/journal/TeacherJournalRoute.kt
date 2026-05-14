@@ -1,6 +1,7 @@
 package com.journal.features.teacher.journal
 
 import android.content.Intent
+import androidx.core.content.FileProvider
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -66,10 +67,14 @@ import com.journal.core.model.teacher.UpdateAssessmentFormRequest
 import com.journal.core.model.teacher.UpdateGradeRequest
 import com.journal.core.model.teacher.UpdateLessonTopicDetailsRequest
 import com.journal.core.network.api.JournalApi
+import java.io.File
+import java.io.OutputStream
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 import kotlinx.coroutines.launch
 
 private val BackgroundColor = Color(0xFFEDEEED)
@@ -182,7 +187,7 @@ private fun JournalContent(
             JournalActions(
                 canEditAssessments = canEditAssessments,
                 onExport = {
-                    shareJournalCsv(
+                    shareJournalXlsx(
                         context = context,
                         journal = journal,
                         lessons = filteredLessons,
@@ -1118,7 +1123,7 @@ private data class TopicEditState(
     val lesson: JournalGridLesson
 )
 
-private fun shareJournalCsv(
+private fun shareJournalXlsx(
     context: android.content.Context,
     journal: JournalGridResponse,
     lessons: List<JournalGridLesson>,
@@ -1127,30 +1132,44 @@ private fun shareJournalCsv(
     grades: List<JournalGridGrade>,
     showGrades: Boolean
 ) {
-    val csv = buildJournalCsv(
-        journal = journal,
-        lessons = lessons,
-        attendance = attendance,
-        assessmentForms = assessmentForms,
-        grades = grades,
-        showGrades = showGrades
+    val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
+    val exportFile = File(exportDir, "${journal.safeExportName()}.xlsx")
+    exportFile.outputStream().use { output ->
+        writeJournalXlsx(
+            output = output,
+            rows = buildJournalExportRows(
+                journal = journal,
+                lessons = lessons,
+                attendance = attendance,
+                assessmentForms = assessmentForms,
+                grades = grades,
+                showGrades = showGrades
+            )
+        )
+    }
+
+    val uri = FileProvider.getUriForFile(
+        context,
+        "${context.packageName}.fileprovider",
+        exportFile
     )
     val intent = Intent(Intent.ACTION_SEND).apply {
-        type = "text/csv"
+        type = XLSX_MIME_TYPE
         putExtra(Intent.EXTRA_SUBJECT, "Журнал ${journal.group.name} ${journal.discipline.name}")
-        putExtra(Intent.EXTRA_TEXT, csv)
+        putExtra(Intent.EXTRA_STREAM, uri)
+        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     }
     context.startActivity(Intent.createChooser(intent, "Экспорт журнала"))
 }
 
-private fun buildJournalCsv(
+private fun buildJournalExportRows(
     journal: JournalGridResponse,
     lessons: List<JournalGridLesson>,
     attendance: List<JournalGridAttendance>,
     assessmentForms: List<JournalGridAssessmentForm>,
     grades: List<JournalGridGrade>,
     showGrades: Boolean
-): String {
+): List<List<String>> {
     val rows = mutableListOf<List<String>>()
     rows += listOf("Группа", journal.group.name)
     rows += listOf("Дисциплина", journal.discipline.name)
@@ -1179,10 +1198,132 @@ private fun buildJournalCsv(
         rows += row
     }
 
-    return rows.joinToString("\n") { row -> row.joinToString(";") { it.csvEscape() } }
+    return rows
 }
 
-private fun String.csvEscape(): String = "\"${replace("\"", "\"\"")}\""
+private fun writeJournalXlsx(output: OutputStream, rows: List<List<String>>) {
+    ZipOutputStream(output).use { zip ->
+        zip.writeEntry("[Content_Types].xml", xlsxContentTypes())
+        zip.writeEntry("_rels/.rels", xlsxRootRels())
+        zip.writeEntry("xl/_rels/workbook.xml.rels", xlsxWorkbookRels())
+        zip.writeEntry("xl/workbook.xml", xlsxWorkbook())
+        zip.writeEntry("xl/styles.xml", xlsxStyles())
+        zip.writeEntry("xl/worksheets/sheet1.xml", xlsxSheet(rows))
+    }
+}
+
+private fun ZipOutputStream.writeEntry(name: String, content: String) {
+    putNextEntry(ZipEntry(name))
+    write(content.toByteArray(Charsets.UTF_8))
+    closeEntry()
+}
+
+private fun xlsxSheet(rows: List<List<String>>): String = buildString {
+    append("""<?xml version="1.0" encoding="UTF-8" standalone="yes"?>""")
+    append("""<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">""")
+    append("<sheetViews><sheetView workbookViewId=\"0\"><pane ySplit=\"5\" topLeftCell=\"A6\" activePane=\"bottomLeft\" state=\"frozen\"/></sheetView></sheetViews>")
+    append("<sheetFormatPr defaultRowHeight=\"18\"/>")
+    append("<cols><col min=\"1\" max=\"1\" width=\"8\" customWidth=\"1\"/><col min=\"2\" max=\"2\" width=\"32\" customWidth=\"1\"/><col min=\"3\" max=\"80\" width=\"18\" customWidth=\"1\"/></cols>")
+    append("<sheetData>")
+    rows.forEachIndexed { rowIndex, row ->
+        val excelRow = rowIndex + 1
+        append("<row r=\"").append(excelRow).append("\">")
+        row.forEachIndexed { columnIndex, value ->
+            val cell = "${columnName(columnIndex + 1)}$excelRow"
+            val style = when {
+                rowIndex < 3 -> 2
+                rowIndex == 4 -> 1
+                else -> 0
+            }
+            append("<c r=\"").append(cell).append("\" t=\"inlineStr\" s=\"").append(style).append("\"><is><t>")
+            append(value.xmlEscape())
+            append("</t></is></c>")
+        }
+        append("</row>")
+    }
+    append("</sheetData>")
+    append("<pageMargins left=\"0.7\" right=\"0.7\" top=\"0.75\" bottom=\"0.75\" header=\"0.3\" footer=\"0.3\"/>")
+    append("</worksheet>")
+}
+
+private fun xlsxContentTypes(): String = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+        <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+        <Default Extension="xml" ContentType="application/xml"/>
+        <Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>
+        <Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>
+        <Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>
+    </Types>
+""".trimIndent()
+
+private fun xlsxRootRels(): String = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>
+    </Relationships>
+""".trimIndent()
+
+private fun xlsxWorkbookRels(): String = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+        <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/>
+        <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+    </Relationships>
+""".trimIndent()
+
+private fun xlsxWorkbook(): String = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+        <sheets><sheet name="Журнал" sheetId="1" r:id="rId1"/></sheets>
+    </workbook>
+""".trimIndent()
+
+private fun xlsxStyles(): String = """
+    <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+    <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
+        <fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts>
+        <fills count="3"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill><fill><patternFill patternType="solid"><fgColor rgb="FFD3D7E1"/><bgColor indexed="64"/></patternFill></fill></fills>
+        <borders count="2"><border><left/><right/><top/><bottom/><diagonal/></border><border><left style="thin"/><right style="thin"/><top style="thin"/><bottom style="thin"/><diagonal/></border></borders>
+        <cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>
+        <cellXfs count="3"><xf numFmtId="0" fontId="0" fillId="0" borderId="1" xfId="0"/><xf numFmtId="0" fontId="1" fillId="2" borderId="1" xfId="0" applyFont="1" applyFill="1"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs>
+        <cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles>
+    </styleSheet>
+""".trimIndent()
+
+private fun columnName(index: Int): String {
+    var value = index
+    val result = StringBuilder()
+    while (value > 0) {
+        value--
+        result.insert(0, ('A'.code + value % 26).toChar())
+        value /= 26
+    }
+    return result.toString()
+}
+
+private fun JournalGridResponse.safeExportName(): String = listOf("journal", group.name, discipline.name)
+    .joinToString("_")
+    .replace(Regex("[^A-Za-zА-Яа-я0-9_-]+"), "_")
+    .trim('_')
+    .ifBlank { "journal" }
+
+private fun String.xmlEscape(): String = buildString {
+    this@xmlEscape.forEach { char ->
+        append(
+            when (char) {
+                '<' -> "&lt;"
+                '>' -> "&gt;"
+                '&' -> "&amp;"
+                '"' -> "&quot;"
+                '\'' -> "&apos;"
+                else -> char.toString()
+            }
+        )
+    }
+}
+
+private const val XLSX_MIME_TYPE = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 private fun String.toUtcStartOfDayMillis(): Long? = runCatching {
     LocalDate.parse(take(10))

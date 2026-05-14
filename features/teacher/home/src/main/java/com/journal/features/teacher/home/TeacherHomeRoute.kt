@@ -55,8 +55,6 @@ fun TeacherHomeRoute(
             .background(BackgroundColor)
             .padding(horizontal = 10.dp, vertical = 8.dp)
     ) {
-        Header()
-
         when {
             uiState.isLoading -> CircularProgressIndicator(modifier = Modifier.padding(24.dp))
             uiState.error != null -> Text(
@@ -69,23 +67,6 @@ fun TeacherHomeRoute(
                 onOpenLesson = onOpenLesson
             )
         }
-    }
-}
-
-@Composable
-private fun Header() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "Расписание занятий",
-            color = PrimaryText,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
     }
 }
 

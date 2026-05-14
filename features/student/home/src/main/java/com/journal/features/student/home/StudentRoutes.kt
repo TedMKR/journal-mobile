@@ -118,7 +118,7 @@ fun StudentDashboardRoute(journalApi: JournalApi) {
 
 @Composable
 private fun StudentScaffold(
-    title: String,
+    @Suppress("UNUSED_PARAMETER") title: String,
     content: @Composable ColumnScope.() -> Unit
 ) {
     Column(
@@ -128,13 +128,6 @@ private fun StudentScaffold(
             .padding(horizontal = 10.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        Text(
-            text = title,
-            color = PrimaryText,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(vertical = 8.dp)
-        )
         content()
     }
 }
