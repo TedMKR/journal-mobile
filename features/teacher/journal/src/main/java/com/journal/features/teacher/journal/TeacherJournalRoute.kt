@@ -80,6 +80,8 @@ private val PresentColor = Color(0xFF1F8A5B)
 private val AbsentColor = Color(0xFFC44A4A)
 private val ExcuseColor = Color(0xFFE19B2C)
 private val DangerColor = Color(0xFFC44A4A)
+private val DialogContainerColor = Color.White
+private val DialogTextColor = Color.Black
 
 private const val ATTENDANCE_COLUMN_WIDTH = 82
 private const val GRADE_COLUMN_WIDTH = 112
@@ -701,10 +703,13 @@ private fun AttendanceDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = DialogContainerColor,
+        titleContentColor = DialogTextColor,
+        textContentColor = DialogTextColor,
         title = { Text("Посещаемость") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(state.student.fullName)
+                Text(state.student.fullName, color = DialogTextColor)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("present", "absent", "valid_excuse").forEach { status ->
                         StatusChip(
@@ -738,10 +743,13 @@ private fun GradeDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = DialogContainerColor,
+        titleContentColor = DialogTextColor,
+        textContentColor = DialogTextColor,
         title = { Text(state.form.title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(state.student.fullName)
+                Text(state.student.fullName, color = DialogTextColor)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     (2..5).forEach { value ->
                         StatusChip(
@@ -982,10 +990,13 @@ private fun ConfirmDeleteAssessmentDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = DialogContainerColor,
+        titleContentColor = DialogTextColor,
+        textContentColor = DialogTextColor,
         title = { Text("Удаление контрольного мероприятия") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("Удалить контроль: ${form.title}?")
+                Text("Удалить контроль: ${form.title}?", color = DialogTextColor)
                 Text("Это действие скроет контрольное мероприятие и связанные с ним оценки из обычного журнала.", color = DangerColor)
             }
         },
@@ -1010,10 +1021,13 @@ private fun TopicDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
+        containerColor = DialogContainerColor,
+        titleContentColor = DialogTextColor,
+        textContentColor = DialogTextColor,
         title = { Text("Тема занятия") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(formatLessonDate(state.lesson), color = PrimaryText)
+                Text(formatLessonDate(state.lesson), color = DialogTextColor)
                 OutlinedTextField(
                     value = topic,
                     onValueChange = { topic = it },
