@@ -18,6 +18,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -93,6 +94,7 @@ fun AuthRoute(onContinue: (String) -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     label = { Text("Логин") },
+                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
                     singleLine = true
                 )
 
@@ -102,6 +104,7 @@ fun AuthRoute(onContinue: (String) -> Unit) {
                     modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(12.dp),
                     label = { Text("Пароль") },
+                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
                     singleLine = true
                 )
 

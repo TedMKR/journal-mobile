@@ -23,6 +23,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -505,6 +506,7 @@ private fun JournalFilters(
             onValueChange = onSearchChange,
             label = { Text("Поиск") },
             placeholder = { Text("Дисциплина, группа, преподаватель") },
+            textStyle = LocalTextStyle.current.copy(color = Color.Black),
             modifier = Modifier.fillMaxWidth()
         )
         CompactOptionFilter(
@@ -625,6 +627,7 @@ private fun TemplateListBlock(
             value = search,
             onValueChange = onSearchChange,
             label = { Text("Поиск: название, дисциплина, описание") },
+            textStyle = LocalTextStyle.current.copy(color = Color.Black),
             modifier = Modifier.fillMaxWidth()
         )
         CompactOptionFilter(
@@ -713,8 +716,20 @@ private fun TemplateEditorCard(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text("Редактирование шаблона", color = PrimaryText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        OutlinedTextField(value = name, onValueChange = { name = it }, label = { Text("Название") }, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(value = description, onValueChange = { description = it }, label = { Text("Описание") }, modifier = Modifier.fillMaxWidth())
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text("Название") },
+            textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            modifier = Modifier.fillMaxWidth()
+        )
+        OutlinedTextField(
+            value = description,
+            onValueChange = { description = it },
+            label = { Text("Описание") },
+            textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            modifier = Modifier.fillMaxWidth()
+        )
         TopicsEditor(topics = topics, onTopicsChange = { topics = it })
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PrimaryButton(
@@ -778,6 +793,7 @@ private fun TemplateCreateDialog(
                         value = name,
                         onValueChange = { name = it },
                         placeholder = { Text("КТП по дисциплине") },
+                        textStyle = LocalTextStyle.current.copy(color = Color.Black),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -787,6 +803,7 @@ private fun TemplateCreateDialog(
                         onValueChange = { description = it },
                         placeholder = { Text("Семестр, поток, комментарии") },
                         minLines = 3,
+                        textStyle = LocalTextStyle.current.copy(color = Color.Black),
                         modifier = Modifier.fillMaxWidth()
                     )
                 }
@@ -856,6 +873,7 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
                     value = topic.name,
                     onValueChange = { onTopicsChange(topics.replaceAt(index, topic.copy(name = it))) },
                     label = { Text("Название темы") },
+                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -863,6 +881,7 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
                         value = topic.lessonCount.toString(),
                         onValueChange = { value -> onTopicsChange(topics.replaceAt(index, topic.copy(lessonCount = value.toIntOrNull()?.coerceAtLeast(1) ?: 1))) },
                         label = { Text("Занятий") },
+                        textStyle = LocalTextStyle.current.copy(color = Color.Black),
                         modifier = Modifier.weight(1f)
                     )
                     SecondaryButton(text = "Удалить", onClick = { onTopicsChange(topics.filterIndexed { topicIndex, _ -> topicIndex != index }.reindexTopics()) }, color = DangerColor)
@@ -871,6 +890,7 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
                     value = topic.description,
                     onValueChange = { onTopicsChange(topics.replaceAt(index, topic.copy(description = it))) },
                     label = { Text("Описание") },
+                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
                     modifier = Modifier.fillMaxWidth()
                 )
             }

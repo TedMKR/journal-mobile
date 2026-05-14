@@ -28,6 +28,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -713,7 +714,12 @@ private fun AttendanceDialog(
                         )
                     }
                 }
-                OutlinedTextField(value = comment, onValueChange = { comment = it }, label = { Text("Комментарий") })
+                OutlinedTextField(
+                    value = comment,
+                    onValueChange = { comment = it },
+                    label = { Text("Комментарий") },
+                    textStyle = LocalTextStyle.current.copy(color = Color.Black)
+                )
             }
         },
         confirmButton = { DialogPrimaryButton(text = "Сохранить", onClick = { onSave(selectedStatus, comment) }) },
@@ -745,7 +751,12 @@ private fun GradeDialog(
                         )
                     }
                 }
-                OutlinedTextField(value = comment, onValueChange = { comment = it }, label = { Text("Комментарий") })
+                OutlinedTextField(
+                    value = comment,
+                    onValueChange = { comment = it },
+                    label = { Text("Комментарий") },
+                    textStyle = LocalTextStyle.current.copy(color = Color.Black)
+                )
             }
         },
         confirmButton = { DialogPrimaryButton(text = "Сохранить", onClick = { onSave(selectedValue, comment) }) },
@@ -890,9 +901,10 @@ private fun WebOutlinedTextField(
         readOnly = readOnly,
         singleLine = true,
         placeholder = { Text(placeholder, color = Color(0xFF9CA3AF)) },
+        textStyle = LocalTextStyle.current.copy(color = Color.Black),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = PrimaryText,
-            unfocusedTextColor = PrimaryText,
+            focusedTextColor = Color.Black,
+            unfocusedTextColor = Color.Black,
             focusedContainerColor = Color.White,
             unfocusedContainerColor = Color.White,
             focusedBorderColor = Color(0xFF223268),
@@ -1006,7 +1018,8 @@ private fun TopicDialog(
                     value = topic,
                     onValueChange = { topic = it },
                     label = { Text("Тема / комментарий к занятию") },
-                    minLines = 3
+                    minLines = 3,
+                    textStyle = LocalTextStyle.current.copy(color = Color.Black)
                 )
             }
         },
