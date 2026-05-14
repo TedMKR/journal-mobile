@@ -372,39 +372,32 @@ private fun JournalTable(
             .padding(8.dp)
     ) {
         Box {
-            Row(
-                modifier = Modifier
-                    .height(360.dp)
-                    .verticalScroll(verticalScroll)
-            ) {
-                Column {
-                    FixedHeader()
+            Column(modifier = Modifier.horizontalScroll(horizontalScroll)) {
+                JournalTableHeader(
+                    lessons = lessons,
+                    assessmentForms = visibleForms,
+                    canEditGrades = canEditGrades,
+                    onLessonClick = { lesson -> topicDialog = TopicEditState(lesson) },
+                    onEditAssessment = onEditAssessment
+                )
+                Column(
+                    modifier = Modifier
+                        .height(290.dp)
+                        .verticalScroll(verticalScroll)
+                ) {
                     students.forEachIndexed { index, student ->
-                        FixedStudentRow(
-                            index = index + 1,
-                            student = student,
-                            onOpenStudentCard = onOpenStudentCard
-                        )
-                    }
-                }
-                Column(modifier = Modifier.horizontalScroll(horizontalScroll)) {
-                    DynamicHeader(
-                        lessons = lessons,
-                        assessmentForms = visibleForms,
-                        canEditGrades = canEditGrades,
-                        onLessonClick = { lesson -> topicDialog = TopicEditState(lesson) },
-                        onEditAssessment = onEditAssessment
-                    )
-                    students.forEach { student ->
                         val studentAttendance = attendance.filter { it.studentId == student.studentId }
                         val studentGrades = grades.filter { it.studentId == student.studentId }
-                        DynamicStudentRow(
+                        JournalStudentRow(
+                            index = index + 1,
+                            student = student,
                             lessons = lessons,
                             attendance = studentAttendance,
                             assessmentForms = visibleForms,
                             grades = studentGrades,
                             canEditAttendance = canEditAttendance,
                             canEditGrades = canEditGrades,
+                            onOpenStudentCard = onOpenStudentCard,
                             onAttendanceClick = { lesson, record ->
                                 if (canEditAttendance) attendanceDialog = AttendanceEditState(student, lesson, record)
                             },
@@ -545,17 +538,7 @@ private fun VerticalScrollIndicator(scrollValue: Int, maxValue: Int, modifier: M
 }
 
 @Composable
-private fun FixedHeader() {
-    Column {
-        Row {
-            TableCell("№", 42, isHeader = true)
-            TableCell("Студент", 190, isHeader = true, textAlign = TextAlign.Start)
-        }
-    }
-}
-
-@Composable
-private fun DynamicHeader(
+private fun JournalTableHeader(
     lessons: List<JournalGridLesson>,
     assessmentForms: List<JournalGridAssessmentForm>,
     canEditGrades: Boolean,
@@ -563,6 +546,8 @@ private fun DynamicHeader(
     onEditAssessment: (JournalGridAssessmentForm) -> Unit
 ) {
     Row {
+        TableCell("№", 42, isHeader = true)
+        TableCell("Студент", 190, isHeader = true, textAlign = TextAlign.Start)
         lessons.forEach { lesson ->
             TableCell(
                 text = lessonHeaderText(lesson),
@@ -585,10 +570,18 @@ private fun DynamicHeader(
 }
 
 @Composable
-private fun FixedStudentRow(
+private fun JournalStudentRow(
     index: Int,
     student: JournalGridStudent,
-    onOpenStudentCard: (String) -> Unit
+    lessons: List<JournalGridLesson>,
+    attendance: List<JournalGridAttendance>,
+    assessmentForms: List<JournalGridAssessmentForm>,
+    grades: List<JournalGridGrade>,
+    canEditAttendance: Boolean,
+    canEditGrades: Boolean,
+    onOpenStudentCard: (String) -> Unit,
+    onAttendanceClick: (JournalGridLesson, JournalGridAttendance?) -> Unit,
+    onGradeClick: (JournalGridAssessmentForm, JournalGridGrade?) -> Unit
 ) {
     Row {
         TableCell(index.toString(), 42)
@@ -599,21 +592,6 @@ private fun FixedStudentRow(
             clickable = true,
             onClick = { onOpenStudentCard(student.studentId) }
         )
-    }
-}
-
-@Composable
-private fun DynamicStudentRow(
-    lessons: List<JournalGridLesson>,
-    attendance: List<JournalGridAttendance>,
-    assessmentForms: List<JournalGridAssessmentForm>,
-    grades: List<JournalGridGrade>,
-    canEditAttendance: Boolean,
-    canEditGrades: Boolean,
-    onAttendanceClick: (JournalGridLesson, JournalGridAttendance?) -> Unit,
-    onGradeClick: (JournalGridAssessmentForm, JournalGridGrade?) -> Unit
-) {
-    Row {
         lessons.forEach { lesson ->
             val record = attendance.firstOrNull { it.lessonId == lesson.lessonId }
             TableCell(
