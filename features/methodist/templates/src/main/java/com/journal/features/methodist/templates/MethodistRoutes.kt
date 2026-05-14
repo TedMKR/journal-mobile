@@ -313,8 +313,7 @@ fun MethodistTemplatesRoute(
 @Composable
 fun MethodistJournalCreateRoute(
     journalApi: JournalApi,
-    onOpenJournal: (MethodistJournalTarget) -> Unit,
-    onBack: () -> Unit
+    onOpenJournal: (MethodistJournalTarget) -> Unit
 ) {
     val scope = rememberCoroutineScope()
     var isLoading by remember { mutableStateOf(true) }
@@ -354,10 +353,7 @@ fun MethodistJournalCreateRoute(
         loadTemplates()
     }
 
-    MethodologistScaffold(
-        title = "Создание журнала",
-        onBack = onBack
-    ) {
+    MethodologistScaffold(title = "Создание журнала") {
         if (isLoading) {
             LoadingCard("Загружаю справочники...")
             return@MethodologistScaffold
@@ -442,7 +438,6 @@ private suspend fun syncTopics(
 private fun MethodologistScaffold(
     title: String,
     subtitle: String? = null,
-    onBack: (() -> Unit)? = null,
     actions: @Composable RowScope.() -> Unit = {},
     useContentCard: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
@@ -455,16 +450,6 @@ private fun MethodologistScaffold(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        onBack?.let { backAction ->
-            Text(
-                text = "← Назад",
-                color = SecondaryText,
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier
-                    .clickable(onClick = backAction)
-                    .padding(vertical = 8.dp)
-            )
-        }
         Row(
             modifier = Modifier
                 .fillMaxWidth()

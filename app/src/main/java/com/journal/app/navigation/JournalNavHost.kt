@@ -24,6 +24,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -60,7 +61,18 @@ fun JournalNavHost(journalApi: JournalApi) {
     val showMenu = currentRoute != null && currentRoute != Routes.AUTH && role != null
 
     Box(modifier = Modifier.fillMaxSize()) {
-        NavHost(navController = navController, startDestination = Routes.AUTH) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (showMenu) {
+                AppHeader(
+                    title = screenTitle(currentRoute.orEmpty()),
+                    canNavigateBack = canNavigateBack(role = role, currentRoute = currentRoute),
+                    onBack = { navController.popBackStack() },
+                    onMenu = { isMenuOpen = true }
+                )
+            }
+
+            Box(modifier = Modifier.weight(1f)) {
+                NavHost(navController = navController, startDestination = Routes.AUTH) {
             composable(Routes.AUTH) {
                 AuthRoute { selectedRole ->
                     role = selectedRole
@@ -95,7 +107,6 @@ fun JournalNavHost(journalApi: JournalApi) {
             composable(Routes.TEACHER_DASHBOARD) {
                 TeacherDashboardRoute(
                     journalApi = journalApi,
-                    onBack = { navController.popBackStack() },
                     onOpenJournal = { target ->
                         navController.navigate(
                             Routes.teacherJournal(
@@ -110,16 +121,13 @@ fun JournalNavHost(journalApi: JournalApi) {
                 )
             }
             composable(Routes.TEACHER_VED) {
-                TeacherVedRoute(onBack = { navController.popBackStack() })
+                TeacherVedRoute()
             }
             composable(Routes.STUDENT_SCHEDULE) {
                 StudentScheduleRoute(journalApi = journalApi)
             }
             composable(Routes.STUDENT_DASHBOARD) {
-                StudentDashboardRoute(
-                    journalApi = journalApi,
-                    onBack = { navController.popBackStack() }
-                )
+                StudentDashboardRoute(journalApi = journalApi)
             }
             composable(Routes.METHODIST_JOURNALS) {
                 MethodistJournalsRoute(
@@ -154,8 +162,7 @@ fun JournalNavHost(journalApi: JournalApi) {
                                 teacherId = target.teacherId
                             )
                         )
-                    },
-                    onBack = { navController.popBackStack() }
+                    }
                 )
             }
             composable(
@@ -184,8 +191,7 @@ fun JournalNavHost(journalApi: JournalApi) {
                     journalApi = journalApi,
                     onOpenStudentCard = { studentId ->
                         navController.navigate(Routes.teacherStudentCard(groupId, disciplineId, periodId, studentId))
-                    },
-                    onBack = { navController.popBackStack() }
+                    }
                 )
             }
             composable(
@@ -202,19 +208,11 @@ fun JournalNavHost(journalApi: JournalApi) {
                     disciplineId = entry.arguments?.getString("disciplineId").orEmpty(),
                     periodId = entry.arguments?.getString("periodId").orEmpty(),
                     studentId = entry.arguments?.getString("studentId").orEmpty(),
-                    journalApi = journalApi,
-                    onBack = { navController.popBackStack() }
+                    journalApi = journalApi
                 )
             }
-        }
-
-        if (showMenu) {
-            MenuButton(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 10.dp, end = 10.dp),
-                onClick = { isMenuOpen = true }
-            )
+                }
+            }
         }
 
         if (isMenuOpen && role != null) {
@@ -242,17 +240,56 @@ fun JournalNavHost(journalApi: JournalApi) {
 }
 
 @Composable
-private fun MenuButton(modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Text(
-        text = "☰",
-        modifier = modifier
-            .background(MenuBackground, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 13.dp, vertical = 8.dp),
-        color = MenuPrimary,
-        style = MaterialTheme.typography.titleLarge,
-        fontWeight = FontWeight.Bold
-    )
+private fun AppHeader(
+    title: String,
+    canNavigateBack: Boolean,
+    onBack: () -> Unit,
+    onMenu: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MenuBackground)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        if (canNavigateBack) {
+            Text(
+                text = "←",
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .clickable(onClick = onBack)
+                    .padding(horizontal = 13.dp, vertical = 8.dp),
+                color = MenuPrimary,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        } else {
+            Spacer(modifier = Modifier.align(Alignment.CenterStart).width(48.dp))
+        }
+
+        Text(
+            text = title,
+            modifier = Modifier
+                .align(Alignment.Center)
+                .padding(horizontal = 56.dp),
+            color = MenuPrimary,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            textAlign = TextAlign.Center
+        )
+
+        Text(
+            text = "☰",
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .background(Color(0xFFD3D7E1), RoundedCornerShape(12.dp))
+                .clickable(onClick = onMenu)
+                .padding(horizontal = 13.dp, vertical = 8.dp),
+            color = MenuPrimary,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+    }
 }
 
 @Composable
@@ -362,6 +399,29 @@ private fun MenuRow(item: MenuItem, selected: Boolean, onClick: () -> Unit) {
         color = if (selected) Color.White else MenuPrimary,
         fontWeight = FontWeight.SemiBold
     )
+}
+
+private fun canNavigateBack(role: String?, currentRoute: String?): Boolean {
+    if (role == null || currentRoute == null || currentRoute == Routes.AUTH) return false
+    return currentRoute !in setOf(
+        Routes.TEACHER_HOME,
+        Routes.STUDENT_SCHEDULE,
+        Routes.METHODIST_JOURNALS
+    )
+}
+
+private fun screenTitle(route: String): String = when {
+    route == Routes.TEACHER_HOME -> "Расписание занятий"
+    route == Routes.TEACHER_DASHBOARD -> "Личный кабинет"
+    route == Routes.TEACHER_VED -> "Ведомости"
+    route.startsWith("teacher_journal") -> "Журнал занятий"
+    route.startsWith("teacher_student_card") -> "Карточка студента"
+    route == Routes.STUDENT_SCHEDULE -> "Расписание занятий"
+    route == Routes.STUDENT_DASHBOARD -> "Личный кабинет"
+    route == Routes.METHODIST_JOURNALS -> "Журналы"
+    route == Routes.METHODIST_TEMPLATES -> "КТП"
+    route == Routes.METHODIST_JOURNAL_CREATE -> "Создание журнала"
+    else -> "Электронный журнал"
 }
 
 private data class MenuItem(

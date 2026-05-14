@@ -1,7 +1,6 @@
 package com.journal.features.teacher.ved
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -16,10 +15,9 @@ import androidx.compose.ui.unit.dp
 
 private val BackgroundColor = Color(0xFFEDEEED)
 private val PrimaryText = Color(0xFF223268)
-private val SecondaryText = Color(0xFF7E8E99)
 
 @Composable
-fun TeacherVedRoute(onBack: () -> Unit) {
+fun TeacherVedRoute() {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -27,14 +25,6 @@ fun TeacherVedRoute(onBack: () -> Unit) {
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text(
-            text = "← Назад",
-            color = SecondaryText,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier
-                .clickable(onClick = onBack)
-                .padding(vertical = 8.dp)
-        )
         Text(
             text = "Ведомости",
             style = MaterialTheme.typography.headlineSmall,

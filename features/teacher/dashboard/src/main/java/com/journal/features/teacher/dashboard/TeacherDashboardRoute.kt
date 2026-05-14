@@ -64,7 +64,6 @@ private val LessonBackground = Color(0xFFE4E6EC)
 @Composable
 fun TeacherDashboardRoute(
     journalApi: JournalApi,
-    onBack: () -> Unit,
     onOpenJournal: (TeacherDashboardJournalTarget) -> Unit
 ) {
     var state by remember { mutableStateOf<TeacherDashboardUiState?>(null) }
@@ -97,7 +96,6 @@ fun TeacherDashboardRoute(
             error != null -> Text(error.orEmpty(), color = PrimaryText, modifier = Modifier.align(Alignment.Center))
             state != null -> TeacherDashboardContent(
                 state = state!!,
-                onBack = onBack,
                 onOpenJournal = onOpenJournal
             )
         }
@@ -107,7 +105,6 @@ fun TeacherDashboardRoute(
 @Composable
 private fun TeacherDashboardContent(
     state: TeacherDashboardUiState,
-    onBack: () -> Unit,
     onOpenJournal: (TeacherDashboardJournalTarget) -> Unit
 ) {
     Column(
@@ -116,31 +113,12 @@ private fun TeacherDashboardContent(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        Header(onBack = onBack)
         ProfileSummary(state)
         TodayScheduleCard(state.todayLessons)
         AnalyticsCard(
             state = state,
             journalApi = state.journalApi,
             onOpenJournal = onOpenJournal
-        )
-    }
-}
-
-@Composable
-private fun Header(onBack: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.Start,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = "← Назад",
-            color = SecondaryText,
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier
-                .clickable(onClick = onBack)
-                .padding(vertical = 8.dp)
         )
     }
 }

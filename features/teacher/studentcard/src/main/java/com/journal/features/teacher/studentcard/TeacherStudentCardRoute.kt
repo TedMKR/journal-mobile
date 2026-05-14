@@ -2,7 +2,6 @@ package com.journal.features.teacher.studentcard
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -54,8 +53,7 @@ fun TeacherStudentCardRoute(
     disciplineId: String,
     periodId: String,
     studentId: String,
-    journalApi: JournalApi,
-    onBack: () -> Unit
+    journalApi: JournalApi
 ) {
     var card by remember(groupId, disciplineId, periodId, studentId) { mutableStateOf<StudentCardUiState?>(null) }
     var isLoading by remember(groupId, disciplineId, periodId, studentId) { mutableStateOf(true) }
@@ -89,28 +87,19 @@ fun TeacherStudentCardRoute(
         when {
             isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
             error != null -> Text(error.orEmpty(), color = PrimaryText, modifier = Modifier.align(Alignment.Center))
-            card != null -> StudentCardContent(card = card!!, onBack = onBack)
+            card != null -> StudentCardContent(card = card!!)
         }
     }
 }
 
 @Composable
-private fun StudentCardContent(card: StudentCardUiState, onBack: () -> Unit) {
+private fun StudentCardContent(card: StudentCardUiState) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "← Назад",
-            color = MutedText,
-            style = MaterialTheme.typography.bodyLarge,
-            modifier = Modifier
-                .clickable(onClick = onBack)
-                .padding(vertical = 8.dp)
-        )
-
         Box(
             modifier = Modifier
                 .fillMaxWidth()

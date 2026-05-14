@@ -91,8 +91,7 @@ fun TeacherJournalRoute(
     lessonType: String,
     teacherId: String? = null,
     journalApi: JournalApi,
-    onOpenStudentCard: (String) -> Unit,
-    onBack: () -> Unit
+    onOpenStudentCard: (String) -> Unit
 ) {
     var journal by remember(groupId, disciplineId, periodId, teacherId, lessonType) { mutableStateOf<JournalGridResponse?>(null) }
     var isLoading by remember(groupId, disciplineId, periodId, teacherId, lessonType) { mutableStateOf(true) }
@@ -131,7 +130,6 @@ fun TeacherJournalRoute(
                 selectedLessonType = lessonType,
                 journalApi = journalApi,
                 onOpenStudentCard = onOpenStudentCard,
-                onBack = onBack,
                 onRefresh = { refreshKey++ }
             )
         }
@@ -144,7 +142,6 @@ private fun JournalContent(
     selectedLessonType: String,
     journalApi: JournalApi,
     onOpenStudentCard: (String) -> Unit,
-    onBack: () -> Unit,
     onRefresh: () -> Unit
 ) {
     val context = LocalContext.current
@@ -163,7 +160,6 @@ private fun JournalContent(
     val canEditAssessments = showGrades && journal.permissions.canEditGrades && !journal.academicPeriod.isClosed
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        BackAction(onBack = onBack)
         JournalHeader(journal = journal, currentType = currentType)
         LessonTypeTabs(types = availableTypes, selectedType = currentType, onSelect = { currentType = it })
         JournalActions(
@@ -268,19 +264,6 @@ private fun JournalContent(
             }
         )
     }
-}
-
-@Composable
-private fun BackAction(onBack: () -> Unit) {
-    Text(
-        text = "← Назад",
-        color = PrimaryText,
-        style = MaterialTheme.typography.bodyMedium,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier
-            .clickable(onClick = onBack)
-            .padding(vertical = 8.dp)
-    )
 }
 
 @Composable

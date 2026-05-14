@@ -85,10 +85,7 @@ fun StudentScheduleRoute(
 }
 
 @Composable
-fun StudentDashboardRoute(
-    journalApi: JournalApi,
-    onBack: () -> Unit
-) {
+fun StudentDashboardRoute(journalApi: JournalApi) {
     var profile by remember { mutableStateOf<StudentProfile?>(null) }
     var subjects by remember { mutableStateOf<List<StudentSubjectSummary>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -111,12 +108,6 @@ fun StudentDashboardRoute(
     }
 
     StudentScaffold(title = "Личный кабинет") {
-        Text(
-            text = "← Назад",
-            modifier = Modifier.clickable(onClick = onBack),
-            color = MutedText,
-            fontWeight = FontWeight.SemiBold
-        )
         when {
             isLoading -> CenterState { CircularProgressIndicator(color = PrimaryText) }
             error != null -> CenterState { Text(error.orEmpty(), color = Danger) }
