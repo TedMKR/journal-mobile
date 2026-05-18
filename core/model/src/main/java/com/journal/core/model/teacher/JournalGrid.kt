@@ -77,8 +77,8 @@ data class JournalGridAssessmentForm(
     @SerialName("type") val type: String,
     @SerialName("max_score") val maxScore: Int? = null,
     @SerialName("date") val date: String,
-    @SerialName("status") val status: String,
-    @SerialName("updated_at") val updatedAt: String
+    @SerialName("status") val status: String = "active",
+    @SerialName("updated_at") val updatedAt: String? = null
 )
 
 @Serializable

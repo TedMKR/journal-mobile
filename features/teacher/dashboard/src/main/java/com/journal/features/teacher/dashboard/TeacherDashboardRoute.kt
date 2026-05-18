@@ -47,10 +47,12 @@ import com.journal.core.model.teacher.GrantJournalAccessRequest
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.TeacherLesson
 import com.journal.core.model.teacher.TeacherProfile
+import com.journal.core.model.teacher.TeacherStats
 import com.journal.core.network.api.JournalApi
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.OffsetDateTime
+import kotlin.math.roundToInt
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -74,8 +76,14 @@ fun TeacherDashboardRoute(
         isLoading = true
         error = null
         runCatching {
-            val lessons = journalApi.getLessons(limit = 200).lessons
-            buildDashboardState(journalApi = journalApi, lessons = lessons)
+            val (dateFrom, dateTo) = currentWeekRange()
+            val lessons = journalApi.getLessons(
+                dateFrom = dateFrom,
+                dateTo = dateTo,
+                limit = 200
+            ).lessons
+            val stats = runCatching { journalApi.getTeacherStats() }.getOrNull()
+            buildDashboardState(journalApi = journalApi, lessons = lessons, stats = stats)
         }.onSuccess { uiState ->
             state = uiState
             isLoading = false
@@ -133,7 +141,7 @@ private fun ProfileSummary(state: TeacherDashboardUiState) {
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(
-            text = state.teacherName ?: "Профиль преподавателя недоступен",
+            text = state.teacherName,
             color = Color.White,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
@@ -567,7 +575,8 @@ private fun AttendanceLineChart(months: List<AttendanceMonth>) {
 
 private suspend fun buildDashboardState(
     journalApi: JournalApi,
-    lessons: List<TeacherLesson>
+    lessons: List<TeacherLesson>,
+    stats: TeacherStats?
 ): TeacherDashboardUiState {
     val defaultLesson = lessons.firstOrNull { it.groupId != null && it.disciplineId != null && it.periodId != null }
     val defaultJournal = defaultLesson?.let { lesson ->
@@ -580,13 +589,16 @@ private suspend fun buildDashboardState(
         }.getOrNull()
     }
     val uniqueDisciplines = lessons.mapNotNull { lesson -> lesson.disciplineId?.let { it to lesson.disciplineName } }.distinctBy { it.first }
+    val teacherName = defaultJournal?.teacher?.fullName
+        ?: lessons.firstNotNullOfOrNull { it.teacherName?.takeIf(String::isNotBlank) }
+        ?: "Преподаватель"
 
     return TeacherDashboardUiState(
-        teacherName = defaultJournal?.teacher?.fullName ?: defaultLesson?.teacherName,
-        totalStudents = defaultJournal?.students?.size ?: 0,
-        totalDisciplines = uniqueDisciplines.size,
-        hoursInSchedule = formatHours(lessons.sumOf { lessonDurationMinutes(it) }),
-        avgGrade = averageGrade(defaultJournal),
+        teacherName = teacherName,
+        totalStudents = stats?.totalStudents ?: defaultJournal?.students?.size ?: 0,
+        totalDisciplines = stats?.totalDisciplines?.takeIf { it > 0 } ?: uniqueDisciplines.size,
+        hoursInSchedule = stats?.hoursThisWeek?.takeIf { it > 0f }?.let(::formatHours) ?: formatHours(lessons.sumOf { lessonDurationMinutes(it) }),
+        avgGrade = stats?.avgGrade?.let { String.format(Locale.US, "%.1f", it) } ?: averageGrade(defaultJournal),
         todayLessons = todayLessons(lessons),
         analyticsTitle = defaultJournal?.let { "${it.discipline.name} · ${it.group.name}" } ?: "Нет выбранного журнала",
         selectedStudentsCount = defaultJournal?.students?.size ?: 0,
@@ -650,6 +662,18 @@ private fun formatHours(minutes: Int): String {
     return String.format(Locale.US, "%.1f", hours)
 }
 
+private fun formatHours(hours: Float): String {
+    if (hours <= 0f) return "—"
+    return if (hours % 1f == 0f) hours.roundToInt().toString() else String.format(Locale.US, "%.1f", hours)
+}
+
+private fun currentWeekRange(): Pair<String, String> {
+    val today = LocalDate.now()
+    val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+    val sunday = monday.plusDays(6)
+    return monday.toString() to sunday.toString()
+}
+
 private fun formatLessonTime(lesson: TeacherLesson): String = runCatching {
     val formatter = DateTimeFormatter.ofPattern("HH:mm")
     val start = OffsetDateTime.parse(lesson.scheduledAt).format(formatter)
@@ -677,7 +701,7 @@ private val lessonTypeOptions = listOf(
 )
 
 private data class TeacherDashboardUiState(
-    val teacherName: String?,
+    val teacherName: String,
     val totalStudents: Int,
     val totalDisciplines: Int,
     val hoursInSchedule: String,

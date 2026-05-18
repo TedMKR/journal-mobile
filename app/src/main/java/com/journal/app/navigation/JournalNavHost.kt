@@ -121,7 +121,7 @@ fun JournalNavHost(journalApi: JournalApi) {
                 )
             }
             composable(Routes.TEACHER_VED) {
-                TeacherVedRoute()
+                TeacherVedRoute(journalApi = journalApi)
             }
             composable(Routes.STUDENT_SCHEDULE) {
                 StudentScheduleRoute(journalApi = journalApi)

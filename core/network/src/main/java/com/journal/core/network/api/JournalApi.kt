@@ -8,6 +8,7 @@ import com.journal.core.model.teacher.CreateAssessmentFormRequest
 import com.journal.core.model.teacher.CreateJournalRequest
 import com.journal.core.model.teacher.CreateJournalResponse
 import com.journal.core.model.teacher.CreateLessonTemplateBulkRequest
+import com.journal.core.model.teacher.CurrentAttestationPrefill
 import com.journal.core.model.teacher.CreateGradeRequest
 import com.journal.core.model.teacher.Discipline
 import com.journal.core.model.teacher.GrantJournalAccessRequest
@@ -16,10 +17,13 @@ import com.journal.core.model.teacher.JournalAccessGrantResponse
 import com.journal.core.model.teacher.JournalAccessGrantsResponse
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.JournalsResponse
+import com.journal.core.model.teacher.JobAccepted
 import com.journal.core.model.teacher.LessonTemplate
 import com.journal.core.model.teacher.LessonTemplateDetail
 import com.journal.core.model.teacher.LessonsResponse
 import com.journal.core.model.teacher.MarkAttendanceRequest
+import com.journal.core.model.teacher.DocumentTask
+import com.journal.core.model.teacher.RequestReportPayload
 import com.journal.core.model.teacher.StudentJournalData
 import com.journal.core.model.teacher.StudentLessonsResponse
 import com.journal.core.model.teacher.StudentProfile
@@ -32,6 +36,7 @@ import com.journal.core.model.teacher.UpdateAssessmentFormRequest
 import com.journal.core.model.teacher.UpdateGradeRequest
 import com.journal.core.model.teacher.UpdateLessonTemplateRequest
 import com.journal.core.model.teacher.UpdateLessonTopicDetailsRequest
+import okhttp3.ResponseBody
 import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
@@ -175,6 +180,29 @@ interface JournalApi {
     suspend fun getGroupsPerformance(
         @Query("period_id") periodId: String? = null
     ): GroupsPerformanceResponse
+
+    @GET("current-attestation/prefill")
+    suspend fun getCurrentAttestationPrefill(
+        @Query("group_id") groupId: String,
+        @Query("discipline_id") disciplineId: String,
+        @Query("academic_period_id") academicPeriodId: String,
+        @Query("teacher_id") teacherId: String? = null
+    ): CurrentAttestationPrefill
+
+    @POST("reports")
+    suspend fun requestCurrentAttestationReport(
+        @Body request: RequestReportPayload
+    ): JobAccepted
+
+    @GET("reports/{job_id}/status")
+    suspend fun getReportStatus(
+        @Path("job_id") jobId: String
+    ): DocumentTask
+
+    @GET("reports/{job_id}/file")
+    suspend fun downloadReportFile(
+        @Path("job_id") jobId: String
+    ): ResponseBody
 
     @GET("journal-access-grants")
     suspend fun getJournalAccessGrants(

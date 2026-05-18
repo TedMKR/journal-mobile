@@ -7,7 +7,7 @@ import kotlinx.serialization.Serializable
 data class TeacherStats(
     @SerialName("total_students") val totalStudents: Int = 0,
     @SerialName("total_disciplines") val totalDisciplines: Int = 0,
-    @SerialName("hours_this_week") val hoursThisWeek: Int = 0,
+    @SerialName("hours_this_week") val hoursThisWeek: Float = 0f,
     @SerialName("avg_grade") val avgGrade: Float? = null
 )
 

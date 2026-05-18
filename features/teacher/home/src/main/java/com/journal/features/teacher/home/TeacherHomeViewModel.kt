@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import javax.inject.Inject
 
 data class TeacherHomeUiState(
@@ -33,7 +34,12 @@ class TeacherHomeViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(isLoading = true, error = null)
             runCatching {
-                journalApi.getLessons(limit = 200)
+                val (dateFrom, dateTo) = currentWeekRange()
+                journalApi.getLessons(
+                    dateFrom = dateFrom,
+                    dateTo = dateTo,
+                    limit = 200
+                )
             }.onSuccess { response ->
                 _uiState.value = TeacherHomeUiState(
                     isLoading = false,
@@ -46,6 +52,13 @@ class TeacherHomeViewModel @Inject constructor(
                 )
             }
         }
+    }
+
+    private fun currentWeekRange(): Pair<String, String> {
+        val today = LocalDate.now()
+        val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
+        val sunday = monday.plusDays(6)
+        return monday.toString() to sunday.toString()
     }
 
 }
