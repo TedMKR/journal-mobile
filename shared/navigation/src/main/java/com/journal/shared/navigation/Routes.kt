@@ -9,6 +9,7 @@ object Routes {
     const val TEACHER_STUDENT_CARD = "teacher_student_card/{groupId}/{disciplineId}/{periodId}/{studentId}"
     const val STUDENT_SCHEDULE = "student_schedule"
     const val STUDENT_DASHBOARD = "student_dashboard"
+    const val METHODIST_DASHBOARD = "methodist_dashboard"
     const val METHODIST_JOURNALS = "methodist_journals"
     const val METHODIST_TEMPLATES = "methodist_templates"
     const val METHODIST_JOURNAL_CREATE = "methodist_journal_create"

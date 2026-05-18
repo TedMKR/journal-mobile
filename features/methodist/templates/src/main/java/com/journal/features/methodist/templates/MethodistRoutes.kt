@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
@@ -73,6 +74,95 @@ private val FieldBorder = Color(0xFFD1D5DB)
 private val FieldPlaceholder = Color(0xFF9CA3AF)
 private val AccentBlue = Color(0xFF223268)
 private val DangerColor = Color(0xFFC44A4A)
+private const val DashboardVisibleRows = 8
+
+@Composable
+fun MethodistDashboardRoute(
+    journalApi: JournalApi
+) {
+    var isLoading by remember { mutableStateOf(true) }
+    var errors by remember { mutableStateOf<List<DashboardLoadError>>(emptyList()) }
+    var periods by remember { mutableStateOf<List<AcademicPeriod>>(emptyList()) }
+    var disciplines by remember { mutableStateOf<List<Discipline>>(emptyList()) }
+    var teachers by remember { mutableStateOf<List<TeacherProfile>>(emptyList()) }
+    var groups by remember { mutableStateOf<List<AcademicGroup>>(emptyList()) }
+    var journals by remember { mutableStateOf<List<JournalContext>>(emptyList()) }
+    var search by remember { mutableStateOf("") }
+
+    LaunchedEffect(Unit) {
+        isLoading = true
+        val loadErrors = mutableListOf<DashboardLoadError>()
+
+        suspend fun <T> loadSection(title: String, block: suspend () -> T): T? {
+            return runCatching { block() }
+                .onFailure { throwable ->
+                    loadErrors += DashboardLoadError(
+                        title = title,
+                        message = throwable.message ?: "Не удалось получить данные"
+                    )
+                }
+                .getOrNull()
+        }
+
+        periods = loadSection("Периоды") { journalApi.getAcademicPeriods(includeClosed = true).data }.orEmpty()
+        disciplines = loadSection("Дисциплины") { journalApi.getDisciplines(limit = 200).data }.orEmpty()
+        teachers = loadSection("Преподаватели") { journalApi.getTeachers(limit = 200).data }.orEmpty()
+        groups = loadSection("Группы") { journalApi.getGroups(limit = 200).data }.orEmpty()
+
+        val activePeriodId = periods.firstOrNull { it.isActive }?.id ?: periods.firstOrNull()?.id
+        journals = loadSection("Журналы") {
+            journalApi.getJournals(periodId = activePeriodId, limit = 200, offset = 0).data
+        }.orEmpty()
+
+        errors = loadErrors
+        isLoading = false
+    }
+
+    val activePeriodName = periods.firstOrNull { it.isActive }?.name ?: periods.firstOrNull()?.name ?: "Период не найден"
+    val query = search.trim().lowercase()
+    val filteredDisciplines = remember(disciplines, query) {
+        disciplines.filter { discipline ->
+            query.isBlank() || listOf(discipline.name, discipline.code.orEmpty()).any { it.lowercase().contains(query) }
+        }
+    }
+    val filteredTeachers = remember(teachers, query) {
+        teachers.filter { teacher ->
+            query.isBlank() || listOf(teacher.fullName, teacher.email.orEmpty()).any { it.lowercase().contains(query) }
+        }
+    }
+    val filteredGroups = remember(groups, query) {
+        groups.filter { group ->
+            query.isBlank() || listOf(group.name, group.faculty.orEmpty(), group.year?.toString().orEmpty())
+                .any { it.lowercase().contains(query) }
+        }
+    }
+
+    MethodologistScaffold(title = "Личный кабинет", useContentCard = false) {
+        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+            if (isLoading) {
+                LoadingCard("Загружаю информацию...")
+            } else {
+                DashboardSummaryGrid(
+                    disciplinesCount = disciplines.size,
+                    teachersCount = teachers.size,
+                    groupsCount = groups.size,
+                    journalsCount = journals.size
+                )
+                PeriodStrip(activePeriodName)
+                if (errors.isNotEmpty()) {
+                    DashboardAlerts(errors)
+                }
+                DirectoryPanel(
+                    search = search,
+                    onSearchChange = { search = it },
+                    disciplines = filteredDisciplines,
+                    teachers = filteredTeachers,
+                    groups = filteredGroups
+                )
+            }
+        }
+    }
+}
 
 @Composable
 fun MethodistJournalsRoute(
@@ -788,6 +878,193 @@ private fun TemplateListBlock(
 }
 
 @Composable
+private fun DashboardSummaryGrid(
+    disciplinesCount: Int,
+    teachersCount: Int,
+    groupsCount: Int,
+    journalsCount: Int
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(PrimaryText, RoundedCornerShape(18.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text(
+            "Личный кабинет методиста",
+            color = Color.White,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            DashboardSummaryTile("Дисциплины", disciplinesCount.toString(), Modifier.weight(1f))
+            DashboardSummaryTile("Преподаватели", teachersCount.toString(), Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            DashboardSummaryTile("Группы", groupsCount.toString(), Modifier.weight(1f))
+            DashboardSummaryTile("Журналы", journalsCount.toString(), Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun DashboardSummaryTile(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .background(CardBackground, RoundedCornerShape(12.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(5.dp)
+                .background(PrimaryText, RoundedCornerShape(999.dp))
+        )
+        Text(label, color = PrimaryText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+        Text(value, color = AccentBlue, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun PeriodStrip(activePeriodName: String) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(BackgroundColor, RoundedCornerShape(16.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text("Текущий период", color = SecondaryText)
+        Text(activePeriodName, color = AccentBlue, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun DashboardAlerts(errors: List<DashboardLoadError>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFFFE4E6), RoundedCornerShape(16.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        errors.forEach { error ->
+            Text("${error.title}: ${error.message}", color = DangerColor, fontWeight = FontWeight.SemiBold)
+        }
+    }
+}
+
+@Composable
+private fun DirectoryPanel(
+    search: String,
+    onSearchChange: (String) -> Unit,
+    disciplines: List<Discipline>,
+    teachers: List<TeacherProfile>,
+    groups: List<AcademicGroup>
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground, RoundedCornerShape(20.dp))
+            .padding(18.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("Справочники", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+        Text(
+            "Информация по учебному процессу",
+            color = PrimaryText,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
+        OutlinedTextField(
+            value = search,
+            onValueChange = onSearchChange,
+            placeholder = { Text("Поиск по дисциплинам, преподавателям и группам", color = FieldPlaceholder) },
+            textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            colors = methodistFieldColors(),
+            shape = RoundedCornerShape(14.dp),
+            modifier = Modifier.fillMaxWidth()
+        )
+        DirectoryBlock(
+            title = "Дисциплины",
+            count = disciplines.size,
+            rows = disciplines.take(DashboardVisibleRows).map { DirectoryRow(it.name, it.code ?: "Код не указан") },
+            hiddenCount = (disciplines.size - DashboardVisibleRows).coerceAtLeast(0),
+            emptyText = "Нет дисциплин"
+        )
+        DirectoryBlock(
+            title = "Преподаватели",
+            count = teachers.size,
+            rows = teachers.take(DashboardVisibleRows).map { DirectoryRow(it.fullName, it.email ?: "Email не указан") },
+            hiddenCount = (teachers.size - DashboardVisibleRows).coerceAtLeast(0),
+            emptyText = "Нет преподавателей"
+        )
+        DirectoryBlock(
+            title = "Группы",
+            count = groups.size,
+            rows = groups.take(DashboardVisibleRows).map { DirectoryRow(it.name, groupSubtitle(it)) },
+            hiddenCount = (groups.size - DashboardVisibleRows).coerceAtLeast(0),
+            emptyText = "Нет групп"
+        )
+    }
+}
+
+@Composable
+private fun DirectoryBlock(
+    title: String,
+    count: Int,
+    rows: List<DirectoryRow>,
+    hiddenCount: Int,
+    emptyText: String
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, LightBlue, RoundedCornerShape(16.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(title, color = PrimaryText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(
+                count.toString(),
+                modifier = Modifier.background(LightBlue, RoundedCornerShape(999.dp)).padding(horizontal = 10.dp, vertical = 5.dp),
+                color = AccentBlue,
+                fontWeight = FontWeight.Bold
+            )
+        }
+        if (rows.isEmpty()) {
+            Text(emptyText, color = SecondaryText, modifier = Modifier.padding(vertical = 8.dp))
+        } else {
+            rows.forEach { row -> DirectoryDataRow(row) }
+        }
+        if (hiddenCount > 0) {
+            Text("Еще $hiddenCount", color = SecondaryText, style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+@Composable
+private fun DirectoryDataRow(row: DirectoryRow) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(BackgroundColor, RoundedCornerShape(12.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(row.title, color = AccentBlue, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(row.subtitle, color = SecondaryText, style = MaterialTheme.typography.bodySmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+    }
+}
+
+@Composable
 private fun JournalContextCard(context: JournalContext, onOpen: () -> Unit) {
     Column(
         modifier = Modifier
@@ -1165,6 +1442,11 @@ private fun formatShortDate(value: String?): String {
         .getOrElse { value.take(10) }
 }
 
+private fun groupSubtitle(group: AcademicGroup): String = listOfNotNull(
+    group.faculty,
+    group.year?.let { "$it курс" }
+).joinToString(" · ").ifBlank { "Факультет и курс не указаны" }
+
 private fun JournalContext.displayDisciplineName(): String = disciplineName ?: discipline?.name ?: "Дисциплина не указана"
 
 private fun JournalContext.displayGroupName(): String = groupName ?: group?.name ?: "Не указана"
@@ -1200,6 +1482,16 @@ data class MethodistJournalTarget(
     val periodId: String,
     val teacherId: String,
     val lessonType: String
+)
+
+private data class DashboardLoadError(
+    val title: String,
+    val message: String
+)
+
+private data class DirectoryRow(
+    val title: String,
+    val subtitle: String
 )
 
 private data class TopicDraft(

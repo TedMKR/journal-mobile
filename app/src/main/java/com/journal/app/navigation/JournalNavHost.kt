@@ -33,6 +33,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.journal.core.network.api.JournalApi
 import com.journal.features.auth.AuthRoute
+import com.journal.features.methodist.templates.MethodistDashboardRoute
 import com.journal.features.methodist.templates.MethodistJournalCreateRoute
 import com.journal.features.methodist.templates.MethodistJournalsRoute
 import com.journal.features.methodist.templates.MethodistTemplatesRoute
@@ -76,7 +77,7 @@ fun JournalNavHost(journalApi: JournalApi) {
                 AuthRoute { selectedRole ->
                     role = selectedRole
                     val startRoute = when (selectedRole) {
-                        "methodologist" -> Routes.METHODIST_JOURNALS
+                        "methodologist" -> Routes.METHODIST_DASHBOARD
                         "student" -> Routes.STUDENT_SCHEDULE
                         else -> Routes.TEACHER_HOME
                     }
@@ -126,6 +127,9 @@ fun JournalNavHost(journalApi: JournalApi) {
             }
             composable(Routes.STUDENT_DASHBOARD) {
                 StudentDashboardRoute(journalApi = journalApi)
+            }
+            composable(Routes.METHODIST_DASHBOARD) {
+                MethodistDashboardRoute(journalApi = journalApi)
             }
             composable(Routes.METHODIST_JOURNALS) {
                 MethodistJournalsRoute(
@@ -338,6 +342,7 @@ private fun RightSideMenu(
 
             val items = when (role) {
                 "methodologist" -> listOf(
+                    MenuItem("Личный кабинет", Routes.METHODIST_DASHBOARD),
                     MenuItem("Журналы", Routes.METHODIST_JOURNALS),
                     MenuItem("КТП", Routes.METHODIST_TEMPLATES)
                 )
@@ -400,7 +405,7 @@ private fun canNavigateBack(role: String?, currentRoute: String?): Boolean {
     return currentRoute !in setOf(
         Routes.TEACHER_HOME,
         Routes.STUDENT_SCHEDULE,
-        Routes.METHODIST_JOURNALS
+        Routes.METHODIST_DASHBOARD
     )
 }
 
@@ -412,6 +417,7 @@ private fun screenTitle(route: String): String = when {
     route.startsWith("teacher_student_card") -> "Карточка студента"
     route == Routes.STUDENT_SCHEDULE -> "Расписание занятий"
     route == Routes.STUDENT_DASHBOARD -> "Личный кабинет"
+    route == Routes.METHODIST_DASHBOARD -> "Личный кабинет"
     route == Routes.METHODIST_JOURNALS -> "Журналы"
     route == Routes.METHODIST_TEMPLATES -> "КТП"
     route == Routes.METHODIST_JOURNAL_CREATE -> "Создание журнала"
