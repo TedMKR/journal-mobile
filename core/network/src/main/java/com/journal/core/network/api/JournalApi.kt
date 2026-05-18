@@ -230,6 +230,7 @@ interface JournalApi {
         @Query("group_id") groupId: String? = null,
         @Query("teacher_id") teacherId: String? = null,
         @Query("lesson_type") lessonType: String? = null,
+        @Query("q") query: String? = null,
         @Query("limit") limit: Int? = null,
         @Query("offset") offset: Int? = null
     ): JournalsResponse

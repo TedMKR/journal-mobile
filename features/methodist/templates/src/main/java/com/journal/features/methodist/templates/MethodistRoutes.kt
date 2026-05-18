@@ -51,12 +51,14 @@ import com.journal.core.model.teacher.CreateLessonTemplateBulkRequest
 import com.journal.core.model.teacher.Discipline
 import com.journal.core.model.teacher.LessonTemplate
 import com.journal.core.model.teacher.LessonTemplateDetail
+import com.journal.core.model.teacher.JournalContext
 import com.journal.core.model.teacher.LessonTopic
-import com.journal.core.model.teacher.TeacherLesson
 import com.journal.core.model.teacher.TeacherProfile
 import com.journal.core.model.teacher.TopicPayload
 import com.journal.core.model.teacher.UpdateLessonTemplateRequest
 import com.journal.core.network.api.JournalApi
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
 private val BackgroundColor = Color(0xFFEDEEED)
@@ -75,58 +77,53 @@ fun MethodistJournalsRoute(
 ) {
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    var lessons by remember { mutableStateOf<List<TeacherLesson>>(emptyList()) }
+    var journals by remember { mutableStateOf<List<JournalContext>>(emptyList()) }
     var periods by remember { mutableStateOf<List<AcademicPeriod>>(emptyList()) }
     var disciplines by remember { mutableStateOf<List<Discipline>>(emptyList()) }
     var groups by remember { mutableStateOf<List<AcademicGroup>>(emptyList()) }
+    var teachers by remember { mutableStateOf<List<TeacherProfile>>(emptyList()) }
     var search by remember { mutableStateOf("") }
     var selectedPeriodId by remember { mutableStateOf("") }
     var selectedDisciplineId by remember { mutableStateOf("") }
     var selectedGroupId by remember { mutableStateOf("") }
+    var selectedTeacherId by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf("") }
 
-    LaunchedEffect(Unit) {
+    suspend fun loadJournals() {
         isLoading = true
         error = null
         runCatching {
-            val loadedPeriods = journalApi.getAcademicPeriods(includeClosed = true).data
-            val loadedDisciplines = journalApi.getDisciplines(limit = 200).data
-            val loadedGroups = journalApi.getGroups(limit = 200).data
-            val loadedLessons = journalApi.getLessons(limit = 200).lessons
-            periods = loadedPeriods
-            disciplines = loadedDisciplines
-            groups = loadedGroups
-            lessons = loadedLessons
-        }.onFailure { error = it.message ?: "Не удалось загрузить журналы" }
+            journalApi.getJournals(
+                periodId = selectedPeriodId.ifBlank { null },
+                disciplineId = selectedDisciplineId.ifBlank { null },
+                groupId = selectedGroupId.ifBlank { null },
+                teacherId = selectedTeacherId.ifBlank { null },
+                lessonType = selectedType.ifBlank { null },
+                query = search.trim().ifBlank { null },
+                limit = 200,
+                offset = 0
+            ).data
+        }.onSuccess { loadedJournals ->
+            journals = loadedJournals
+        }.onFailure { throwable ->
+            journals = emptyList()
+            error = throwable.message ?: "Не удалось загрузить журналы"
+        }
         isLoading = false
     }
 
-    val periodNames = remember(periods) { periods.associate { it.id to it.name } }
-    val contexts = remember(
-        lessons,
-        periods,
-        search,
-        selectedPeriodId,
-        selectedDisciplineId,
-        selectedGroupId,
-        selectedType
-    ) {
-        buildJournalContexts(lessons, periodNames)
-            .filter { context ->
-                val query = search.trim().lowercase()
-                val matchesSearch = query.isBlank() || listOf(
-                    context.disciplineName,
-                    context.groupName,
-                    context.teacherName,
-                    context.periodName
-                ).any { it.lowercase().contains(query) }
-                matchesSearch &&
-                    (selectedPeriodId.isBlank() || context.periodId == selectedPeriodId) &&
-                    (selectedDisciplineId.isBlank() || context.disciplineId == selectedDisciplineId) &&
-                    (selectedGroupId.isBlank() || context.groupId == selectedGroupId) &&
-                    (selectedType.isBlank() || context.lessonType == selectedType)
-            }
+    LaunchedEffect(Unit) {
+        runCatching { periods = journalApi.getAcademicPeriods(includeClosed = true).data }
+        runCatching { disciplines = journalApi.getDisciplines(limit = 200).data }
+        runCatching { groups = journalApi.getGroups(limit = 200).data }
+        runCatching { teachers = journalApi.getTeachers(limit = 200).data }
     }
+
+    LaunchedEffect(selectedPeriodId, selectedDisciplineId, selectedGroupId, selectedTeacherId, selectedType, search) {
+        loadJournals()
+    }
+
+    val contexts = remember(journals) { journals }
 
     MethodologistScaffold(
         title = "Журналы",
@@ -148,6 +145,9 @@ fun MethodistJournalsRoute(
                 groups = groups,
                 selectedGroupId = selectedGroupId,
                 onGroupChange = { selectedGroupId = it },
+                teachers = teachers,
+                selectedTeacherId = selectedTeacherId,
+                onTeacherChange = { selectedTeacherId = it },
                 selectedType = selectedType,
                 onTypeChange = { selectedType = it }
             )
@@ -489,6 +489,9 @@ private fun JournalFilters(
     groups: List<AcademicGroup>,
     selectedGroupId: String,
     onGroupChange: (String) -> Unit,
+    teachers: List<TeacherProfile>,
+    selectedTeacherId: String,
+    onTeacherChange: (String) -> Unit,
     selectedType: String,
     onTypeChange: (String) -> Unit
 ) {
@@ -518,6 +521,12 @@ private fun JournalFilters(
             options = listOf("" to "Все группы") + groups.map { it.id to it.name },
             selected = selectedGroupId,
             onSelected = onGroupChange
+        )
+        CompactOptionFilter(
+            label = "Преподаватель",
+            options = listOf("" to "Все преподаватели") + teachers.map { it.id to it.fullName },
+            selected = selectedTeacherId,
+            onSelected = onTeacherChange
         )
         CompactOptionFilter(
             label = "Тип занятия",
@@ -657,14 +666,15 @@ private fun JournalContextCard(context: JournalContext, onOpen: () -> Unit) {
     ) {
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(context.periodName, color = SecondaryText)
-                Text(context.disciplineName, color = PrimaryText, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(context.displayPeriodName(), color = SecondaryText)
+                Text(context.displayDisciplineName(), color = PrimaryText, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
-            Badge(lessonTypeName(context.lessonType))
+            Badge(lessonTypeName(context.lessonType.orEmpty()))
         }
-        InfoLine("Группа", context.groupName)
-        InfoLine("Преподаватель", context.teacherName.ifBlank { "Не указан" })
+        InfoLine("Группа", context.displayGroupName())
+        InfoLine("Преподаватель", context.displayTeacherName())
         InfoLine("Занятий", "${context.lessonCount}, проведено ${context.heldCount}")
+        InfoLine("Создан", formatShortDate(context.createdAt))
         SecondaryButton(text = "Открыть", onClick = onOpen)
     }
 }
@@ -965,41 +975,29 @@ private fun InfoLine(label: String, value: String) {
     }
 }
 
-private fun buildJournalContexts(lessons: List<TeacherLesson>, periodNames: Map<String, String>): List<JournalContext> {
-    val contexts = linkedMapOf<String, JournalContext>()
-    lessons.forEach { lesson ->
-        val groupId = lesson.groupId ?: return@forEach
-        val disciplineId = lesson.disciplineId ?: return@forEach
-        val periodId = lesson.periodId ?: return@forEach
-        val key = listOf(groupId, disciplineId, periodId, lesson.lessonType, lesson.teacherId.orEmpty()).joinToString(":")
-        val current = contexts[key]
-        if (current == null) {
-            contexts[key] = JournalContext(
-                key = key,
-                groupId = groupId,
-                groupName = lesson.groupName,
-                disciplineId = disciplineId,
-                disciplineName = lesson.disciplineName,
-                periodId = periodId,
-                periodName = periodNames[periodId] ?: "Период не указан",
-                teacherId = lesson.teacherId,
-                teacherName = lesson.teacherName.orEmpty(),
-                lessonType = lesson.lessonType,
-                lessonCount = 1,
-                heldCount = if (lesson.status == "held") 1 else 0,
-                lastLesson = lesson.scheduledAt
-            )
-        } else {
-            contexts[key] = current.copy(
-                lessonCount = current.lessonCount + 1,
-                heldCount = current.heldCount + if (lesson.status == "held") 1 else 0,
-                lastLesson = maxOf(current.lastLesson, lesson.scheduledAt),
-                teacherName = current.teacherName.ifBlank { lesson.teacherName.orEmpty() }
-            )
-        }
-    }
-    return contexts.values.sortedByDescending { it.lastLesson }
+private val ShortDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
+
+private fun formatShortDate(value: String?): String {
+    if (value.isNullOrBlank()) return "—"
+    return runCatching { OffsetDateTime.parse(value).format(ShortDateFormatter) }
+        .getOrElse { value.take(10) }
 }
+
+private fun JournalContext.displayDisciplineName(): String = disciplineName ?: discipline?.name ?: "Дисциплина не указана"
+
+private fun JournalContext.displayGroupName(): String = groupName ?: group?.name ?: "Не указана"
+
+private fun JournalContext.displayPeriodName(): String = periodName ?: academicPeriod?.name ?: period?.name ?: "Период не указан"
+
+private fun JournalContext.displayTeacherName(): String = teacherName ?: teacher?.fullName ?: "Не указан"
+
+private fun JournalContext.toTarget(): MethodistJournalTarget = MethodistJournalTarget(
+    groupId = groupId ?: group?.id.orEmpty(),
+    disciplineId = disciplineId ?: discipline?.id.orEmpty(),
+    periodId = periodId ?: academicPeriodId ?: academicPeriod?.id ?: period?.id.orEmpty(),
+    teacherId = teacherId ?: teacher?.id.orEmpty(),
+    lessonType = lessonType.orEmpty()
+)
 
 private fun lessonTypeName(type: String): String = when (type) {
     "lecture" -> "Лекция"
@@ -1013,24 +1011,6 @@ private fun List<TopicDraft>.replaceAt(index: Int, item: TopicDraft): List<Topic
     mapIndexed { currentIndex, current -> if (currentIndex == index) item else current }
 
 private fun List<TopicDraft>.reindexTopics(): List<TopicDraft> = mapIndexed { index, topic -> topic.copy(orderIndex = index + 1) }
-
-private data class JournalContext(
-    val key: String,
-    val groupId: String,
-    val groupName: String,
-    val disciplineId: String,
-    val disciplineName: String,
-    val periodId: String,
-    val periodName: String,
-    val teacherId: String?,
-    val teacherName: String,
-    val lessonType: String,
-    val lessonCount: Int,
-    val heldCount: Int,
-    val lastLesson: String
-) {
-    fun toTarget(): MethodistJournalTarget = MethodistJournalTarget(groupId, disciplineId, periodId, teacherId.orEmpty(), lessonType)
-}
 
 data class MethodistJournalTarget(
     val groupId: String,

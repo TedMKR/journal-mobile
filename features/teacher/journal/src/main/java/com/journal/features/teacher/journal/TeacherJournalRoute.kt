@@ -115,7 +115,9 @@ fun TeacherJournalRoute(
             journalApi.getGroupJournalGrid(
                 groupId = groupId,
                 disciplineId = disciplineId,
-                academicPeriodId = periodId
+                academicPeriodId = periodId,
+                teacherId = teacherId?.takeIf { it.isNotBlank() },
+                lessonType = lessonType.takeIf { it.isNotBlank() }
             )
         }.onSuccess { response ->
             journal = response
