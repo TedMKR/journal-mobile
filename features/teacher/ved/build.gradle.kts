@@ -38,4 +38,5 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
 }

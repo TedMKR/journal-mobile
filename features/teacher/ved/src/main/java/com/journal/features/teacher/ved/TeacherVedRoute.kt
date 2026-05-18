@@ -53,12 +53,14 @@ import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriod
 import com.journal.core.model.teacher.CurrentAttestationOptions
 import com.journal.core.model.teacher.CurrentAttestationOverrides
+import com.journal.core.model.teacher.CurrentAttestationContext
 import com.journal.core.model.teacher.CurrentAttestationPrefill
 import com.journal.core.model.teacher.Discipline
 import com.journal.core.model.teacher.RequestReportPayload
 import com.journal.core.model.teacher.TeacherLesson
 import com.journal.core.network.api.JournalApi
 import java.io.File
+import retrofit2.HttpException
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
@@ -235,19 +237,14 @@ fun TeacherVedRoute(journalApi: JournalApi) {
                         error = null
                         message = null
                         runCatching {
-                            val accepted = journalApi.requestCurrentAttestationReport(
-                                RequestReportPayload(
-                                    format = selectedFormat,
-                                    groupId = data.context.groupId,
-                                    disciplineId = data.context.disciplineId,
-                                    academicPeriodId = data.context.academicPeriodId,
-                                    periodId = data.context.academicPeriodId,
-                                    teacherId = data.context.teacherId,
-                                    returnToDeanBy = returnToDeanBy.ifBlank { null },
-                                    progressAsOf = progressAsOf.ifBlank { null },
-                                    overrides = overrides,
-                                    options = options
-                                )
+                            val accepted = requestStatementReport(
+                                journalApi = journalApi,
+                                context = data.context,
+                                format = selectedFormat,
+                                returnToDeanBy = returnToDeanBy,
+                                progressAsOf = progressAsOf,
+                                overrides = overrides,
+                                options = options
                             )
                             val jobId = accepted.jobId ?: accepted.id ?: throw IllegalStateException("Сервер не вернул идентификатор задачи")
                             ReadyStatement(
@@ -559,38 +556,45 @@ private fun SelectField(
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selectedLabel = options.firstOrNull { it.first == value }?.second.orEmpty()
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
-        OutlinedTextField(
-            value = selectedLabel,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            placeholder = { Text(placeholder) },
-            textStyle = LocalTextStyle.current.copy(color = Color.Black),
-            colors = statementFieldColors(),
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .menuAnchor()
-                .fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp)
-        )
-        ExposedDropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier.background(CardBackground)
-        ) {
-            options.forEach { (optionValue, optionLabel) ->
-                DropdownMenuItem(
-                    text = { Text(optionLabel, color = PrimaryText) },
-                    onClick = {
-                        onValueChange(optionValue)
-                        expanded = false
-                    },
-                    modifier = Modifier.background(CardBackground)
-                )
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        FieldLabel(label)
+        ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = !expanded }) {
+            OutlinedTextField(
+                value = selectedLabel,
+                onValueChange = {},
+                readOnly = true,
+                placeholder = { Text(placeholder) },
+                textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                colors = statementFieldColors(),
+                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth(),
+                shape = RoundedCornerShape(10.dp)
+            )
+            ExposedDropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.background(CardBackground)
+            ) {
+                options.forEach { (optionValue, optionLabel) ->
+                    DropdownMenuItem(
+                        text = { Text(optionLabel, color = PrimaryText) },
+                        onClick = {
+                            onValueChange(optionValue)
+                            expanded = false
+                        },
+                        modifier = Modifier.background(CardBackground)
+                    )
+                }
             }
         }
     }
+}
+
+@Composable
+private fun FieldLabel(text: String) {
+    Text(text, color = PrimaryText, fontWeight = FontWeight.SemiBold)
 }
 
 @Composable
@@ -615,17 +619,19 @@ private fun statementFieldColors() = OutlinedTextFieldDefaults.colors(
 
 @Composable
 private fun InputField(label: String, value: String, onValueChange: (String) -> Unit, placeholder: String = "") {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        placeholder = { Text(placeholder) },
-        singleLine = true,
-        textStyle = LocalTextStyle.current.copy(color = Color.Black),
-        colors = statementFieldColors(),
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(10.dp)
-    )
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        FieldLabel(label)
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            placeholder = { Text(placeholder) },
+            singleLine = true,
+            textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            colors = statementFieldColors(),
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(10.dp)
+        )
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -663,32 +669,34 @@ private fun DateField(label: String, value: String, onValueChange: (String) -> U
         }
     }
 
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            placeholder = { Text("YYYY-MM-DD") },
-            singleLine = true,
-            textStyle = LocalTextStyle.current.copy(color = Color.Black),
-            colors = statementFieldColors(),
-            modifier = Modifier.weight(1f),
-            shape = RoundedCornerShape(10.dp)
-        )
-        Button(
-            onClick = { showDatePicker = true },
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFFE5E7EB),
-                contentColor = Color(0xFF374151)
-            ),
-            shape = RoundedCornerShape(8.dp)
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        FieldLabel(label)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Выбрать")
+            OutlinedTextField(
+                value = value,
+                onValueChange = {},
+                readOnly = true,
+                placeholder = { Text("YYYY-MM-DD") },
+                singleLine = true,
+                textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                colors = statementFieldColors(),
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp)
+            )
+            Button(
+                onClick = { showDatePicker = true },
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFE5E7EB),
+                    contentColor = Color(0xFF374151)
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text("Выбрать")
+            }
         }
     }
 }
@@ -718,6 +726,74 @@ private fun Long.toIsoLocalDate(): String = Instant.ofEpochMilli(this)
     .atZone(ZoneOffset.UTC)
     .toLocalDate()
     .toString()
+
+private suspend fun requestStatementReport(
+    journalApi: JournalApi,
+    context: CurrentAttestationContext,
+    format: String,
+    returnToDeanBy: String,
+    progressAsOf: String,
+    overrides: CurrentAttestationOverrides,
+    options: CurrentAttestationOptions
+) = requestStatementPayloads(
+    context = context,
+    format = format,
+    returnToDeanBy = returnToDeanBy,
+    progressAsOf = progressAsOf,
+    overrides = overrides,
+    options = options
+).let { payloads ->
+    var lastError: Throwable? = null
+    for (payload in payloads) {
+        try {
+            return@let journalApi.requestCurrentAttestationReport(payload)
+        } catch (throwable: Throwable) {
+            lastError = throwable
+            if (!throwable.isRecoverableReportRequestError()) throw throwable
+        }
+    }
+    throw lastError ?: IllegalStateException("Не удалось сформировать ведомость")
+}
+
+private fun requestStatementPayloads(
+    context: CurrentAttestationContext,
+    format: String,
+    returnToDeanBy: String,
+    progressAsOf: String,
+    overrides: CurrentAttestationOverrides,
+    options: CurrentAttestationOptions
+): List<RequestReportPayload> {
+    val base = RequestReportPayload(
+        format = format,
+        groupId = context.groupId,
+        disciplineId = context.disciplineId,
+        returnToDeanBy = returnToDeanBy.ifBlank { null },
+        progressAsOf = progressAsOf.ifBlank { null },
+        overrides = overrides.compact(),
+        options = options
+    )
+
+    return buildList {
+        add(base.copy(academicPeriodId = context.academicPeriodId))
+        add(base.copy(periodId = context.academicPeriodId))
+        add(base.copy(academicPeriodId = context.academicPeriodId, periodId = context.academicPeriodId))
+        context.teacherId?.let { teacherId ->
+            add(base.copy(teacherId = teacherId, academicPeriodId = context.academicPeriodId))
+            add(base.copy(teacherId = teacherId, periodId = context.academicPeriodId))
+            add(base.copy(teacherId = teacherId, academicPeriodId = context.academicPeriodId, periodId = context.academicPeriodId))
+        }
+    }
+}
+
+private fun CurrentAttestationOverrides.compact(): CurrentAttestationOverrides = copy(
+    semesterLabel = semesterLabel?.ifBlank { null },
+    facultyName = facultyName?.ifBlank { null },
+    departmentName = departmentName?.ifBlank { null },
+    lectureTeacherName = lectureTeacherName?.ifBlank { null },
+    practiceTeacherName = practiceTeacherName?.ifBlank { null }
+)
+
+private fun Throwable.isRecoverableReportRequestError(): Boolean = this is HttpException && code() in setOf(400, 404)
 
 private suspend fun waitForStatement(
     journalApi: JournalApi,
