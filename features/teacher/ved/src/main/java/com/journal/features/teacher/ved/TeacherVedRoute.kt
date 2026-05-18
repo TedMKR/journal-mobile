@@ -17,8 +17,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDefaults
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -26,8 +30,10 @@ import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,14 +59,19 @@ import com.journal.core.model.teacher.RequestReportPayload
 import com.journal.core.model.teacher.TeacherLesson
 import com.journal.core.network.api.JournalApi
 import java.io.File
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneOffset
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val BackgroundColor = Color(0xFFEDEEED)
 private val PrimaryText = Color(0xFF223268)
 private val SecondaryText = Color(0xFF7E8E99)
+private val CardBackground = Color.White
 private val LightBlue = Color(0xFFE4E6EC)
+private val FieldBorder = Color(0xFFD1D5DB)
+private val FieldPlaceholder = Color(0xFF9CA3AF)
 private val Danger = Color(0xFFB42318)
 private val Success = Color(0xFF027A48)
 
@@ -306,7 +317,11 @@ fun TeacherVedRoute(journalApi: JournalApi) {
 
 @Composable
 private fun TemplateCard() {
-    Card(shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -354,7 +369,11 @@ private fun StatementFormCard(
     onLoadPrefill: () -> Unit,
     onGenerate: () -> Unit
 ) {
-    Card(shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(
             modifier = Modifier.padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
@@ -448,8 +467,8 @@ private fun StatementDetails(
             placeholder = "Выберите формат",
             onValueChange = onFormatChange
         )
-        InputField("Вернуть в деканат до", returnToDeanBy, onReturnToDeanByChange, "YYYY-MM-DD")
-        InputField("Успеваемость на дату", progressAsOf, onProgressAsOfChange, "YYYY-MM-DD")
+        DateField("Вернуть в деканат до", returnToDeanBy, onReturnToDeanByChange)
+        DateField("Успеваемость на дату", progressAsOf, onProgressAsOfChange)
         InputField("Семестр", overrides.semesterLabel.orEmpty(), { onOverridesChange(overrides.copy(semesterLabel = it)) })
         InputField("Факультет", overrides.facultyName.orEmpty(), { onOverridesChange(overrides.copy(facultyName = it)) })
         InputField("Кафедра", overrides.departmentName.orEmpty(), { onOverridesChange(overrides.copy(departmentName = it)) })
@@ -492,7 +511,11 @@ private fun ReadyStatementsCard(
     onRefresh: () -> Unit,
     onDownload: (ReadyStatement) -> Unit
 ) {
-    Card(shape = RoundedCornerShape(20.dp), modifier = Modifier.fillMaxWidth()) {
+    Card(
+        shape = RoundedCornerShape(20.dp),
+        colors = CardDefaults.cardColors(containerColor = CardBackground),
+        modifier = Modifier.fillMaxWidth()
+    ) {
         Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text("Готовые ведомости", color = PrimaryText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
@@ -544,25 +567,51 @@ private fun SelectField(
             label = { Text(label) },
             placeholder = { Text(placeholder) },
             textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            colors = statementFieldColors(),
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             modifier = Modifier
                 .menuAnchor()
                 .fillMaxWidth(),
             shape = RoundedCornerShape(10.dp)
         )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier.background(CardBackground)
+        ) {
             options.forEach { (optionValue, optionLabel) ->
                 DropdownMenuItem(
                     text = { Text(optionLabel, color = PrimaryText) },
                     onClick = {
                         onValueChange(optionValue)
                         expanded = false
-                    }
+                    },
+                    modifier = Modifier.background(CardBackground)
                 )
             }
         }
     }
 }
+
+@Composable
+private fun statementFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Color.Black,
+    unfocusedTextColor = Color.Black,
+    disabledTextColor = Color.Black,
+    focusedContainerColor = CardBackground,
+    unfocusedContainerColor = CardBackground,
+    disabledContainerColor = CardBackground,
+    focusedBorderColor = PrimaryText,
+    unfocusedBorderColor = FieldBorder,
+    disabledBorderColor = FieldBorder,
+    focusedLabelColor = PrimaryText,
+    unfocusedLabelColor = SecondaryText,
+    disabledLabelColor = SecondaryText,
+    focusedPlaceholderColor = FieldPlaceholder,
+    unfocusedPlaceholderColor = FieldPlaceholder,
+    disabledPlaceholderColor = FieldPlaceholder,
+    cursorColor = PrimaryText
+)
 
 @Composable
 private fun InputField(label: String, value: String, onValueChange: (String) -> Unit, placeholder: String = "") {
@@ -571,10 +620,77 @@ private fun InputField(label: String, value: String, onValueChange: (String) -> 
         onValueChange = onValueChange,
         label = { Text(label) },
         placeholder = { Text(placeholder) },
+        singleLine = true,
         textStyle = LocalTextStyle.current.copy(color = Color.Black),
+        colors = statementFieldColors(),
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(10.dp)
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DateField(label: String, value: String, onValueChange: (String) -> Unit) {
+    var showDatePicker by remember { mutableStateOf(false) }
+    val initialSelectedDateMillis = remember(value) { value.toUtcStartOfDayMillis() }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialSelectedDateMillis)
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { selectedMillis ->
+                            onValueChange(selectedMillis.toIsoLocalDate())
+                        }
+                        showDatePicker = false
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryText),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text("Выбрать")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDatePicker = false }) {
+                    Text("Отмена", color = PrimaryText, fontWeight = FontWeight.SemiBold)
+                }
+            },
+            colors = DatePickerDefaults.colors(containerColor = CardBackground)
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
+
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(label) },
+            placeholder = { Text("YYYY-MM-DD") },
+            singleLine = true,
+            textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            colors = statementFieldColors(),
+            modifier = Modifier.weight(1f),
+            shape = RoundedCornerShape(10.dp)
+        )
+        Button(
+            onClick = { showDatePicker = true },
+            colors = ButtonDefaults.buttonColors(
+                containerColor = Color(0xFFE5E7EB),
+                contentColor = Color(0xFF374151)
+            ),
+            shape = RoundedCornerShape(8.dp)
+        ) {
+            Text("Выбрать")
+        }
+    }
 }
 
 @Composable
@@ -590,6 +706,18 @@ private fun OptionCheckbox(label: String, checked: Boolean, onCheckedChange: (Bo
         Text(label, color = PrimaryText)
     }
 }
+
+private fun String.toUtcStartOfDayMillis(): Long? = runCatching {
+    LocalDate.parse(take(10))
+        .atStartOfDay()
+        .toInstant(ZoneOffset.UTC)
+        .toEpochMilli()
+}.getOrNull()
+
+private fun Long.toIsoLocalDate(): String = Instant.ofEpochMilli(this)
+    .atZone(ZoneOffset.UTC)
+    .toLocalDate()
+    .toString()
 
 private suspend fun waitForStatement(
     journalApi: JournalApi,
