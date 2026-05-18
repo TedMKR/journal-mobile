@@ -1,7 +1,5 @@
 package com.journal.app.navigation
 
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -24,14 +21,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.rotate
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.util.lerp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -72,7 +65,6 @@ fun JournalNavHost(journalApi: JournalApi) {
                 AppHeader(
                     title = screenTitle(currentRoute.orEmpty()),
                     canNavigateBack = canNavigateBack(role = role, currentRoute = currentRoute),
-                    isMenuOpen = isMenuOpen,
                     onBack = { navController.popBackStack() },
                     onMenu = { isMenuOpen = !isMenuOpen }
                 )
@@ -249,7 +241,6 @@ fun JournalNavHost(journalApi: JournalApi) {
 private fun AppHeader(
     title: String,
     canNavigateBack: Boolean,
-    isMenuOpen: Boolean,
     onBack: () -> Unit,
     onMenu: () -> Unit
 ) {
@@ -285,65 +276,16 @@ private fun AppHeader(
             textAlign = TextAlign.Center
         )
 
-        AnimatedMenuButton(
-            isOpen = isMenuOpen,
-            onClick = onMenu,
-            modifier = Modifier.align(Alignment.CenterEnd)
+        Text(
+            text = "☰",
+            modifier = Modifier
+                .align(Alignment.CenterEnd)
+                .clickable(onClick = onMenu)
+                .padding(horizontal = 13.dp, vertical = 8.dp),
+            color = MenuPrimary,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
         )
-    }
-}
-
-@Composable
-private fun AnimatedMenuButton(
-    isOpen: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val progress by animateFloatAsState(targetValue = if (isOpen) 1f else 0f, label = "menuIconProgress")
-    Box(
-        modifier = modifier
-            .clickable(onClick = onClick)
-            .padding(8.dp)
-    ) {
-        Canvas(modifier = Modifier.size(width = 30.dp, height = 24.dp)) {
-            val strokeWidth = 3.dp.toPx()
-            val startX = 0f
-            val endX = size.width
-            val centerY = size.height / 2f
-            val topClosedY = 2.dp.toPx()
-            val bottomClosedY = size.height - 2.dp.toPx()
-            val topY = lerp(topClosedY, centerY, progress)
-            val bottomY = lerp(bottomClosedY, centerY, progress)
-            val middleOffsetX = lerp(0f, -size.width * 2f, progress)
-            val middleAlpha = 1f - progress
-            val rotation = 135f * progress
-
-            rotate(degrees = rotation, pivot = Offset(size.width / 2f, topY)) {
-                drawLine(
-                    color = MenuPrimary,
-                    start = Offset(startX, topY),
-                    end = Offset(endX, topY),
-                    strokeWidth = strokeWidth,
-                    cap = StrokeCap.Round
-                )
-            }
-            drawLine(
-                color = MenuPrimary.copy(alpha = middleAlpha),
-                start = Offset(startX + middleOffsetX, centerY),
-                end = Offset(endX + middleOffsetX, centerY),
-                strokeWidth = strokeWidth,
-                cap = StrokeCap.Round
-            )
-            rotate(degrees = -rotation, pivot = Offset(size.width / 2f, bottomY)) {
-                drawLine(
-                    color = MenuPrimary,
-                    start = Offset(startX, bottomY),
-                    end = Offset(endX, bottomY),
-                    strokeWidth = strokeWidth,
-                    cap = StrokeCap.Round
-                )
-            }
-        }
     }
 }
 
@@ -371,15 +313,26 @@ private fun RightSideMenu(
                 .padding(horizontal = 18.dp, vertical = 28.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column {
-                Text("Меню", color = MenuPrimary, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.align(Alignment.CenterStart)) {
+                    Text("Меню", color = MenuPrimary, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                    Text(
+                        when (role) {
+                            "methodologist" -> "Методист"
+                            "student" -> "Студент"
+                            else -> "Преподаватель"
+                        },
+                        color = MenuPrimary.copy(alpha = 0.65f)
+                    )
+                }
                 Text(
-                    when (role) {
-                        "methodologist" -> "Методист"
-                        "student" -> "Студент"
-                        else -> "Преподаватель"
-                    },
-                    color = MenuPrimary.copy(alpha = 0.65f)
+                    text = "×",
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .clickable(onClick = onDismiss)
+                        .padding(8.dp),
+                    color = MenuPrimary,
+                    style = MaterialTheme.typography.headlineSmall
                 )
             }
 
