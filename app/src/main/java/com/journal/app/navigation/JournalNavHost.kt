@@ -96,8 +96,7 @@ fun JournalNavHost(journalApi: JournalApi) {
                                     groupId = groupId,
                                     disciplineId = disciplineId,
                                     periodId = periodId,
-                                    lessonType = lesson.lessonType,
-                                    teacherId = lesson.teacherId
+                                    lessonType = lesson.lessonType
                                 )
                             )
                         }

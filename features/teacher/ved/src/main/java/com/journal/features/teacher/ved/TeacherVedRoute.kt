@@ -583,7 +583,9 @@ private fun SelectField(
             ExposedDropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
-                modifier = Modifier.background(CardBackground)
+                modifier = Modifier
+                    .exposedDropdownSize(matchTextFieldWidth = true)
+                    .background(CardBackground)
             ) {
                 options.forEach { (optionValue, optionLabel) ->
                     DropdownMenuItem(

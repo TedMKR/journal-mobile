@@ -26,6 +26,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,9 +40,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriod
@@ -66,6 +69,8 @@ private val CardBackground = Color.White
 private val PrimaryText = Color(0xFF223268)
 private val SecondaryText = Color(0xFF6D7885)
 private val LightBlue = Color(0xFFD3D7E1)
+private val FieldBorder = Color(0xFFD1D5DB)
+private val FieldPlaceholder = Color(0xFF9CA3AF)
 private val AccentBlue = Color(0xFF223268)
 private val DangerColor = Color(0xFFC44A4A)
 
@@ -623,6 +628,7 @@ private fun JournalFilters(
             label = { Text("Поиск") },
             placeholder = { Text("Дисциплина, группа, преподаватель") },
             textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            colors = methodistFieldColors(),
             modifier = Modifier.fillMaxWidth()
         )
         CompactOptionFilter(
@@ -672,14 +678,17 @@ private fun CompactOptionFilter(
     onSelected: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var fieldWidth by remember { mutableStateOf(0.dp) }
+    val density = LocalDensity.current
     val selectedText = options.firstOrNull { it.first == selected }?.second ?: options.firstOrNull()?.second.orEmpty()
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, color = PrimaryText, fontWeight = FontWeight.SemiBold)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .onSizeChanged { fieldWidth = with(density) { it.width.toDp() } }
                 .background(Color.White, RoundedCornerShape(12.dp))
-                .border(1.dp, PrimaryText, RoundedCornerShape(12.dp))
+                .border(1.dp, if (expanded) PrimaryText else FieldBorder, RoundedCornerShape(12.dp))
                 .clickable { expanded = true }
                 .padding(horizontal = 12.dp, vertical = 11.dp)
         ) {
@@ -704,7 +713,9 @@ private fun CompactOptionFilter(
             DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
-                modifier = Modifier.background(Color.White)
+                modifier = Modifier
+                    .width(fieldWidth)
+                    .background(Color.White)
             ) {
                 options.forEach { option ->
                     DropdownMenuItem(
@@ -750,6 +761,7 @@ private fun TemplateListBlock(
             onValueChange = onSearchChange,
             label = { Text("Поиск: название, дисциплина, описание") },
             textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            colors = methodistFieldColors(),
             modifier = Modifier.fillMaxWidth()
         )
         CompactOptionFilter(
@@ -873,6 +885,7 @@ private fun TemplateEditorCard(
             onValueChange = { name = it },
             label = { Text("Название") },
             textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            colors = methodistFieldColors(),
             modifier = Modifier.fillMaxWidth()
         )
         OutlinedTextField(
@@ -880,6 +893,7 @@ private fun TemplateEditorCard(
             onValueChange = { description = it },
             label = { Text("Описание") },
             textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            colors = methodistFieldColors(),
             modifier = Modifier.fillMaxWidth()
         )
         TopicsEditor(topics = topics, onTopicsChange = { topics = it })
@@ -941,6 +955,7 @@ private fun TemplateCreateDialog(
                     onValueChange = { name = it },
                     placeholder = { Text("КТП по дисциплине") },
                     textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            colors = methodistFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -951,6 +966,7 @@ private fun TemplateCreateDialog(
                     placeholder = { Text("Семестр, поток, комментарии") },
                     minLines = 3,
                     textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            colors = methodistFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -1020,6 +1036,7 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
                     onValueChange = { onTopicsChange(topics.replaceAt(index, topic.copy(name = it))) },
                     label = { Text("Название темы") },
                     textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            colors = methodistFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1028,6 +1045,7 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
                         onValueChange = { value -> onTopicsChange(topics.replaceAt(index, topic.copy(lessonCount = value.toIntOrNull()?.coerceAtLeast(1) ?: 1))) },
                         label = { Text("Занятий") },
                         textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            colors = methodistFieldColors(),
                         modifier = Modifier.weight(1f)
                     )
                     SecondaryButton(text = "Удалить", onClick = { onTopicsChange(topics.filterIndexed { topicIndex, _ -> topicIndex != index }.reindexTopics()) }, color = DangerColor)
@@ -1037,6 +1055,7 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
                     onValueChange = { onTopicsChange(topics.replaceAt(index, topic.copy(description = it))) },
                     label = { Text("Описание") },
                     textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            colors = methodistFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -1059,6 +1078,21 @@ private fun MessageCards(error: String?, success: String?) {
     error?.let { StateCard(text = it, isError = true) }
     success?.let { StateCard(text = it) }
 }
+
+@Composable
+private fun methodistFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Color.Black,
+    unfocusedTextColor = Color.Black,
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    focusedBorderColor = PrimaryText,
+    unfocusedBorderColor = FieldBorder,
+    focusedLabelColor = PrimaryText,
+    unfocusedLabelColor = PrimaryText,
+    focusedPlaceholderColor = FieldPlaceholder,
+    unfocusedPlaceholderColor = FieldPlaceholder,
+    cursorColor = PrimaryText
+)
 
 @Composable
 private fun LoadingCard(text: String) {

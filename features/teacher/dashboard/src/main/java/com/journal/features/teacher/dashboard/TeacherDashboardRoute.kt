@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.border
 import androidx.compose.material3.DropdownMenu
@@ -40,6 +41,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
@@ -325,13 +328,16 @@ private fun AnalysisSelect(
     onSelect: (String) -> Unit
 ) {
     var expanded by remember { mutableStateOf(false) }
+    var fieldWidth by remember { mutableStateOf(0.dp) }
+    val density = LocalDensity.current
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(label, color = PrimaryText, fontWeight = FontWeight.SemiBold)
         Box(
             modifier = Modifier
                 .fillMaxWidth()
+                .onSizeChanged { fieldWidth = with(density) { it.width.toDp() } }
                 .background(Color.White, RoundedCornerShape(12.dp))
-                .border(1.dp, PrimaryText, RoundedCornerShape(12.dp))
+                .border(1.dp, if (expanded) PrimaryText else Color(0xFFD1D5DB), RoundedCornerShape(12.dp))
                 .clickable { expanded = true }
                 .padding(horizontal = 12.dp, vertical = 11.dp)
         ) {
@@ -350,7 +356,9 @@ private fun AnalysisSelect(
             DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false },
-                modifier = Modifier.background(Color.White)
+                modifier = Modifier
+                    .width(fieldWidth)
+                    .background(Color.White)
             ) {
                 options.forEach { (value, title) ->
                     DropdownMenuItem(
@@ -615,7 +623,7 @@ private suspend fun buildDashboardState(
                 groupId = it.groupId.orEmpty(),
                 disciplineId = it.disciplineId.orEmpty(),
                 periodId = it.periodId.orEmpty(),
-                teacherId = it.teacherId,
+                teacherId = null,
                 lessonType = it.lessonType
             )
         }

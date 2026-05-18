@@ -87,6 +87,8 @@ private val PresentColor = Color(0xFF1F8A5B)
 private val AbsentColor = Color(0xFFC44A4A)
 private val ExcuseColor = Color(0xFFE19B2C)
 private val DangerColor = Color(0xFFC44A4A)
+private val FieldBorder = Color(0xFFD1D5DB)
+private val FieldPlaceholder = Color(0xFF9CA3AF)
 private val DialogContainerColor = Color.White
 private val DialogTextColor = Color.Black
 
@@ -735,7 +737,8 @@ private fun AttendanceDialog(
                     value = comment,
                     onValueChange = { comment = it },
                     label = { Text("Комментарий") },
-                    textStyle = LocalTextStyle.current.copy(color = Color.Black)
+                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                    colors = journalFieldColors()
                 )
             }
         },
@@ -775,7 +778,8 @@ private fun GradeDialog(
                     value = comment,
                     onValueChange = { comment = it },
                     label = { Text("Комментарий") },
-                    textStyle = LocalTextStyle.current.copy(color = Color.Black)
+                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                    colors = journalFieldColors()
                 )
             }
         },
@@ -908,6 +912,21 @@ private fun WebFormField(
 }
 
 @Composable
+private fun journalFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Color.Black,
+    unfocusedTextColor = Color.Black,
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    focusedBorderColor = PrimaryText,
+    unfocusedBorderColor = FieldBorder,
+    focusedLabelColor = PrimaryText,
+    unfocusedLabelColor = PrimaryText,
+    focusedPlaceholderColor = FieldPlaceholder,
+    unfocusedPlaceholderColor = FieldPlaceholder,
+    cursorColor = PrimaryText
+)
+
+@Composable
 private fun WebOutlinedTextField(
     value: String,
     onValueChange: (String) -> Unit,
@@ -922,15 +941,7 @@ private fun WebOutlinedTextField(
         singleLine = true,
         placeholder = { Text(placeholder, color = Color(0xFF9CA3AF)) },
         textStyle = LocalTextStyle.current.copy(color = Color.Black),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = Color.Black,
-            unfocusedTextColor = Color.Black,
-            focusedContainerColor = Color.White,
-            unfocusedContainerColor = Color.White,
-            focusedBorderColor = Color(0xFF223268),
-            unfocusedBorderColor = Color(0xFFD1D5DB),
-            cursorColor = Color(0xFF223268)
-        ),
+        colors = journalFieldColors(),
         modifier = modifier.fillMaxWidth()
     )
 }
@@ -1045,7 +1056,8 @@ private fun TopicDialog(
                     onValueChange = { topic = it },
                     label = { Text("Тема / комментарий к занятию") },
                     minLines = 3,
-                    textStyle = LocalTextStyle.current.copy(color = Color.Black)
+                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                    colors = journalFieldColors()
                 )
             }
         },

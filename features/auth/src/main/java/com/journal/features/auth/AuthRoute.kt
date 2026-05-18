@@ -21,6 +21,7 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -41,6 +42,8 @@ import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.components.SingletonComponent
 
 private val PrimaryText = Color(0xFF223268)
+private val FieldBorder = Color(0xFFD1D5DB)
+private val FieldPlaceholder = Color(0xFF9CA3AF)
 
 @EntryPoint
 @InstallIn(SingletonComponent::class)
@@ -95,6 +98,7 @@ fun AuthRoute(onContinue: (String) -> Unit) {
                     shape = RoundedCornerShape(12.dp),
                     label = { Text("Логин") },
                     textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                    colors = authFieldColors(),
                     singleLine = true
                 )
 
@@ -105,6 +109,7 @@ fun AuthRoute(onContinue: (String) -> Unit) {
                     shape = RoundedCornerShape(12.dp),
                     label = { Text("Пароль") },
                     textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                    colors = authFieldColors(),
                     singleLine = true
                 )
 
@@ -140,6 +145,21 @@ fun AuthRoute(onContinue: (String) -> Unit) {
         }
     }
 }
+
+@Composable
+private fun authFieldColors() = OutlinedTextFieldDefaults.colors(
+    focusedTextColor = Color.Black,
+    unfocusedTextColor = Color.Black,
+    focusedContainerColor = Color.White,
+    unfocusedContainerColor = Color.White,
+    focusedBorderColor = PrimaryText,
+    unfocusedBorderColor = FieldBorder,
+    focusedLabelColor = PrimaryText,
+    unfocusedLabelColor = PrimaryText,
+    focusedPlaceholderColor = FieldPlaceholder,
+    unfocusedPlaceholderColor = FieldPlaceholder,
+    cursorColor = PrimaryText
+)
 
 @Composable
 private fun RoleChip(text: String, selected: Boolean, onClick: () -> Unit) {
