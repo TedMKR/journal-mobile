@@ -1,5 +1,7 @@
 package com.journal.core.model.teacher
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
@@ -46,14 +48,15 @@ data class CurrentAttestationOverrides(
     @SerialName("practice_teacher_name") val practiceTeacherName: String? = null
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class CurrentAttestationOptions(
-    @SerialName("include_lecture_absences") val includeLectureAbsences: Boolean = true,
-    @SerialName("include_practice_absences") val includePracticeAbsences: Boolean = true,
-    @SerialName("include_colloquiums") val includeColloquiums: Boolean = true,
-    @SerialName("include_labs") val includeLabs: Boolean = true,
-    @SerialName("include_control_works") val includeControlWorks: Boolean = true,
-    @SerialName("include_final_grade") val includeFinalGrade: Boolean = true
+    @EncodeDefault @SerialName("include_lecture_absences") val includeLectureAbsences: Boolean = true,
+    @EncodeDefault @SerialName("include_practice_absences") val includePracticeAbsences: Boolean = true,
+    @EncodeDefault @SerialName("include_colloquiums") val includeColloquiums: Boolean = true,
+    @EncodeDefault @SerialName("include_labs") val includeLabs: Boolean = true,
+    @EncodeDefault @SerialName("include_control_works") val includeControlWorks: Boolean = true,
+    @EncodeDefault @SerialName("include_final_grade") val includeFinalGrade: Boolean = true
 )
 
 @Serializable
@@ -64,9 +67,10 @@ data class CurrentAttestationStudent(
     @SerialName("student_code") val studentCode: String? = null
 )
 
+@OptIn(ExperimentalSerializationApi::class)
 @Serializable
 data class RequestReportPayload(
-    @SerialName("report_type") val reportType: String = "current_attestation_statement",
+    @EncodeDefault @SerialName("report_type") val reportType: String = "current_attestation_statement",
     @SerialName("format") val format: String,
     @SerialName("group_id") val groupId: String,
     @SerialName("discipline_id") val disciplineId: String,
@@ -76,7 +80,7 @@ data class RequestReportPayload(
     @SerialName("return_to_dean_by") val returnToDeanBy: String? = null,
     @SerialName("progress_as_of") val progressAsOf: String? = null,
     @SerialName("overrides") val overrides: CurrentAttestationOverrides = CurrentAttestationOverrides(),
-    @SerialName("options") val options: CurrentAttestationOptions = CurrentAttestationOptions()
+    @EncodeDefault @SerialName("options") val options: CurrentAttestationOptions = CurrentAttestationOptions()
 )
 
 @Serializable
