@@ -354,27 +354,58 @@ fun MethodistJournalCreateRoute(
         loadTemplates()
     }
 
-    MethodologistScaffold(title = "Создание журнала") {
+    val selectedTemplate = templates.firstOrNull { it.id == templateId }
+    val canCreate = periodId.isNotBlank() && disciplineId.isNotBlank() && groupId.isNotBlank() && teacherId.isNotBlank()
+
+    MethodologistScaffold(title = "Создание журнала", useContentCard = false) {
         if (isLoading) {
             LoadingCard("Загружаю справочники...")
             return@MethodologistScaffold
         }
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             MessageCards(error = error, success = success)
-            SelectCard("Период", periods.map { it.id to it.name }, periodId) { periodId = it }
-            SelectCard("Дисциплина", disciplines.map { it.id to it.name }, disciplineId) {
-                disciplineId = it
-                templateId = ""
-                loadTemplates()
+            CreateJournalSectionCard(
+                title = "Контекст журнала",
+                subtitle = "Выберите период, дисциплину, тип занятия, преподавателя и группу."
+            ) {
+                SelectCard("Период", periods.map { it.id to if (it.isActive) "${it.name} · активный" else it.name }, periodId) { periodId = it }
+                SelectCard("Дисциплина", disciplines.map { it.id to it.name }, disciplineId) {
+                    disciplineId = it
+                    templateId = ""
+                    loadTemplates()
+                }
+                SelectCard("Тип занятия", listOf("lecture" to "Лекция", "practice" to "Практика"), lessonType) { lessonType = it }
+                SelectCard("Преподаватель", teachers.map { it.id to it.fullName }, teacherId) { teacherId = it }
+                SelectCard("Группа", groups.map { it.id to it.name }, groupId) { groupId = it }
             }
-            SelectCard("Тип занятия", listOf("lecture" to "Лекция", "practice" to "Практика"), lessonType) { lessonType = it }
-            SelectCard("Преподаватель", teachers.map { it.id to it.fullName }, teacherId) { teacherId = it }
-            SelectCard("Группа", groups.map { it.id to it.name }, groupId) { groupId = it }
-            SelectCard("Шаблон КТП", templates.map { it.id to "${it.name} · ${it.totalLessons} занятий" }, templateId) { templateId = it }
-            PrimaryButton(
-                text = if (creating) "Создаю..." else "Создать журнал",
-                enabled = !creating && periodId.isNotBlank() && disciplineId.isNotBlank() && groupId.isNotBlank() && teacherId.isNotBlank(),
-                onClick = {
+
+            CreateJournalSectionCard(
+                title = "КТП",
+                subtitle = "Шаблон КТП будет назначен преподавателю перед открытием журнала."
+            ) {
+                SelectCard(
+                    label = "Шаблон КТП",
+                    options = listOf("" to "Выберите шаблон") + templates.map { it.id to "${it.name} · ${it.totalLessons} занятий" },
+                    selected = templateId,
+                    onSelected = { templateId = it }
+                )
+                selectedTemplate?.let { template ->
+                    TemplateSummaryCard(template)
+                } ?: StateCard("Можно создать журнал без шаблона КТП и назначить его позже.")
+            }
+
+            CreateJournalSectionCard(
+                title = "Состав группы",
+                subtitle = "Мобильная версия показывает состояние состава. Импорт файла выполняется в веб-версии."
+            ) {
+                RosterSummaryGrid()
+                StateCard("Перед созданием журнала убедитесь, что состав группы актуален.")
+            }
+
+            CreateJournalSubmitCard(
+                canCreate = canCreate,
+                creating = creating,
+                onCreate = {
                     scope.launch {
                         creating = true
                         error = null
@@ -409,6 +440,96 @@ fun MethodistJournalCreateRoute(
                 }
             )
         }
+    }
+}
+
+@Composable
+private fun CreateJournalSectionCard(
+    title: String,
+    subtitle: String,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground, RoundedCornerShape(20.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, color = PrimaryText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+            Text(subtitle, color = SecondaryText, style = MaterialTheme.typography.bodyMedium)
+        }
+        content()
+    }
+}
+
+@Composable
+private fun TemplateSummaryCard(template: LessonTemplate) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(BackgroundColor, RoundedCornerShape(16.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Text(template.name, color = PrimaryText, fontWeight = FontWeight.Bold)
+        Text(template.disciplineName, color = SecondaryText)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Badge("${template.totalLessons} занятий")
+            Badge("${template.topicsCount} тем")
+        }
+    }
+}
+
+@Composable
+private fun RosterSummaryGrid() {
+    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            SummaryTile("Строк в файле", "0", Modifier.weight(1f))
+            SummaryTile("Preview", "не создан", Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            SummaryTile("Конфликты", "0", Modifier.weight(1f))
+            SummaryTile("Ошибки", "0", Modifier.weight(1f))
+        }
+    }
+}
+
+@Composable
+private fun SummaryTile(label: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .background(LightBlue, RoundedCornerShape(16.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(label, color = SecondaryText, style = MaterialTheme.typography.bodySmall)
+        Text(value, color = PrimaryText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun CreateJournalSubmitCard(
+    canCreate: Boolean,
+    creating: Boolean,
+    onCreate: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground, RoundedCornerShape(20.dp))
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Text("Создание", color = PrimaryText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        Text("После создания откроется журнал выбранной группы.", color = SecondaryText)
+        PrimaryButton(
+            text = if (creating) "Создаю..." else "Создать журнал",
+            enabled = !creating && canCreate,
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onCreate
+        )
     }
 }
 
@@ -659,23 +780,52 @@ private fun JournalContextCard(context: JournalContext, onOpen: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(16.dp))
+            .background(Color(0xFFF7F8FB), RoundedCornerShape(18.dp))
+            .border(1.dp, LightBlue, RoundedCornerShape(18.dp))
             .clickable(onClick = onOpen)
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-            Column(modifier = Modifier.weight(1f)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(context.displayPeriodName(), color = SecondaryText)
-                Text(context.displayDisciplineName(), color = PrimaryText, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(
+                    context.displayDisciplineName(),
+                    color = PrimaryText,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
             }
             Badge(lessonTypeName(context.lessonType.orEmpty()))
         }
-        InfoLine("Группа", context.displayGroupName())
-        InfoLine("Преподаватель", context.displayTeacherName())
-        InfoLine("Занятий", "${context.lessonCount}, проведено ${context.heldCount}")
-        InfoLine("Создан", formatShortDate(context.createdAt))
-        SecondaryButton(text = "Открыть", onClick = onOpen)
+        JournalMetaTile("Группа", context.displayGroupName())
+        JournalMetaTile("Преподаватель", context.displayTeacherName())
+        JournalMetaTile("Занятий", "${context.lessonCount}, проведено ${context.heldCount}")
+        JournalMetaTile("Создан", formatShortDate(context.createdAt))
+        PrimaryButton(text = "Открыть", modifier = Modifier.fillMaxWidth(), onClick = onOpen)
+    }
+}
+
+@Composable
+private fun JournalMetaTile(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color.White, RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, color = SecondaryText, modifier = Modifier.weight(1f))
+        Text(
+            value,
+            color = PrimaryText,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1.2f)
+        )
     }
 }
 
@@ -933,10 +1083,16 @@ private fun StateCard(text: String, isError: Boolean = false) {
 }
 
 @Composable
-private fun PrimaryButton(text: String, enabled: Boolean = true, onClick: () -> Unit) {
+private fun PrimaryButton(
+    text: String,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
     Button(
         onClick = onClick,
         enabled = enabled,
+        modifier = modifier,
         shape = RoundedCornerShape(14.dp),
         colors = ButtonDefaults.buttonColors(containerColor = AccentBlue, contentColor = Color.White)
     ) { Text(text) }
@@ -965,14 +1121,6 @@ private fun Badge(text: String) {
         modifier = Modifier.background(LightBlue, RoundedCornerShape(999.dp)).padding(horizontal = 10.dp, vertical = 6.dp),
         fontWeight = FontWeight.SemiBold
     )
-}
-
-@Composable
-private fun InfoLine(label: String, value: String) {
-    Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {
-        Text(label, color = SecondaryText)
-        Text(value, color = PrimaryText, fontWeight = FontWeight.SemiBold)
-    }
 }
 
 private val ShortDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
