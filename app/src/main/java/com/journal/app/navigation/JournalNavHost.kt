@@ -74,7 +74,7 @@ fun JournalNavHost(journalApi: JournalApi) {
             Box(modifier = Modifier.weight(1f)) {
                 NavHost(navController = navController, startDestination = Routes.AUTH) {
             composable(Routes.AUTH) {
-                AuthRoute { selectedRole ->
+                AuthRoute(onContinue = { selectedRole ->
                     role = selectedRole
                     val startRoute = when (selectedRole) {
                         "methodologist" -> Routes.METHODIST_DASHBOARD
@@ -82,7 +82,7 @@ fun JournalNavHost(journalApi: JournalApi) {
                         else -> Routes.TEACHER_HOME
                     }
                     navController.navigate(startRoute)
-                }
+                })
             }
             composable(Routes.TEACHER_HOME) {
                 TeacherHomeRoute(

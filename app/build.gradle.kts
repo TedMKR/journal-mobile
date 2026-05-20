@@ -32,6 +32,7 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        manifestPlaceholders["appAuthRedirectScheme"] = "com.university.journal"
 
         buildConfigField("String", "API_BASE_URL", "\"${env.getProperty("API_BASE_URL", "http://153.80.240.154:8080/api/v1/")}\"")
         buildConfigField("String", "OPENAPI_URL", "\"${env.getProperty("OPENAPI_URL", "http://153.80.240.154/api/openapi.yaml")}\"")
@@ -98,6 +99,7 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.navigation:navigation-compose:2.7.7")
+    implementation("net.openid:appauth:0.11.1")
 
     implementation("com.google.dagger:hilt-android:2.51.1")
     ksp("com.google.dagger:hilt-compiler:2.51.1")
@@ -108,6 +110,7 @@ dependencies {
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation("net.openid:appauth:0.11.1")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")

@@ -5,4 +5,12 @@
         <domain includeSubdomains="true">153.80.240.154</domain>
         <domain includeSubdomains="true">130.12.44.19</domain>
     </domain-config>
+
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">auth.iis.miigaik.ru</domain>
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </domain-config>
 </network-security-config>
