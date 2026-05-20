@@ -1,15 +1,20 @@
 package com.journal.app.di
 
+import android.content.Context
+import androidx.security.crypto.EncryptedSharedPreferences
+import androidx.security.crypto.MasterKey
 import com.journal.app.BuildConfig
 import com.journal.core.common.config.AppConfig
 import com.journal.core.common.config.RoleSession
 import com.journal.core.common.config.TokenSession
+import com.journal.core.common.config.TokenStore
 import com.journal.core.network.api.JournalApi
 import com.journal.core.network.interceptor.BearerTokenInterceptor
 import com.journal.core.network.interceptor.DebugRoleInterceptor
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
@@ -47,6 +52,22 @@ object AppModule {
     @Provides
     @Singleton
     fun provideTokenSession(): TokenSession = TokenSession()
+
+    @Provides
+    @Singleton
+    fun provideTokenStore(@ApplicationContext context: Context): TokenStore {
+        val masterKey = MasterKey.Builder(context)
+            .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+            .build()
+        val prefs = EncryptedSharedPreferences.create(
+            context,
+            "journal_auth_prefs",
+            masterKey,
+            EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
+            EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM
+        )
+        return TokenStore(prefs)
+    }
 
     @Provides
     @Singleton

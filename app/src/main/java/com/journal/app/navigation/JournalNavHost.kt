@@ -60,15 +60,19 @@ private val MenuItemBackground = Color(0xFFD3D7E1)
 fun JournalNavHost(
     journalApi: JournalApi,
     appConfig: AppConfig,
-    tokenSession: TokenSession
+    tokenSession: TokenSession,
+    initialRole: String?,
+    onClearSession: () -> Unit
 ) {
     val navController = rememberNavController()
     val context = LocalContext.current
-    var role by remember { mutableStateOf<String?>(null) }
+    var role by remember { mutableStateOf(initialRole) }
     var isMenuOpen by remember { mutableStateOf(false) }
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showMenu = currentRoute != null && currentRoute != Routes.AUTH && role != null
+
+    val startDestination = if (initialRole != null) roleStartRoute(initialRole) else Routes.AUTH
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
@@ -82,7 +86,7 @@ fun JournalNavHost(
             }
 
             Box(modifier = Modifier.weight(1f)) {
-                NavHost(navController = navController, startDestination = Routes.AUTH) {
+                NavHost(navController = navController, startDestination = startDestination) {
             composable(Routes.AUTH) {
                 AuthRoute(onContinue = { selectedRole ->
                     role = selectedRole
@@ -245,7 +249,7 @@ fun JournalNavHost(
                         appConfig = appConfig,
                         idToken = tokenSession.idToken.value
                     )
-                    tokenSession.clear()
+                    onClearSession()
                     role = null
                     navController.navigate(Routes.AUTH) {
                         popUpTo(0)
@@ -464,3 +468,9 @@ private data class MenuItem(
     val title: String,
     val route: String
 )
+
+private fun roleStartRoute(role: String): String = when (role) {
+    "methodologist" -> Routes.METHODIST_DASHBOARD
+    "student" -> Routes.STUDENT_SCHEDULE
+    else -> Routes.TEACHER_HOME
+}

@@ -10,6 +10,7 @@ import androidx.lifecycle.viewModelScope
 import com.journal.core.common.config.AppConfig
 import com.journal.core.common.config.RoleSession
 import com.journal.core.common.config.TokenSession
+import com.journal.core.common.config.TokenStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -40,7 +41,8 @@ class AuthViewModel @Inject constructor(
     application: Application,
     private val appConfig: AppConfig,
     private val roleSession: RoleSession,
-    private val tokenSession: TokenSession
+    private val tokenSession: TokenSession,
+    private val tokenStore: TokenStore
 ) : AndroidViewModel(application) {
 
     val isDebugRoleEnabled: Boolean = appConfig.useDebugRole
@@ -105,10 +107,19 @@ class AuthViewModel @Inject constructor(
 
             viewModelScope.launch(Dispatchers.Default) {
                 val role = extractRole(accessToken)
+                val expiresAtMs = tokenResponse.accessTokenExpirationTime
+                    ?: (System.currentTimeMillis() + 300_000L)
                 tokenSession.setTokens(
                     accessToken = accessToken,
                     idToken = tokenResponse.idToken,
                     refreshToken = tokenResponse.refreshToken
+                )
+                tokenStore.save(
+                    accessToken = accessToken,
+                    idToken = tokenResponse.idToken,
+                    refreshToken = tokenResponse.refreshToken,
+                    expiresAtMs = expiresAtMs,
+                    role = role
                 )
                 roleSession.setRole(role)
                 _state.value = AuthUiState.Authenticated(role)
