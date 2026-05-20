@@ -105,7 +105,11 @@ class AuthViewModel @Inject constructor(
 
             viewModelScope.launch(Dispatchers.Default) {
                 val role = extractRole(accessToken)
-                tokenSession.setToken(accessToken)
+                tokenSession.setTokens(
+                    accessToken = accessToken,
+                    idToken = tokenResponse.idToken,
+                    refreshToken = tokenResponse.refreshToken
+                )
                 roleSession.setRole(role)
                 _state.value = AuthUiState.Authenticated(role)
                 launch(Dispatchers.Main) {

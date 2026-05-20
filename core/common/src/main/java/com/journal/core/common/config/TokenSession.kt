@@ -8,11 +8,25 @@ class TokenSession {
     private val _accessToken = MutableStateFlow<String?>(null)
     val accessToken: StateFlow<String?> = _accessToken.asStateFlow()
 
-    fun setToken(token: String) {
-        _accessToken.value = token
+    private val _idToken = MutableStateFlow<String?>(null)
+    val idToken: StateFlow<String?> = _idToken.asStateFlow()
+
+    private val _refreshToken = MutableStateFlow<String?>(null)
+    val refreshToken: StateFlow<String?> = _refreshToken.asStateFlow()
+
+    fun setTokens(
+        accessToken: String,
+        idToken: String?,
+        refreshToken: String?
+    ) {
+        _accessToken.value = accessToken
+        _idToken.value = idToken
+        _refreshToken.value = refreshToken
     }
 
     fun clear() {
         _accessToken.value = null
+        _idToken.value = null
+        _refreshToken.value = null
     }
 }
