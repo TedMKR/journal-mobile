@@ -1,5 +1,7 @@
 package com.journal.app.navigation
 
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -21,6 +23,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -31,6 +34,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.journal.core.common.config.AppConfig
+import com.journal.core.common.config.TokenSession
 import com.journal.core.network.api.JournalApi
 import com.journal.features.auth.AuthRoute
 import com.journal.features.methodist.templates.MethodistDashboardRoute
@@ -52,8 +57,13 @@ private val MenuOverlay = Color.Black.copy(alpha = 0.28f)
 private val MenuItemBackground = Color(0xFFD3D7E1)
 
 @Composable
-fun JournalNavHost(journalApi: JournalApi) {
+fun JournalNavHost(
+    journalApi: JournalApi,
+    appConfig: AppConfig,
+    tokenSession: TokenSession
+) {
     val navController = rememberNavController()
+    val context = LocalContext.current
     var role by remember { mutableStateOf<String?>(null) }
     var isMenuOpen by remember { mutableStateOf(false) }
     val backStackEntry by navController.currentBackStackEntryAsState()
@@ -230,6 +240,12 @@ fun JournalNavHost(journalApi: JournalApi) {
                 },
                 onLogout = {
                     isMenuOpen = false
+                    openKeycloakLogout(
+                        context = context,
+                        appConfig = appConfig,
+                        idToken = tokenSession.idToken.value
+                    )
+                    tokenSession.clear()
                     role = null
                     navController.navigate(Routes.AUTH) {
                         popUpTo(0)
@@ -398,6 +414,26 @@ private fun MenuRow(item: MenuItem, selected: Boolean, onClick: () -> Unit) {
         color = if (selected) Color.White else MenuPrimary,
         fontWeight = FontWeight.SemiBold
     )
+}
+
+private fun openKeycloakLogout(
+    context: android.content.Context,
+    appConfig: AppConfig,
+    idToken: String?
+) {
+    val logoutUri = Uri.parse(
+        "${appConfig.keycloakBaseUrl}/realms/${appConfig.keycloakRealm}/protocol/openid-connect/logout"
+    ).buildUpon()
+        .appendQueryParameter("client_id", appConfig.keycloakClientId)
+        .apply {
+            if (!idToken.isNullOrBlank()) {
+                appendQueryParameter("id_token_hint", idToken)
+            }
+        }
+        .build()
+
+    val intent = Intent(Intent.ACTION_VIEW, logoutUri)
+    context.startActivity(intent)
 }
 
 private fun canNavigateBack(role: String?, currentRoute: String?): Boolean {

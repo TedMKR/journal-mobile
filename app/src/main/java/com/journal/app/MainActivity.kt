@@ -10,6 +10,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.ui.Modifier
 import com.journal.app.navigation.JournalNavHost
 import com.journal.app.ui.theme.JournalTheme
+import com.journal.core.common.config.AppConfig
+import com.journal.core.common.config.TokenSession
 import com.journal.core.network.api.JournalApi
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -19,6 +21,12 @@ class MainActivity : ComponentActivity() {
 
     @Inject
     lateinit var journalApi: JournalApi
+
+    @Inject
+    lateinit var appConfig: AppConfig
+
+    @Inject
+    lateinit var tokenSession: TokenSession
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -30,7 +38,11 @@ class MainActivity : ComponentActivity() {
                         .fillMaxSize()
                         .systemBarsPadding()
                 ) {
-                    JournalNavHost(journalApi = journalApi)
+                    JournalNavHost(
+                        journalApi = journalApi,
+                        appConfig = appConfig,
+                        tokenSession = tokenSession
+                    )
                 }
             }
         }
