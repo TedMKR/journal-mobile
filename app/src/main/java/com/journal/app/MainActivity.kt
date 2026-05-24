@@ -24,6 +24,7 @@ import com.journal.app.navigation.JournalNavHost
 import com.journal.app.ui.theme.JournalTheme
 import com.journal.core.common.config.AppConfig
 import com.journal.core.common.config.TokenSession
+import com.journal.core.data.sync.SyncWorker
 import com.journal.core.network.api.JournalApi
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -43,6 +44,9 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        // Запускаем фоновую синхронизацию при каждом старте приложения.
+        // WorkManager выполнит её только когда появится сеть.
+        SyncWorker.enqueue(this)
         setContent {
             JournalTheme {
                 Surface(

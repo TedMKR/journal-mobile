@@ -33,6 +33,7 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
     implementation(project(":core:model"))
     implementation(project(":core:network"))
+    implementation(project(":core:data"))
     implementation(project(":core:ui"))
 
     implementation("androidx.compose.ui:ui")

@@ -8,6 +8,7 @@ import com.journal.core.common.config.AppConfig
 import com.journal.core.common.config.StoredTokens
 import com.journal.core.common.config.TokenSession
 import com.journal.core.common.config.TokenStore
+import com.journal.core.data.repository.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -30,7 +31,8 @@ import javax.net.ssl.X509TrustManager
 class AppViewModel @Inject constructor(
     private val tokenStore: TokenStore,
     private val tokenSession: TokenSession,
-    private val appConfig: AppConfig
+    private val appConfig: AppConfig,
+    private val sessionRepository: SessionRepository
 ) : ViewModel() {
 
     sealed interface SessionState {
@@ -110,6 +112,10 @@ class AppViewModel @Inject constructor(
         }
         tokenSession.setTokens(tokens.accessToken, tokens.idToken, tokens.refreshToken)
         _sessionState.value = SessionState.Authenticated(tokens.role)
+        // Сохраняем сессию в Room
+        viewModelScope.launch(Dispatchers.IO) {
+            sessionRepository.saveSession(role = tokens.role)
+        }
         pendingTokens = null
     }
 
@@ -119,11 +125,17 @@ class AppViewModel @Inject constructor(
         _sessionState.value = SessionState.Unauthenticated
     }
 
-    /** Очистить сессию при явном logout */
+    /** Очистить сессию при явном logout.
+     *  Дополнительно стирает все кэшированные данные из Room —
+     *  session, расписание, журналы, очередь офлайн-действий.
+     */
     fun clearSession() {
         tokenStore.clear()
         tokenSession.clear()
         pendingTokens = null
+        viewModelScope.launch(Dispatchers.IO) {
+            sessionRepository.clearAll()
+        }
     }
 
     private fun tryRefresh(refreshToken: String, currentRole: String): StoredTokens? {

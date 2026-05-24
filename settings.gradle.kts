@@ -21,6 +21,8 @@ include(
     ":core:common",
     ":core:model",
     ":core:network",
+    ":core:database",
+    ":core:data",
     ":core:ui",
     ":shared:navigation",
     ":features:auth",
