@@ -224,8 +224,39 @@ private fun AnalyticsCard(
     var appliedTarget by remember { mutableStateOf<TeacherDashboardJournalTarget?>(null) }
     var showAccessDialog by remember { mutableStateOf(false) }
 
+    // Journal loaded for the currently applied selection
+    var selectedJournal by remember { mutableStateOf<JournalGridResponse?>(null) }
+    var isLoadingSelected by remember { mutableStateOf(false) }
+    var loadError by remember { mutableStateOf<String?>(null) }
+
     val selectedTarget = appliedTarget ?: state.defaultJournalTarget
     val canApply = selectedDisciplineId.isNotBlank() && selectedGroupId.isNotBlank()
+
+    // Reload journal data whenever the applied target changes.
+    // NOTE: lessonType is intentionally NOT passed — we want all students regardless of
+    // subgroup so "Студентов в группе" shows the real group total.
+    LaunchedEffect(appliedTarget) {
+        val target = appliedTarget ?: return@LaunchedEffect
+        isLoadingSelected = true
+        selectedJournal = null
+        loadError = null
+        runCatching {
+            journalApi.getGroupJournalGrid(
+                groupId = target.groupId,
+                disciplineId = target.disciplineId,
+                academicPeriodId = target.periodId
+            )
+        }.onSuccess { journal ->
+            selectedJournal = journal
+        }.onFailure { t ->
+            loadError = t.message ?: "Не удалось загрузить данные журнала"
+        }
+        isLoadingSelected = false
+    }
+
+    // Stats to display from freshly loaded journal
+    val displayAttendance = selectedJournal?.let { attendanceByMonth(it) } ?: emptyList()
+    val displayStudentsCount = selectedJournal?.students?.size ?: 0
 
     Column(
         modifier = Modifier
@@ -256,7 +287,14 @@ private fun AnalyticsCard(
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             Button(
                 onClick = {
-                    val periodId = state.defaultJournalTarget?.periodId.orEmpty()
+                    // Resolve the periodId for the chosen group+discipline.
+                    // Priority: exact lesson match → active academic period → default target's period.
+                    val periodId = state.lessons
+                        .firstOrNull { it.groupId == selectedGroupId && it.disciplineId == selectedDisciplineId }
+                        ?.periodId
+                        ?: state.activePeriodId
+                        ?: state.defaultJournalTarget?.periodId
+                        ?: ""
                     appliedTarget = TeacherDashboardJournalTarget(
                         groupId = selectedGroupId,
                         disciplineId = selectedDisciplineId,
@@ -288,25 +326,60 @@ private fun AnalyticsCard(
             }
         }
 
-        if (canApply && selectedTarget != null) {
-            AttendanceLineChart(state.attendanceByMonth)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-                ActionTile("Студентов\nв группе", state.selectedStudentsCount.toString(), Modifier.weight(1f)) {
-                    onOpenJournal(selectedTarget)
-                }
-                ActionTile("Открыть\nжурнал", "→", Modifier.weight(1f)) {
-                    onOpenJournal(selectedTarget)
+        when {
+            // User hasn't clicked "Применить" yet
+            appliedTarget == null -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(LessonBackground, RoundedCornerShape(14.dp))
+                        .padding(vertical = 28.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("Выберите предмет и группу для просмотра аналитики", color = SecondaryText)
                 }
             }
-        } else {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .background(LessonBackground, RoundedCornerShape(14.dp))
-                    .padding(vertical = 28.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text("Выберите предмет и группу для просмотра аналитики", color = SecondaryText)
+            isLoadingSelected -> {
+                Box(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator()
+                }
+            }
+            loadError != null -> {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .background(LessonBackground, RoundedCornerShape(14.dp))
+                        .padding(vertical = 20.dp, horizontal = 12.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(loadError.orEmpty(), color = SecondaryText, style = MaterialTheme.typography.bodySmall)
+                }
+            }
+            selectedJournal != null && selectedTarget != null -> {
+                if (displayAttendance.isNotEmpty()) {
+                    AttendanceLineChart(displayAttendance)
+                } else {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(LessonBackground, RoundedCornerShape(14.dp))
+                            .padding(vertical = 16.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("Нет данных по посещаемости", color = SecondaryText)
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    ActionTile("Студентов\nв группе", displayStudentsCount.toString(), Modifier.weight(1f)) {
+                        onOpenJournal(selectedTarget)
+                    }
+                    ActionTile("Открыть\nжурнал", "→", Modifier.weight(1f)) {
+                        onOpenJournal(selectedTarget)
+                    }
+                }
             }
         }
     }
@@ -596,6 +669,12 @@ private suspend fun buildDashboardState(
             )
         }.getOrNull()
     }
+    // Active academic period — reliable fallback when a lesson-based periodId isn't found
+    val activePeriodId = runCatching {
+        journalApi.getAcademicPeriods(includeClosed = false).data
+            .firstOrNull { it.isActive }?.id
+    }.getOrNull()
+
     val uniqueDisciplines = lessons.mapNotNull { lesson -> lesson.disciplineId?.let { it to lesson.disciplineName } }.distinctBy { it.first }
     val teacherName = defaultJournal?.teacher?.fullName
         ?: lessons.firstNotNullOfOrNull { it.teacherName?.takeIf(String::isNotBlank) }
@@ -617,6 +696,8 @@ private suspend fun buildDashboardState(
         groups = lessons.mapNotNull { lesson -> lesson.groupId?.let { it to lesson.groupName } }
             .distinctBy { it.first }
             .map { SelectOption(it.first, it.second) },
+        lessons = lessons,
+        activePeriodId = activePeriodId,
         journalApi = journalApi,
         defaultJournalTarget = defaultLesson?.let {
             TeacherDashboardJournalTarget(
@@ -720,6 +801,10 @@ private data class TeacherDashboardUiState(
     val attendanceByMonth: List<AttendanceMonth>,
     val disciplines: List<SelectOption>,
     val groups: List<SelectOption>,
+    /** Raw lessons used to resolve periodId for a selected group+discipline pair */
+    val lessons: List<TeacherLesson>,
+    /** ID of the currently active academic period — reliable fallback for periodId resolution */
+    val activePeriodId: String?,
     val journalApi: JournalApi,
     val defaultJournalTarget: TeacherDashboardJournalTarget?
 )

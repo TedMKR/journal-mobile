@@ -1,0 +1,134 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 620" width="900" height="620" font-family="'Segoe UI', Arial, sans-serif">
+
+  <!-- Background -->
+  <rect width="900" height="620" fill="#EDEEED" rx="16"/>
+
+  <!-- Title -->
+  <text x="450" y="42" text-anchor="middle" font-size="20" font-weight="bold" fill="#223268">Архитектура Android-клиента (многомодульный проект)</text>
+
+  <!-- ══════════════════ LAYER: app ══════════════════ -->
+  <rect x="300" y="68" width="300" height="62" rx="14" fill="#223268"/>
+  <text x="450" y="94" text-anchor="middle" font-size="13" font-weight="bold" fill="#fff">app</text>
+  <text x="450" y="112" text-anchor="middle" font-size="11" fill="#c8d0e8">точка входа · DI (Hilt) · навигация · биометрия</text>
+
+  <!-- Arrow: app → features -->
+  <line x1="340" y1="130" x2="202" y2="166" stroke="#223268" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+  <line x1="450" y1="130" x2="450" y2="166" stroke="#223268" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+  <line x1="560" y1="130" x2="698" y2="166" stroke="#223268" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr)"/>
+
+  <!-- ══════════════════ LAYER: features ══════════════════ -->
+  <!-- Label -->
+  <text x="450" y="160" text-anchor="middle" font-size="11" fill="#7E8E99" font-style="italic">features</text>
+
+  <!-- feature: auth -->
+  <rect x="60" y="168" width="160" height="52" rx="12" fill="#D3D7E1"/>
+  <text x="140" y="190" text-anchor="middle" font-size="12" font-weight="bold" fill="#223268">features:auth</text>
+  <text x="140" y="208" text-anchor="middle" font-size="10" fill="#4B5563">авторизация · Keycloak</text>
+
+  <!-- feature: teacher -->
+  <rect x="240" y="168" width="160" height="52" rx="12" fill="#D3D7E1"/>
+  <text x="320" y="190" text-anchor="middle" font-size="12" font-weight="bold" fill="#223268">features:teacher</text>
+  <text x="320" y="208" text-anchor="middle" font-size="10" fill="#4B5563">расписание · журнал · кабинет</text>
+
+  <!-- feature: student -->
+  <rect x="420" y="168" width="160" height="52" rx="12" fill="#D3D7E1"/>
+  <text x="500" y="190" text-anchor="middle" font-size="12" font-weight="bold" fill="#223268">features:student</text>
+  <text x="500" y="208" text-anchor="middle" font-size="10" fill="#4B5563">расписание · кабинет</text>
+
+  <!-- feature: methodist -->
+  <rect x="600" y="168" width="180" height="52" rx="12" fill="#D3D7E1"/>
+  <text x="690" y="190" text-anchor="middle" font-size="12" font-weight="bold" fill="#223268">features:methodist</text>
+  <text x="690" y="208" text-anchor="middle" font-size="10" fill="#4B5563">журналы · КТП · создание</text>
+
+  <!-- Arrows: features → shared:navigation -->
+  <line x1="140" y1="220" x2="275" y2="296" stroke="#9CA3AF" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrGray)"/>
+  <line x1="320" y1="220" x2="350" y2="296" stroke="#9CA3AF" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrGray)"/>
+  <line x1="500" y1="220" x2="450" y2="296" stroke="#9CA3AF" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrGray)"/>
+  <line x1="690" y1="220" x2="560" y2="296" stroke="#9CA3AF" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrGray)"/>
+
+  <!-- Arrows: features → core:data -->
+  <line x1="320" y1="220" x2="282" y2="396" stroke="#9CA3AF" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrGray)"/>
+  <line x1="500" y1="220" x2="518" y2="396" stroke="#9CA3AF" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrGray)"/>
+
+  <!-- ══════════════════ LAYER: shared:navigation ══════════════════ -->
+  <rect x="270" y="298" width="260" height="50" rx="12" fill="#E4E6EC"/>
+  <text x="400" y="319" text-anchor="middle" font-size="12" font-weight="bold" fill="#223268">shared:navigation</text>
+  <text x="400" y="337" text-anchor="middle" font-size="10" fill="#4B5563">Routes · маршруты экранов</text>
+
+  <!-- ══════════════════ LAYER: core row ══════════════════ -->
+  <!-- core:common -->
+  <rect x="30" y="396" width="150" height="64" rx="12" fill="#E4E6EC"/>
+  <text x="105" y="418" text-anchor="middle" font-size="12" font-weight="bold" fill="#223268">core:common</text>
+  <text x="105" y="434" text-anchor="middle" font-size="10" fill="#4B5563">AppConfig</text>
+  <text x="105" y="449" text-anchor="middle" font-size="10" fill="#4B5563">TokenStore · TokenSession</text>
+
+  <!-- core:model -->
+  <rect x="200" y="396" width="140" height="64" rx="12" fill="#E4E6EC"/>
+  <text x="270" y="418" text-anchor="middle" font-size="12" font-weight="bold" fill="#223268">core:model</text>
+  <text x="270" y="434" text-anchor="middle" font-size="10" fill="#4B5563">модели данных API</text>
+  <text x="270" y="449" text-anchor="middle" font-size="10" fill="#4B5563">Serializable DTO</text>
+
+  <!-- core:network -->
+  <rect x="360" y="396" width="150" height="64" rx="12" fill="#E4E6EC"/>
+  <text x="435" y="418" text-anchor="middle" font-size="12" font-weight="bold" fill="#223268">core:network</text>
+  <text x="435" y="434" text-anchor="middle" font-size="10" fill="#4B5563">Retrofit · OkHttp</text>
+  <text x="435" y="449" text-anchor="middle" font-size="10" fill="#4B5563">BearerTokenInterceptor</text>
+
+  <!-- core:ui -->
+  <rect x="530" y="396" width="130" height="64" rx="12" fill="#E4E6EC"/>
+  <text x="595" y="418" text-anchor="middle" font-size="12" font-weight="bold" fill="#223268">core:ui</text>
+  <text x="595" y="434" text-anchor="middle" font-size="10" fill="#4B5563">общие Composable</text>
+  <text x="595" y="449" text-anchor="middle" font-size="10" fill="#4B5563">Material 3 · Theme</text>
+
+  <!-- ══════════════════ HIGHLIGHTED: core:database ══════════════════ -->
+  <rect x="50" y="508" width="260" height="88" rx="14" fill="#223268" stroke="#ffffff" stroke-width="2.5"/>
+  <text x="62" y="530" font-size="13" font-weight="bold" fill="#fff">core:database</text>
+  <text x="62" y="550" font-size="10" fill="#c8d0e8">@Database  Room (SQLite)  v1</text>
+  <text x="62" y="566" font-size="10" fill="#93C5FD">SessionDao · TeacherLessonDao</text>
+  <text x="62" y="581" font-size="10" fill="#93C5FD">StudentLessonDao · JournalGridCacheDao</text>
+  <text x="62" y="596" font-size="10" fill="#93C5FD">PendingActionDao (offline queue)</text>
+
+  <!-- ══════════════════ HIGHLIGHTED: core:data ══════════════════ -->
+  <rect x="330" y="508" width="270" height="88" rx="14" fill="#1F4F9A" stroke="#93C5FD" stroke-width="2.5"/>
+  <text x="342" y="530" font-size="13" font-weight="bold" fill="#fff">core:data</text>
+  <text x="342" y="550" font-size="10" fill="#c8d0e8">репозитории · бизнес-логика</text>
+  <text x="342" y="566" font-size="10" fill="#93C5FD">SessionRepository</text>
+  <text x="342" y="581" font-size="10" fill="#93C5FD">NetworkBoundResource (offline-first)</text>
+  <text x="342" y="596" font-size="10" fill="#93C5FD">синхронизация pending_actions</text>
+
+  <!-- ══════════════════ Legend badge ══════════════════ -->
+  <rect x="640" y="510" width="220" height="86" rx="12" fill="#fff" stroke="#D3D7E1" stroke-width="1.5"/>
+  <text x="750" y="530" text-anchor="middle" font-size="11" font-weight="bold" fill="#223268">Легенда</text>
+  <rect x="656" y="540" width="14" height="14" rx="4" fill="#223268"/>
+  <text x="676" y="552" font-size="10" fill="#223268">ключевые offline-модули</text>
+  <rect x="656" y="562" width="14" height="14" rx="4" fill="#D3D7E1"/>
+  <text x="676" y="574" font-size="10" fill="#223268">core / shared модули</text>
+  <rect x="656" y="584" width="14" height="14" rx="4" fill="#D3D7E1" stroke="#223268" stroke-width="1"/>
+  <text x="676" y="596" font-size="10" fill="#223268">feature модули</text>
+
+  <!-- ══════════════════ Connecting arrows (core:data ↔ core:database) ══════════════════ -->
+  <line x1="330" y1="552" x2="310" y2="552" stroke="#93C5FD" stroke-width="2" marker-end="url(#arrBlue)"/>
+
+  <!-- Arrows: core:network → core:data -->
+  <line x1="435" y1="460" x2="435" y2="506" stroke="#9CA3AF" stroke-width="1.4" marker-end="url(#arrGray)"/>
+
+  <!-- Arrows: core:common → core:data (approx) -->
+  <line x1="180" y1="460" x2="330" y2="510" stroke="#9CA3AF" stroke-width="1.2" stroke-dasharray="4,3" marker-end="url(#arrGray)"/>
+
+  <!-- Arrow: core:database → core:data label -->
+  <text x="192" y="548" text-anchor="middle" font-size="10" fill="#93C5FD" font-weight="bold">использует</text>
+
+  <!-- ══════════════════ Arrowhead defs ══════════════════ -->
+  <defs>
+    <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#223268"/>
+    </marker>
+    <marker id="arrGray" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#9CA3AF"/>
+    </marker>
+    <marker id="arrBlue" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+      <path d="M0,0 L0,6 L8,3 z" fill="#93C5FD"/>
+    </marker>
+  </defs>
+
+</svg>
