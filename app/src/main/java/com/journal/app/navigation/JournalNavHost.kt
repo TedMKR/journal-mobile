@@ -199,12 +199,6 @@ fun JournalNavHost(
                 val disciplineId = entry.arguments?.getString("disciplineId").orEmpty()
                 val periodId = entry.arguments?.getString("periodId").orEmpty()
                 TeacherJournalRoute(
-                    groupId = groupId,
-                    disciplineId = disciplineId,
-                    periodId = periodId,
-                    lessonType = entry.arguments?.getString("lessonType").orEmpty(),
-                    teacherId = entry.arguments?.getString("teacherId"),
-                    journalApi = journalApi,
                     onOpenStudentCard = { studentId ->
                         navController.navigate(Routes.teacherStudentCard(groupId, disciplineId, periodId, studentId))
                     }

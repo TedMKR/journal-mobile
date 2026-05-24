@@ -39,11 +39,10 @@ import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,19 +53,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
-import com.journal.core.model.teacher.CreateAssessmentFormRequest
-import com.journal.core.model.teacher.CreateGradeRequest
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.journal.core.model.teacher.JournalGridAssessmentForm
 import com.journal.core.model.teacher.JournalGridAttendance
 import com.journal.core.model.teacher.JournalGridGrade
 import com.journal.core.model.teacher.JournalGridLesson
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.JournalGridStudent
-import com.journal.core.model.teacher.MarkAttendanceRequest
-import com.journal.core.model.teacher.UpdateAssessmentFormRequest
-import com.journal.core.model.teacher.UpdateGradeRequest
-import com.journal.core.model.teacher.UpdateLessonTopicDetailsRequest
-import com.journal.core.network.api.JournalApi
 import java.io.File
 import java.io.OutputStream
 import java.time.Instant
@@ -75,7 +68,6 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
-import kotlinx.coroutines.launch
 
 private val BackgroundColor = Color(0xFFEDEEED)
 private val PrimaryText = Color(0xFF223268)
@@ -97,38 +89,10 @@ private const val GRADE_COLUMN_WIDTH = 112
 
 @Composable
 fun TeacherJournalRoute(
-    groupId: String,
-    disciplineId: String,
-    periodId: String,
-    lessonType: String,
-    teacherId: String? = null,
-    journalApi: JournalApi,
-    onOpenStudentCard: (String) -> Unit
+    onOpenStudentCard: (String) -> Unit,
+    viewModel: TeacherJournalViewModel = hiltViewModel()
 ) {
-    var journal by remember(groupId, disciplineId, periodId, teacherId, lessonType) { mutableStateOf<JournalGridResponse?>(null) }
-    var isLoading by remember(groupId, disciplineId, periodId, teacherId, lessonType) { mutableStateOf(true) }
-    var error by remember(groupId, disciplineId, periodId, teacherId, lessonType) { mutableStateOf<String?>(null) }
-    var refreshKey by remember { mutableStateOf(0) }
-
-    LaunchedEffect(groupId, disciplineId, periodId, teacherId, lessonType, refreshKey) {
-        isLoading = true
-        error = null
-        runCatching {
-            journalApi.getGroupJournalGrid(
-                groupId = groupId,
-                disciplineId = disciplineId,
-                academicPeriodId = periodId,
-                teacherId = teacherId?.takeIf { it.isNotBlank() },
-                lessonType = lessonType.takeIf { it.isNotBlank() }
-            )
-        }.onSuccess { response ->
-            journal = response
-            isLoading = false
-        }.onFailure { throwable ->
-            error = throwable.message ?: "Не удалось загрузить журнал"
-            isLoading = false
-        }
-    }
+    val uiState by viewModel.uiState.collectAsState()
 
     Box(
         modifier = Modifier
@@ -137,15 +101,52 @@ fun TeacherJournalRoute(
             .padding(10.dp)
     ) {
         when {
-            isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            error != null -> Text(text = error.orEmpty(), color = PrimaryText, modifier = Modifier.align(Alignment.Center))
-            journal != null -> JournalContent(
-                journal = journal!!,
-                selectedLessonType = lessonType,
-                journalApi = journalApi,
-                onOpenStudentCard = onOpenStudentCard,
-                onRefresh = { refreshKey++ }
-            )
+            uiState.isLoading && uiState.journal == null ->
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+
+            uiState.error != null && uiState.journal == null ->
+                Text(
+                    text = uiState.error.orEmpty(),
+                    color = PrimaryText,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+
+            uiState.journal != null -> {
+                JournalContent(
+                    journal = uiState.journal!!,
+                    selectedLessonType = viewModel.lessonType,
+                    onOpenStudentCard = onOpenStudentCard,
+                    onRefresh = { viewModel.loadJournal() },
+                    onMarkAttendance = { lessonId, studentId, status, comment ->
+                        viewModel.markAttendance(lessonId, studentId, status, comment)
+                    },
+                    onCreateGrade = { studentId, formId, value, comment ->
+                        viewModel.createGrade(studentId, formId, value, comment)
+                    },
+                    onUpdateGrade = { gradeId, value, comment ->
+                        viewModel.updateGrade(gradeId, value, comment)
+                    },
+                    onCreateAssessmentForm = { title, type, date ->
+                        viewModel.createAssessmentForm(title, type, date)
+                    },
+                    onUpdateAssessmentForm = { formId, title, type, date ->
+                        viewModel.updateAssessmentForm(formId, title, type, date)
+                    },
+                    onDeleteAssessmentForm = { formId ->
+                        viewModel.deleteAssessmentForm(formId)
+                    },
+                    onUpdateLessonTopic = { lessonId, topic ->
+                        viewModel.updateLessonTopic(lessonId, topic)
+                    }
+                )
+                // Offline banner
+                if (uiState.isOffline) {
+                    OfflineBanner(
+                        pendingCount = uiState.pendingCount,
+                        modifier = Modifier.align(Alignment.TopCenter)
+                    )
+                }
+            }
         }
     }
 }
@@ -155,12 +156,17 @@ fun TeacherJournalRoute(
 private fun JournalContent(
     journal: JournalGridResponse,
     selectedLessonType: String,
-    journalApi: JournalApi,
     onOpenStudentCard: (String) -> Unit,
-    onRefresh: () -> Unit
+    onRefresh: () -> Unit,
+    onMarkAttendance: (lessonId: String, studentId: String, status: String, comment: String?) -> Unit,
+    onCreateGrade: (studentId: String, formId: String, value: Int, comment: String?) -> Unit,
+    onUpdateGrade: (gradeId: String, value: Int, comment: String?) -> Unit,
+    onCreateAssessmentForm: (title: String, type: String, date: String) -> Unit,
+    onUpdateAssessmentForm: (formId: String, title: String, type: String, date: String) -> Unit,
+    onDeleteAssessmentForm: (formId: String) -> Unit,
+    onUpdateLessonTopic: (lessonId: String, topic: String) -> Unit
 ) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
     var currentType by remember(selectedLessonType) { mutableStateOf(selectedLessonType.ifBlank { journal.lessons.firstOrNull()?.lessonType.orEmpty() }) }
     var assessmentDialog by remember { mutableStateOf<AssessmentEditState?>(null) }
     var deleteAssessmentDialog by remember { mutableStateOf<JournalGridAssessmentForm?>(null) }
@@ -275,34 +281,13 @@ private fun JournalContent(
                 deleteAssessmentDialog = form
             },
             onSave = { title, type, date ->
-                scope.launch {
-                    runCatching {
-                        if (state.form == null) {
-                            journalApi.createAssessmentForm(
-                                CreateAssessmentFormRequest(
-                                    title = title,
-                                    formType = type,
-                                    date = date,
-                                    disciplineId = journal.discipline.id,
-                                    groupId = journal.group.id,
-                                    periodId = journal.academicPeriod.id
-                                )
-                            )
-                        } else {
-                            journalApi.updateAssessmentForm(
-                                assessmentFormId = state.form.assessmentFormId,
-                                request = UpdateAssessmentFormRequest(
-                                    title = title,
-                                    formType = type,
-                                    date = date
-                                )
-                            )
-                        }
-                    }.onSuccess {
-                        assessmentDialog = null
-                        onRefresh()
-                    }
+                if (state.form == null) {
+                    onCreateAssessmentForm(title, type, date)
+                } else {
+                    onUpdateAssessmentForm(state.form.assessmentFormId, title, type, date)
                 }
+                assessmentDialog = null
+                onRefresh()
             }
         )
     }
@@ -312,14 +297,9 @@ private fun JournalContent(
             form = form,
             onDismiss = { deleteAssessmentDialog = null },
             onConfirm = {
-                scope.launch {
-                    runCatching {
-                        journalApi.deleteAssessmentForm(assessmentFormId = form.assessmentFormId)
-                    }.onSuccess {
-                        deleteAssessmentDialog = null
-                        onRefresh()
-                    }
-                }
+                onDeleteAssessmentForm(form.assessmentFormId)
+                deleteAssessmentDialog = null
+                onRefresh()
             }
         )
     }
@@ -329,21 +309,14 @@ private fun JournalContent(
             state = state,
             onDismiss = { attendanceDialog = null },
             onSave = { status, comment ->
-                scope.launch {
-                    runCatching {
-                        journalApi.markAttendance(
-                            lessonId = state.lesson.lessonId,
-                            request = MarkAttendanceRequest(
-                                studentId = state.student.studentId,
-                                status = status,
-                                comment = comment.takeIf { it.isNotBlank() }
-                            )
-                        )
-                    }.onSuccess {
-                        attendanceDialog = null
-                        onRefresh()
-                    }
-                }
+                onMarkAttendance(
+                    state.lesson.lessonId,
+                    state.student.studentId,
+                    status,
+                    comment.takeIf { it.isNotBlank() }
+                )
+                attendanceDialog = null
+                onRefresh()
             }
         )
     }
@@ -353,31 +326,22 @@ private fun JournalContent(
             state = state,
             onDismiss = { gradeDialog = null },
             onSave = { value, comment ->
-                scope.launch {
-                    runCatching {
-                        if (state.grade == null) {
-                            journalApi.createGrade(
-                                CreateGradeRequest(
-                                    studentId = state.student.studentId,
-                                    assessmentFormId = state.form.assessmentFormId,
-                                    value = value,
-                                    comment = comment.takeIf { it.isNotBlank() }
-                                )
-                            )
-                        } else {
-                            journalApi.updateGrade(
-                                gradeId = state.grade.gradeId,
-                                request = UpdateGradeRequest(
-                                    value = value,
-                                    comment = comment.takeIf { it.isNotBlank() }
-                                )
-                            )
-                        }
-                    }.onSuccess {
-                        gradeDialog = null
-                        onRefresh()
-                    }
+                if (state.grade == null) {
+                    onCreateGrade(
+                        state.student.studentId,
+                        state.form.assessmentFormId,
+                        value,
+                        comment.takeIf { it.isNotBlank() }
+                    )
+                } else {
+                    onUpdateGrade(
+                        state.grade.gradeId,
+                        value,
+                        comment.takeIf { it.isNotBlank() }
+                    )
                 }
+                gradeDialog = null
+                onRefresh()
             }
         )
     }
@@ -387,18 +351,33 @@ private fun JournalContent(
             state = state,
             onDismiss = { topicDialog = null },
             onSave = { topic ->
-                scope.launch {
-                    runCatching {
-                        journalApi.updateLessonTopicDetails(
-                            lessonId = state.lesson.lessonId,
-                            request = UpdateLessonTopicDetailsRequest(topicCustomDetails = topic)
-                        )
-                    }.onSuccess {
-                        topicDialog = null
-                        onRefresh()
-                    }
-                }
+                onUpdateLessonTopic(state.lesson.lessonId, topic)
+                topicDialog = null
+                onRefresh()
             }
+        )
+    }
+}
+
+@Composable
+private fun OfflineBanner(pendingCount: Int, modifier: Modifier = Modifier) {
+    val text = if (pendingCount > 0) {
+        "Офлайн — $pendingCount действий в очереди"
+    } else {
+        "Офлайн — данные из кэша"
+    }
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF59E0B), RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+    ) {
+        Text(
+            text = text,
+            color = Color.White,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.align(Alignment.Center)
         )
     }
 }
