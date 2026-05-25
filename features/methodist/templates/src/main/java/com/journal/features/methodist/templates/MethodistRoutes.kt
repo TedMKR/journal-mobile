@@ -78,7 +78,9 @@ private const val DashboardVisibleRows = 8
 
 @Composable
 fun MethodistDashboardRoute(
-    journalApi: JournalApi
+    journalApi: JournalApi,
+    /** First name extracted from JWT — shown in the profile header. */
+    jwtFirstName: String? = null
 ) {
     var isLoading by remember { mutableStateOf(true) }
     var errors by remember { mutableStateOf<List<DashboardLoadError>>(emptyList()) }
@@ -146,7 +148,8 @@ fun MethodistDashboardRoute(
                     disciplinesCount = disciplines.size,
                     teachersCount = teachers.size,
                     groupsCount = groups.size,
-                    journalsCount = journals.size
+                    journalsCount = journals.size,
+                    jwtFirstName = jwtFirstName
                 )
                 PeriodStrip(activePeriodName)
                 if (errors.isNotEmpty()) {
@@ -882,8 +885,12 @@ private fun DashboardSummaryGrid(
     disciplinesCount: Int,
     teachersCount: Int,
     groupsCount: Int,
-    journalsCount: Int
+    journalsCount: Int,
+    jwtFirstName: String? = null
 ) {
+    // Priority: JWT first name → fallback title
+    val displayName = jwtFirstName?.takeIf(String::isNotBlank) ?: "Методист"
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -892,7 +899,7 @@ private fun DashboardSummaryGrid(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
-            "Личный кабинет методиста",
+            displayName,
             color = Color.White,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold

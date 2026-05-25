@@ -153,7 +153,7 @@ fun JournalNavHost(
                 StudentDashboardRoute(journalApi = journalApi, jwtFirstName = jwtFirstName)
             }
             composable(Routes.METHODIST_DASHBOARD) {
-                MethodistDashboardRoute(journalApi = journalApi)
+                MethodistDashboardRoute(journalApi = journalApi, jwtFirstName = jwtFirstName)
             }
             composable(Routes.METHODIST_JOURNALS) {
                 MethodistJournalsRoute(
