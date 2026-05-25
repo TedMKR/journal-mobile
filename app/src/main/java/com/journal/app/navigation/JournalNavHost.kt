@@ -17,6 +17,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +36,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.journal.core.common.config.AppConfig
+import com.journal.core.common.config.JwtUtils
 import com.journal.core.common.config.TokenSession
 import com.journal.core.network.api.JournalApi
 import com.journal.features.auth.AuthRoute
@@ -71,6 +73,13 @@ fun JournalNavHost(
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
     val showMenu = currentRoute != null && currentRoute != Routes.AUTH && role != null
+
+    // Extract display name from JWT for screens that need it (e.g. teacher dashboard).
+    // Falls back gracefully to null when running in debug/stub mode (no real JWT).
+    val accessToken by tokenSession.accessToken.collectAsState()
+    val jwtName: String? = remember(accessToken) {
+        accessToken?.let { JwtUtils.extractFullName(it) }
+    }
 
     val startDestination = if (initialRole != null) roleStartRoute(initialRole) else Routes.AUTH
 
@@ -120,6 +129,7 @@ fun JournalNavHost(
             composable(Routes.TEACHER_DASHBOARD) {
                 TeacherDashboardRoute(
                     journalApi = journalApi,
+                    jwtName = jwtName,
                     onOpenJournal = { target ->
                         navController.navigate(
                             Routes.teacherJournal(

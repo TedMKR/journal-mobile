@@ -69,7 +69,9 @@ private val LessonBackground = Color(0xFFE4E6EC)
 @Composable
 fun TeacherDashboardRoute(
     journalApi: JournalApi,
-    onOpenJournal: (TeacherDashboardJournalTarget) -> Unit
+    onOpenJournal: (TeacherDashboardJournalTarget) -> Unit,
+    /** Full name extracted from the JWT access token — most reliable source. */
+    jwtName: String? = null
 ) {
     var state by remember { mutableStateOf<TeacherDashboardUiState?>(null) }
     var isLoading by remember { mutableStateOf(true) }
@@ -86,7 +88,7 @@ fun TeacherDashboardRoute(
                 limit = 200
             ).lessons
             val stats = runCatching { journalApi.getTeacherStats() }.getOrNull()
-            buildDashboardState(journalApi = journalApi, lessons = lessons, stats = stats)
+            buildDashboardState(journalApi = journalApi, lessons = lessons, stats = stats, jwtName = jwtName)
         }.onSuccess { uiState ->
             state = uiState
             isLoading = false
@@ -657,7 +659,8 @@ private fun AttendanceLineChart(months: List<AttendanceMonth>) {
 private suspend fun buildDashboardState(
     journalApi: JournalApi,
     lessons: List<TeacherLesson>,
-    stats: TeacherStats?
+    stats: TeacherStats?,
+    jwtName: String? = null
 ): TeacherDashboardUiState {
     val defaultLesson = lessons.firstOrNull { it.groupId != null && it.disciplineId != null && it.periodId != null }
     val defaultJournal = defaultLesson?.let { lesson ->
@@ -676,7 +679,9 @@ private suspend fun buildDashboardState(
     }.getOrNull()
 
     val uniqueDisciplines = lessons.mapNotNull { lesson -> lesson.disciplineId?.let { it to lesson.disciplineName } }.distinctBy { it.first }
-    val teacherName = defaultJournal?.teacher?.fullName
+    // Priority: JWT claim (always correct) → journal teacher → lesson teacher_name → fallback
+    val teacherName = jwtName?.takeIf(String::isNotBlank)
+        ?: defaultJournal?.teacher?.fullName?.takeIf(String::isNotBlank)
         ?: lessons.firstNotNullOfOrNull { it.teacherName?.takeIf(String::isNotBlank) }
         ?: "Преподаватель"
 
