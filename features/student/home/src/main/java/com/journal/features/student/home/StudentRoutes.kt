@@ -86,7 +86,11 @@ fun StudentScheduleRoute(
 }
 
 @Composable
-fun StudentDashboardRoute(journalApi: JournalApi) {
+fun StudentDashboardRoute(
+    journalApi: JournalApi,
+    /** First name extracted from JWT — shown in the profile header. */
+    jwtFirstName: String? = null
+) {
     var profile by remember { mutableStateOf<StudentProfile?>(null) }
     var subjects by remember { mutableStateOf<List<StudentSubjectSummary>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -112,7 +116,7 @@ fun StudentDashboardRoute(journalApi: JournalApi) {
         when {
             isLoading -> CenterState { CircularProgressIndicator(color = PrimaryText) }
             error != null -> CenterState { Text(error.orEmpty(), color = Danger) }
-            else -> StudentDashboardContent(profile = profile, subjects = subjects)
+            else -> StudentDashboardContent(profile = profile, subjects = subjects, jwtFirstName = jwtFirstName)
         }
     }
 }
@@ -243,10 +247,11 @@ private fun StudentLessonCard(
 @Composable
 private fun StudentDashboardContent(
     profile: StudentProfile?,
-    subjects: List<StudentSubjectSummary>
+    subjects: List<StudentSubjectSummary>,
+    jwtFirstName: String? = null
 ) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item { ProfileSummaryCard(profile = profile, subjects = subjects) }
+        item { ProfileSummaryCard(profile = profile, subjects = subjects, jwtFirstName = jwtFirstName) }
         item { SubjectsCard(subjects) }
     }
 }
@@ -254,10 +259,17 @@ private fun StudentDashboardContent(
 @Composable
 private fun ProfileSummaryCard(
     profile: StudentProfile?,
-    subjects: List<StudentSubjectSummary>
+    subjects: List<StudentSubjectSummary>,
+    jwtFirstName: String? = null
 ) {
     val avgGrade = subjects.mapNotNull { it.avgGrade }.takeIf { it.isNotEmpty() }?.average()
     val attendance = subjects.takeIf { it.isNotEmpty() }?.map { it.attendancePct }?.average() ?: 0.0
+
+    // Display name priority: JWT first name → 2nd word of API full name → full name → fallback
+    val displayName = jwtFirstName?.takeIf(String::isNotBlank)
+        ?: profile?.fullName?.trim()?.split("\\s+".toRegex())?.getOrNull(1)?.takeIf(String::isNotBlank)
+        ?: profile?.fullName
+        ?: "Профиль студента"
 
     Column(
         modifier = Modifier
@@ -267,7 +279,7 @@ private fun ProfileSummaryCard(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(
-            text = profile?.fullName ?: "Профиль студента",
+            text = displayName,
             color = Color.White,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold

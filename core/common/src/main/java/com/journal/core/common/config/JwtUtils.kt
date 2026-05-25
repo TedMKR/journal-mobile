@@ -43,6 +43,33 @@ object JwtUtils {
     }
 
     /**
+     * Extract only the first name (имя) from the JWT.
+     *
+     * Priority:
+     * 1. `given_name` Keycloak claim — the dedicated first-name field
+     * 2. 2nd word of `name` — Russian full names are "Фамилия Имя Отчество",
+     *    so index 1 is the first name
+     * 3. Full `name` claim as last resort (better than nothing)
+     */
+    fun extractFirstName(token: String): String? {
+        val payload = decodePayload(token) ?: return null
+
+        // Keycloak dedicated first-name claim
+        val given = payload.optString("given_name").takeIf(String::isNotBlank)
+        if (given != null) return given
+
+        // Derive from full name: "Фамилия Имя Отчество" → index 1 = first name
+        val fullName = payload.optString("name").takeIf(String::isNotBlank)
+        if (fullName != null) {
+            val firstName = fullName.trim().split("\\s+".toRegex()).getOrNull(1)?.takeIf(String::isNotBlank)
+            if (firstName != null) return firstName
+            return fullName // only one word — use it as-is
+        }
+
+        return payload.optString("preferred_username").takeIf(String::isNotBlank)
+    }
+
+    /**
      * Extract roles from the Keycloak `resource_access.<clientId>.roles` claim.
      */
     fun extractRoles(token: String, clientId: String): List<String> {

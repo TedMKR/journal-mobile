@@ -679,10 +679,14 @@ private suspend fun buildDashboardState(
     }.getOrNull()
 
     val uniqueDisciplines = lessons.mapNotNull { lesson -> lesson.disciplineId?.let { it to lesson.disciplineName } }.distinctBy { it.first }
-    // Priority: JWT claim (always correct) → journal teacher → lesson teacher_name → fallback
+    // Priority: JWT first name (always correct) → 2nd word of journal full name → fallback
     val teacherName = jwtName?.takeIf(String::isNotBlank)
+        ?: defaultJournal?.teacher?.fullName?.trim()
+            ?.split("\\s+".toRegex())?.getOrNull(1)?.takeIf(String::isNotBlank)
         ?: defaultJournal?.teacher?.fullName?.takeIf(String::isNotBlank)
-        ?: lessons.firstNotNullOfOrNull { it.teacherName?.takeIf(String::isNotBlank) }
+        ?: lessons.firstNotNullOfOrNull {
+            it.teacherName?.trim()?.split("\\s+".toRegex())?.getOrNull(1)?.takeIf(String::isNotBlank)
+        }
         ?: "Преподаватель"
 
     return TeacherDashboardUiState(

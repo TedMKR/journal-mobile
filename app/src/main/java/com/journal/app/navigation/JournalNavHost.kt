@@ -74,11 +74,11 @@ fun JournalNavHost(
     val currentRoute = backStackEntry?.destination?.route
     val showMenu = currentRoute != null && currentRoute != Routes.AUTH && role != null
 
-    // Extract display name from JWT for screens that need it (e.g. teacher dashboard).
+    // Extract first name from JWT for profile screens (teacher & student dashboards).
     // Falls back gracefully to null when running in debug/stub mode (no real JWT).
     val accessToken by tokenSession.accessToken.collectAsState()
-    val jwtName: String? = remember(accessToken) {
-        accessToken?.let { JwtUtils.extractFullName(it) }
+    val jwtFirstName: String? = remember(accessToken) {
+        accessToken?.let { JwtUtils.extractFirstName(it) }
     }
 
     val startDestination = if (initialRole != null) roleStartRoute(initialRole) else Routes.AUTH
@@ -129,7 +129,7 @@ fun JournalNavHost(
             composable(Routes.TEACHER_DASHBOARD) {
                 TeacherDashboardRoute(
                     journalApi = journalApi,
-                    jwtName = jwtName,
+                    jwtName = jwtFirstName,
                     onOpenJournal = { target ->
                         navController.navigate(
                             Routes.teacherJournal(
@@ -150,7 +150,7 @@ fun JournalNavHost(
                 StudentScheduleRoute(journalApi = journalApi)
             }
             composable(Routes.STUDENT_DASHBOARD) {
-                StudentDashboardRoute(journalApi = journalApi)
+                StudentDashboardRoute(journalApi = journalApi, jwtFirstName = jwtFirstName)
             }
             composable(Routes.METHODIST_DASHBOARD) {
                 MethodistDashboardRoute(journalApi = journalApi)
