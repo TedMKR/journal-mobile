@@ -1,30 +1,36 @@
 package com.journal.features.admin.dashboard
 
+import android.os.Environment
+import android.widget.Toast
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -40,11 +46,21 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.drawscope.Stroke
+
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import com.journal.core.model.teacher.AdminAccessBinding
 import com.journal.core.model.teacher.AdminActionRequest
 import com.journal.core.model.teacher.AdminJournalContext
@@ -64,6 +80,7 @@ private val CardBackground = Color.White
 private val PrimaryBlue = Color(0xFF223268)
 private val SecondaryText = Color(0xFF6D7885)
 private val LightBlue = Color(0xFFD3D7E1)
+private val FieldBorder = Color(0xFFD1D5DB)
 private val DangerColor = Color(0xFFC44A4A)
 private val DangerLight = Color(0xFFFFE4E6)
 private val GreenColor = Color(0xFF16A34A)
@@ -186,27 +203,52 @@ private fun DangerButton(text: String, onClick: () -> Unit, modifier: Modifier =
 private fun AdminDropdown(
     label: String,
     selected: String,
-    options: List<Pair<String, String>>, // label to value
-    onSelected: (String) -> Unit
+    options: List<Pair<String, String>>,
+    onSelected: (String) -> Unit,
+    modifier: Modifier = Modifier
 ) {
     var expanded by remember { mutableStateOf(false) }
     val displayLabel = options.firstOrNull { it.second == selected }?.first ?: label
-    Box {
-        Text(
-            text = displayLabel,
+    var fieldWidth by remember { mutableStateOf(0.dp) }
+    val density = LocalDensity.current
+
+    Box(modifier = modifier) {
+        Box(
             modifier = Modifier
-                .clip(RoundedCornerShape(14.dp))
-                .background(BackgroundColor)
+                .fillMaxWidth()
+                .onSizeChanged { fieldWidth = with(density) { it.width.toDp() } }
+                .background(Color.White, RoundedCornerShape(12.dp))
+                .border(1.dp, if (expanded) PrimaryBlue else FieldBorder, RoundedCornerShape(12.dp))
                 .clickable { expanded = true }
-                .padding(horizontal = 14.dp, vertical = 12.dp),
-            color = PrimaryBlue,
-            fontWeight = FontWeight.SemiBold,
-            fontSize = 14.sp
-        )
-        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                .padding(horizontal = 12.dp, vertical = 11.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = displayLabel,
+                    color = PrimaryBlue,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 14.sp,
+                    modifier = Modifier.weight(1f),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text("▾", color = SecondaryText, fontSize = 12.sp)
+            }
+        }
+        DropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+            modifier = Modifier
+                .width(fieldWidth)
+                .background(Color.White)
+        ) {
             options.forEach { (optLabel, optValue) ->
                 DropdownMenuItem(
-                    text = { Text(optLabel) },
+                    text = { Text(optLabel, color = PrimaryBlue) },
                     onClick = {
                         onSelected(optValue)
                         expanded = false
@@ -224,10 +266,35 @@ private fun ReasonDialog(
     onDismiss: () -> Unit
 ) {
     var reason by remember { mutableStateOf("") }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(title, fontWeight = FontWeight.Bold, color = PrimaryBlue) },
-        text = {
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White, RoundedCornerShape(20.dp))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    title,
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryBlue,
+                    fontSize = 17.sp,
+                    modifier = Modifier.weight(1f)
+                )
+                Text(
+                    "×",
+                    modifier = Modifier
+                        .clickable(onClick = onDismiss)
+                        .padding(4.dp),
+                    color = SecondaryText,
+                    fontSize = 22.sp
+                )
+            }
             OutlinedTextField(
                 value = reason,
                 onValueChange = { reason = it },
@@ -239,19 +306,20 @@ private fun ReasonDialog(
                     focusedLabelColor = PrimaryBlue
                 )
             )
-        },
-        confirmButton = {
-            PrimaryButton(
-                text = "Подтвердить",
-                onClick = { if (reason.isNotBlank()) onConfirm(reason.trim()) }
-            )
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Отмена", color = SecondaryText)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text("Отмена", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                }
+                PrimaryButton(
+                    text = "Подтвердить",
+                    onClick = { if (reason.isNotBlank()) onConfirm(reason.trim()) }
+                )
             }
         }
-    )
+    }
 }
 
 @Composable
@@ -652,15 +720,38 @@ fun AdminUsersRoute(journalApi: JournalApi) {
 
     // Edit user dialog
     editingUser?.let {
-        AlertDialog(
-            onDismissRequest = { editingUser = null },
-            title = {
-                Text("Редактировать пользователя", fontWeight = FontWeight.Bold, color = PrimaryBlue)
-            },
-            text = {
+        Dialog(onDismissRequest = { editingUser = null }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(20.dp))
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Редактировать пользователя",
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryBlue,
+                        fontSize = 17.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        "×",
+                        modifier = Modifier
+                            .clickable { editingUser = null }
+                            .padding(4.dp),
+                        color = SecondaryText,
+                        fontSize = 22.sp
+                    )
+                }
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.verticalScroll(rememberScrollState())
+                    modifier = Modifier.verticalScroll(rememberScrollState()),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     EditField("ФИО", editFullName) { editFullName = it }
                     EditField("Email", editEmail) { editEmail = it }
@@ -682,40 +773,41 @@ fun AdminUsersRoute(journalApi: JournalApi) {
                         )
                     }
                 }
-            },
-            confirmButton = {
-                PrimaryButton(
-                    text = "Сохранить",
-                    onClick = {
-                        scope.launch {
-                            editingUser?.let { user ->
-                                runCatching {
-                                    journalApi.updateAdminUser(
-                                        user.id,
-                                        AdminUpdateUserRequest(
-                                            fullName = editFullName.trim().ifBlank { null },
-                                            firstName = editFirstName.trim().ifBlank { null },
-                                            lastName = editLastName.trim().ifBlank { null },
-                                            patronymic = editPatronymic.trim().ifBlank { null },
-                                            email = editEmail.trim().ifBlank { null },
-                                            username = editUsername.trim().ifBlank { null },
-                                            profileSyncLocked = editSyncLocked
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
+                ) {
+                    TextButton(onClick = { editingUser = null }) {
+                        Text("Отмена", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                    }
+                    PrimaryButton(
+                        text = "Сохранить",
+                        onClick = {
+                            scope.launch {
+                                editingUser?.let { user ->
+                                    runCatching {
+                                        journalApi.updateAdminUser(
+                                            user.id,
+                                            AdminUpdateUserRequest(
+                                                fullName = editFullName.trim().ifBlank { null },
+                                                firstName = editFirstName.trim().ifBlank { null },
+                                                lastName = editLastName.trim().ifBlank { null },
+                                                patronymic = editPatronymic.trim().ifBlank { null },
+                                                email = editEmail.trim().ifBlank { null },
+                                                username = editUsername.trim().ifBlank { null },
+                                                profileSyncLocked = editSyncLocked
+                                            )
                                         )
-                                    )
-                                }.onFailure { error = it.message }
-                                editingUser = null
-                                loadUsers()
+                                    }.onFailure { error = it.message }
+                                    editingUser = null
+                                    loadUsers()
+                                }
                             }
                         }
-                    }
-                )
-            },
-            dismissButton = {
-                TextButton(onClick = { editingUser = null }) {
-                    Text("Отмена", color = SecondaryText)
+                    )
                 }
             }
-        )
+        }
     }
 
     Column(
@@ -755,7 +847,8 @@ fun AdminUsersRoute(journalApi: JournalApi) {
                         "Преподаватели" to "teacher",
                         "Студенты" to "student"
                     ),
-                    onSelected = { filterRole = it; page = 1 }
+                    onSelected = { filterRole = it; page = 1 },
+                    modifier = Modifier.weight(1f)
                 )
                 AdminDropdown(
                     label = "Все статусы",
@@ -765,7 +858,8 @@ fun AdminUsersRoute(journalApi: JournalApi) {
                         "Активные" to "active",
                         "Заблокированные" to "blocked"
                     ),
-                    onSelected = { filterStatus = it; page = 1 }
+                    onSelected = { filterStatus = it; page = 1 },
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
@@ -998,40 +1092,38 @@ fun AdminAuditRoute(journalApi: JournalApi) {
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Box(modifier = Modifier.weight(1f)) {
-                    AdminDropdown(
-                        label = "Все события",
-                        selected = filterAction,
-                        options = listOf(
-                            "Все события" to "",
-                            "Журнал заморожен" to "JOURNAL_LOCKED",
-                            "Журнал разморожен" to "JOURNAL_UNLOCKED",
-                            "В архиве" to "JOURNAL_ARCHIVED",
-                            "Восстановлен" to "JOURNAL_RESTORED",
-                            "Период закрыт" to "PERIOD_CLOSED",
-                            "Период открыт" to "PERIOD_REOPENED",
-                            "Доступ выдан" to "ACCESS_BINDING_CREATED",
-                            "Доступ отозван" to "ACCESS_BINDING_REVOKED",
-                            "Заблокирован" to "USER_BLOCKED",
-                            "Разблокирован" to "USER_UNBLOCKED"
-                        ),
-                        onSelected = { filterAction = it; page = 1 }
-                    )
-                }
-                Box(modifier = Modifier.weight(1f)) {
-                    AdminDropdown(
-                        label = "Все сущности",
-                        selected = filterEntity,
-                        options = listOf(
-                            "Все сущности" to "",
-                            "Журнал" to "JournalContext",
-                            "Пользователь" to "AdminUser",
-                            "Период" to "AcademicPeriod",
-                            "Документ" to "DocumentTask"
-                        ),
-                        onSelected = { filterEntity = it; page = 1 }
-                    )
-                }
+                AdminDropdown(
+                    label = "Все события",
+                    selected = filterAction,
+                    options = listOf(
+                        "Все события" to "",
+                        "Журнал заморожен" to "JOURNAL_LOCKED",
+                        "Журнал разморожен" to "JOURNAL_UNLOCKED",
+                        "В архиве" to "JOURNAL_ARCHIVED",
+                        "Восстановлен" to "JOURNAL_RESTORED",
+                        "Период закрыт" to "PERIOD_CLOSED",
+                        "Период открыт" to "PERIOD_REOPENED",
+                        "Доступ выдан" to "ACCESS_BINDING_CREATED",
+                        "Доступ отозван" to "ACCESS_BINDING_REVOKED",
+                        "Заблокирован" to "USER_BLOCKED",
+                        "Разблокирован" to "USER_UNBLOCKED"
+                    ),
+                    onSelected = { filterAction = it; page = 1 },
+                    modifier = Modifier.weight(1f)
+                )
+                AdminDropdown(
+                    label = "Все сущности",
+                    selected = filterEntity,
+                    options = listOf(
+                        "Все сущности" to "",
+                        "Журнал" to "JournalContext",
+                        "Пользователь" to "AdminUser",
+                        "Период" to "AcademicPeriod",
+                        "Документ" to "DocumentTask"
+                    ),
+                    onSelected = { filterEntity = it; page = 1 },
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
 
@@ -1204,6 +1296,7 @@ private fun lessonTypeLabel(type: String?): String = when (type) {
 @Composable
 fun AdminJournalsRoute(journalApi: JournalApi) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var journals by remember { mutableStateOf<List<AdminJournalContext>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -1230,6 +1323,20 @@ fun AdminJournalsRoute(journalApi: JournalApi) {
                 total = resp.meta?.total ?: resp.data.size
             }.onFailure { error = it.message ?: "Не удалось загрузить журналы" }
             isLoading = false
+        }
+    }
+
+    fun exportJournal(journalId: String) {
+        scope.launch {
+            runCatching {
+                val response = journalApi.exportAdminJournal(journalId)
+                val ext = if ((response.contentType()?.toString() ?: "").contains("csv")) "csv" else "xlsx"
+                val bytes = response.bytes()
+                val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.cacheDir
+                val file = java.io.File(dir, "journal_${journalId.takeLast(8)}.$ext")
+                file.writeBytes(bytes)
+                Toast.makeText(context, "Сохранено: ${file.name}", Toast.LENGTH_LONG).show()
+            }.onFailure { error = it.message ?: "Ошибка экспорта" }
         }
     }
 
@@ -1285,7 +1392,8 @@ fun AdminJournalsRoute(journalApi: JournalApi) {
                     "Замороженные" to "locked",
                     "Архивные" to "archived"
                 ),
-                onSelected = { filterStatus = it; page = 1 }
+                onSelected = { filterStatus = it; page = 1 },
+                modifier = Modifier.weight(1f)
             )
         }
 
@@ -1300,13 +1408,17 @@ fun AdminJournalsRoute(journalApi: JournalApi) {
             ) {
                 Text("Журналы не найдены", color = SecondaryText, fontWeight = FontWeight.SemiBold)
             }
-            else -> LazyColumn(modifier = Modifier.weight(1f)) {
+            else -> LazyColumn(
+                modifier = Modifier.weight(1f),
+                contentPadding = PaddingValues(vertical = 8.dp)
+            ) {
                 items(journals) { journal ->
                     JournalAdminRow(
                         journal = journal,
                         onAction = { action ->
                             pendingAction = PendingAction(journal, action)
-                        }
+                        },
+                        onExport = { exportJournal(journal.id) }
                     )
                 }
                 if (totalPages > 1) {
@@ -1317,71 +1429,192 @@ fun AdminJournalsRoute(journalApi: JournalApi) {
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun JournalAdminRow(
     journal: AdminJournalContext,
-    onAction: (String) -> Unit
+    onAction: (String) -> Unit,
+    onExport: () -> Unit
 ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(16.dp))
             .background(CardBackground)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .border(1.dp, Color(0xFFD1D5DB), RoundedCornerShape(16.dp))
+            .padding(16.dp)
     ) {
+        // Header: calendar icon + discipline title + status badge
         Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.Top,
-            horizontalArrangement = Arrangement.SpaceBetween
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+            verticalAlignment = Alignment.Top
         ) {
+            // Calendar icon box
+            Box(
+                modifier = Modifier
+                    .size(52.dp)
+                    .clip(RoundedCornerShape(12.dp))
+                    .background(LightBlue),
+                contentAlignment = Alignment.Center
+            ) {
+                CalendarIcon()
+            }
+
             Column(modifier = Modifier.weight(1f)) {
+                // Discipline name + status badge on same row
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = journal.disciplineName ?: "—",
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryBlue,
+                        fontSize = 17.sp,
+                        modifier = Modifier.weight(1f),
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    JournalStatusBadge(journal.status)
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                // Meta chips: group, type, count, period, teacher
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    journal.groupName?.let { MetaChip(it) }
+                    if (!journal.lessonType.isNullOrBlank()) MetaChip(lessonTypeLabel(journal.lessonType))
+                    if (journal.lessonCount > 0) MetaChip("${journal.lessonCount} занятий")
+                    journal.periodName?.let { if (it.isNotBlank()) MetaChip(it) }
+                    journal.teacherName?.let { if (it.isNotBlank()) MetaChip(it) }
+                }
+
+                Spacer(Modifier.height(10.dp))
+
+                // Created date
                 Text(
-                    text = journal.disciplineName ?: "—",
-                    fontWeight = FontWeight.Bold,
-                    color = PrimaryBlue,
-                    fontSize = 15.sp
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = buildString {
-                        journal.groupName?.let { append(it) }
-                        journal.teacherName?.let { append(" · $it") }
-                    }.ifBlank { "—" },
+                    text = "Создан ${formatDate(journal.createdAt)}",
                     color = SecondaryText,
                     fontSize = 13.sp
                 )
-                if (!journal.periodName.isNullOrBlank()) {
-                    Text(journal.periodName.orEmpty(), color = SecondaryText, fontSize = 12.sp)
-                }
-                Text(
-                    text = "${lessonTypeLabel(journal.lessonType)} · ${journal.lessonCount} зан.",
-                    color = SecondaryText,
-                    fontSize = 12.sp
-                )
             }
-            Spacer(modifier = Modifier.width(8.dp))
-            AdminBadge(
-                text = journalStatusLabel(journal.status),
-                color = journalStatusColor(journal.status),
-                background = journalStatusBg(journal.status)
-            )
         }
-        Spacer(modifier = Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+
+        Spacer(Modifier.height(14.dp))
+
+        // Action buttons
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
             when (journal.status) {
                 "active" -> {
-                    SecondaryButton("Заморозить", onClick = { onAction("lock") })
-                    DangerButton("В архив", onClick = { onAction("archive") })
+                    SecondaryButton(
+                        text = "Заморозить",
+                        onClick = { onAction("lock") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    DangerButton(
+                        text = "В архив",
+                        onClick = { onAction("archive") },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
-                "locked" -> {
-                    PrimaryButton("Разморозить", onClick = { onAction("unlock") })
-                }
-                "archived" -> {
-                    PrimaryButton("Восстановить", onClick = { onAction("restore") })
-                }
+                "locked" -> PrimaryButton(
+                    text = "Разморозить",
+                    onClick = { onAction("unlock") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                "archived" -> PrimaryButton(
+                    text = "Восстановить",
+                    onClick = { onAction("restore") },
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
+
+        Spacer(Modifier.height(8.dp))
+
+        // Export button
+        SecondaryButton(
+            text = "⬇  Экспорт таблицы",
+            onClick = onExport,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
-    Box(Modifier.fillMaxWidth().height(1.dp).background(BackgroundColor))
+}
+
+@Composable
+private fun JournalStatusBadge(status: String?) {
+    val textColor = when (status) {
+        "active" -> PrimaryBlue
+        "locked" -> Color(0xFF8A6D00)
+        "archived" -> DangerColor
+        else -> SecondaryText
+    }
+    Text(
+        text = journalStatusLabel(status),
+        modifier = Modifier
+            .border(1.dp, LightBlue, RoundedCornerShape(999.dp))
+            .background(Color.White, RoundedCornerShape(999.dp))
+            .padding(horizontal = 12.dp, vertical = 5.dp),
+        color = textColor,
+        fontWeight = FontWeight.Bold,
+        fontSize = 13.sp,
+        maxLines = 1
+    )
+}
+
+@Composable
+private fun MetaChip(text: String) {
+    Text(
+        text = text,
+        modifier = Modifier
+            .clip(RoundedCornerShape(8.dp))
+            .background(BackgroundColor)
+            .padding(horizontal = 11.dp, vertical = 5.dp),
+        color = PrimaryBlue,
+        fontSize = 13.sp,
+        fontWeight = FontWeight.Medium
+    )
+}
+
+@Composable
+private fun CalendarIcon() {
+    val iconColor = PrimaryBlue
+    Canvas(modifier = Modifier.size(28.dp)) {
+        val s = size.width / 24f
+        val sw = 1.6f * density
+        val stroke = Stroke(width = sw, cap = StrokeCap.Round, join = StrokeJoin.Round)
+
+        // Outer rectangle M4 6H20V18H4V6Z
+        val rectPath = androidx.compose.ui.graphics.Path().apply {
+            moveTo(4 * s, 6 * s)
+            lineTo(20 * s, 6 * s)
+            lineTo(20 * s, 18 * s)
+            lineTo(4 * s, 18 * s)
+            close()
+        }
+        drawPath(rectPath, iconColor, style = stroke)
+
+        // Left pin M8 4V8
+        drawLine(iconColor, Offset(8 * s, 4 * s), Offset(8 * s, 8 * s), sw, StrokeCap.Round)
+
+        // Right pin M16 4V8
+        drawLine(iconColor, Offset(16 * s, 4 * s), Offset(16 * s, 8 * s), sw, StrokeCap.Round)
+
+        // Header divider M4 10H20
+        drawLine(iconColor, Offset(4 * s, 10 * s), Offset(20 * s, 10 * s), sw, StrokeCap.Round)
+
+        // Content mark M8 14H12
+        drawLine(iconColor, Offset(8 * s, 14 * s), Offset(12 * s, 14 * s), sw, StrokeCap.Round)
+    }
 }
 
 // ─── 5. Admin Periods ─────────────────────────────────────────────────────────
@@ -1550,27 +1783,58 @@ fun AdminAccessRoute(journalApi: JournalApi) {
 
     // Revoke confirmation
     revokingId?.let { id ->
-        AlertDialog(
-            onDismissRequest = { revokingId = null },
-            title = { Text("Отозвать доступ?", fontWeight = FontWeight.Bold, color = PrimaryBlue) },
-            text = { Text("Это действие нельзя отменить.", color = SecondaryText) },
-            confirmButton = {
-                DangerButton("Отозвать", onClick = {
-                    scope.launch {
-                        runCatching {
-                            journalApi.revokeAdminAccessBinding(id)
-                        }.onFailure { error = it.message }
-                        revokingId = null
-                        loadBindings()
+        Dialog(onDismissRequest = { revokingId = null }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(20.dp))
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Отозвать доступ?",
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryBlue,
+                        fontSize = 17.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        "×",
+                        modifier = Modifier
+                            .clickable { revokingId = null }
+                            .padding(4.dp),
+                        color = SecondaryText,
+                        fontSize = 22.sp
+                    )
+                }
+                Text("Это действие нельзя отменить.", color = SecondaryText, fontSize = 14.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
+                ) {
+                    TextButton(onClick = { revokingId = null }) {
+                        Text("Отмена", color = SecondaryText, fontWeight = FontWeight.SemiBold)
                     }
-                })
-            },
-            dismissButton = {
-                TextButton(onClick = { revokingId = null }) {
-                    Text("Отмена", color = SecondaryText)
+                    DangerButton(
+                        text = "Отозвать",
+                        onClick = {
+                            scope.launch {
+                                runCatching {
+                                    journalApi.revokeAdminAccessBinding(id)
+                                }.onFailure { error = it.message }
+                                revokingId = null
+                                loadBindings()
+                            }
+                        }
+                    )
                 }
             }
-        )
+        }
     }
 
     Column(
@@ -1592,7 +1856,8 @@ fun AdminAccessRoute(journalApi: JournalApi) {
                 label = "Активные",
                 selected = if (showRevoked) "all" else "active",
                 options = listOf("Активные" to "active", "Все" to "all"),
-                onSelected = { showRevoked = it == "all" }
+                onSelected = { showRevoked = it == "all" },
+                modifier = Modifier.weight(1f)
             )
         }
 

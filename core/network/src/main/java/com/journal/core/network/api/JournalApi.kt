@@ -353,6 +353,11 @@ interface JournalApi {
         @Query("discipline_id") disciplineId: String? = null
     ): AdminJournalsResponse
 
+    @GET("admin/journals/{id}/export")
+    suspend fun exportAdminJournal(
+        @Path("id") journalId: String
+    ): ResponseBody
+
     @POST("admin/journals/{id}/{action}")
     suspend fun adminJournalAction(
         @Path("id") journalId: String,

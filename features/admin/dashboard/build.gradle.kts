@@ -22,6 +22,7 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(project(":core:network"))
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
     implementation("androidx.compose.ui:ui")
