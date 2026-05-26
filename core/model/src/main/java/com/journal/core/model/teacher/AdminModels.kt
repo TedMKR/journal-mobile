@@ -125,3 +125,22 @@ data class AdminDocumentsResponse(
     @SerialName("data") val data: List<AdminDocumentTask> = emptyList(),
     @SerialName("meta") val meta: AdminPageMeta? = null
 )
+
+@Serializable
+data class AdminAccessBinding(
+    @SerialName("id") val id: String,
+    @SerialName("granter_id") val granterId: String? = null,
+    @SerialName("grantee_id") val granteeId: String? = null,
+    @SerialName("discipline_id") val disciplineId: String? = null,
+    @SerialName("group_id") val groupId: String? = null,
+    @SerialName("period_id") val periodId: String? = null,
+    @SerialName("access_level") val accessLevel: String? = null,
+    @SerialName("granted_at") val grantedAt: String? = null,
+    @SerialName("expires_at") val expiresAt: String? = null,
+    @SerialName("revoked_at") val revokedAt: String? = null
+)
+
+@Serializable
+data class AdminAccessBindingsResponse(
+    @SerialName("data") val data: List<AdminAccessBinding> = emptyList()
+)

@@ -45,9 +45,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.journal.core.model.teacher.AdminUser
-import com.journal.core.model.teacher.AdminUpdateUserRequest
+import com.journal.core.model.teacher.AdminAccessBinding
 import com.journal.core.model.teacher.AdminActionRequest
+import com.journal.core.model.teacher.AdminJournalContext
+import com.journal.core.model.teacher.AdminPeriod
+import com.journal.core.model.teacher.AdminUpdateUserRequest
+import com.journal.core.model.teacher.AdminUser
 import com.journal.core.model.teacher.AuditEvent
 import com.journal.core.network.api.JournalApi
 import kotlinx.coroutines.launch
@@ -287,7 +290,10 @@ private fun LoadingCard(text: String) {
 fun AdminDashboardRoute(
     journalApi: JournalApi,
     onOpenUsers: () -> Unit,
-    onOpenAudit: () -> Unit
+    onOpenAudit: () -> Unit,
+    onOpenJournals: () -> Unit,
+    onOpenPeriods: () -> Unit,
+    onOpenAccess: () -> Unit
 ) {
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -484,6 +490,84 @@ fun AdminDashboardRoute(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 PrimaryButton("Открыть", onOpenAudit)
+            }
+        }
+
+        SectionCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Журналы",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = PrimaryBlue
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Заморозка, архивирование и восстановление журналов",
+                        fontSize = 13.sp,
+                        color = SecondaryText,
+                        lineHeight = 18.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                PrimaryButton("Открыть", onOpenJournals)
+            }
+        }
+
+        SectionCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Учебные периоды",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = PrimaryBlue
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Закрытие и повторное открытие периодов",
+                        fontSize = 13.sp,
+                        color = SecondaryText,
+                        lineHeight = 18.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                PrimaryButton("Открыть", onOpenPeriods)
+            }
+        }
+
+        SectionCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Доступы",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = PrimaryBlue
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Выдача и отзыв доступа преподавателей к журналам",
+                        fontSize = 13.sp,
+                        color = SecondaryText,
+                        lineHeight = 18.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                PrimaryButton("Открыть", onOpenAccess)
             }
         }
 
@@ -1081,3 +1165,552 @@ private fun AuditEventRow(event: AuditEvent) {
 
 private fun shortenId(id: String): String =
     if (id.length > 16) "…${id.takeLast(12)}" else id
+
+// ─── 4. Admin Journals ────────────────────────────────────────────────────────
+
+private const val JOURNALS_PAGE_SIZE = 20
+
+private fun journalStatusLabel(status: String?): String = when (status) {
+    "active" -> "Активен"
+    "locked" -> "Заморожен"
+    "archived" -> "Архив"
+    else -> status ?: "—"
+}
+
+private fun journalStatusColor(status: String?): Color = when (status) {
+    "active" -> GreenColor
+    "locked" -> Color(0xFFB45309)
+    "archived" -> SecondaryText
+    else -> SecondaryText
+}
+
+private fun journalStatusBg(status: String?): Color = when (status) {
+    "active" -> GreenLight
+    "locked" -> Color(0xFFFEF3C7)
+    "archived" -> Color(0xFFF3F4F6)
+    else -> Color(0xFFF3F4F6)
+}
+
+private fun lessonTypeLabel(type: String?): String = when (type) {
+    "lecture" -> "Лекция"
+    "practice" -> "Практика"
+    "lab" -> "Лабораторная"
+    "seminar" -> "Семинар"
+    "consultation" -> "Консультация"
+    "exam" -> "Экзамен"
+    else -> type ?: "—"
+}
+
+@Composable
+fun AdminJournalsRoute(journalApi: JournalApi) {
+    val scope = rememberCoroutineScope()
+
+    var journals by remember { mutableStateOf<List<AdminJournalContext>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var filterStatus by remember { mutableStateOf("") }
+    var page by remember { mutableIntStateOf(1) }
+    var total by remember { mutableIntStateOf(0) }
+
+    // Pending action dialog
+    data class PendingAction(val journal: AdminJournalContext, val action: String)
+    var pendingAction by remember { mutableStateOf<PendingAction?>(null) }
+
+    fun loadJournals() {
+        scope.launch {
+            isLoading = true
+            error = null
+            runCatching {
+                val resp = journalApi.getAdminJournals(
+                    page = page,
+                    pageSize = JOURNALS_PAGE_SIZE,
+                    status = filterStatus.ifBlank { null }
+                )
+                journals = resp.data
+                total = resp.meta?.total ?: resp.data.size
+            }.onFailure { error = it.message ?: "Не удалось загрузить журналы" }
+            isLoading = false
+        }
+    }
+
+    LaunchedEffect(page, filterStatus) { loadJournals() }
+
+    val totalPages = maxOf(1, (total + JOURNALS_PAGE_SIZE - 1) / JOURNALS_PAGE_SIZE)
+
+    // Action confirmation dialog
+    pendingAction?.let { pa ->
+        val actionLabel = when (pa.action) {
+            "lock" -> "Заморозит�� журнал"
+            "unlock" -> "Разморозить журнал"
+            "archive" -> "Архивировать журнал"
+            "restore" -> "Восстановить журнал"
+            else -> "Действие"
+        }
+        ReasonDialog(
+            title = actionLabel,
+            onConfirm = { reason ->
+                scope.launch {
+                    runCatching {
+                        journalApi.adminJournalAction(pa.journal.id, pa.action, AdminActionRequest(reason))
+                    }.onFailure { error = it.message }
+                    pendingAction = null
+                    loadJournals()
+                }
+            },
+            onDismiss = { pendingAction = null }
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BackgroundColor)
+    ) {
+        // Filter bar
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(CardBackground)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Статус:", color = PrimaryBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            AdminDropdown(
+                label = "Все",
+                selected = filterStatus,
+                options = listOf(
+                    "Все" to "",
+                    "Активные" to "active",
+                    "Замороженные" to "locked",
+                    "Архивные" to "archived"
+                ),
+                onSelected = { filterStatus = it; page = 1 }
+            )
+        }
+
+        when {
+            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = PrimaryBlue)
+            }
+            error != null -> Column(Modifier.padding(16.dp)) { ErrorCard(error!!) }
+            journals.isEmpty() -> Box(
+                Modifier.fillMaxSize().padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Журналы не найдены", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+            }
+            else -> LazyColumn(modifier = Modifier.weight(1f)) {
+                items(journals) { journal ->
+                    JournalAdminRow(
+                        journal = journal,
+                        onAction = { action ->
+                            pendingAction = PendingAction(journal, action)
+                        }
+                    )
+                }
+                if (totalPages > 1) {
+                    item { AdminPaginationRow(page, totalPages, onPrev = { page-- }, onNext = { page++ }) }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun JournalAdminRow(
+    journal: AdminJournalContext,
+    onAction: (String) -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = journal.disciplineName ?: "—",
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryBlue,
+                    fontSize = 15.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = buildString {
+                        journal.groupName?.let { append(it) }
+                        journal.teacherName?.let { append(" · $it") }
+                    }.ifBlank { "—" },
+                    color = SecondaryText,
+                    fontSize = 13.sp
+                )
+                if (!journal.periodName.isNullOrBlank()) {
+                    Text(journal.periodName.orEmpty(), color = SecondaryText, fontSize = 12.sp)
+                }
+                Text(
+                    text = "${lessonTypeLabel(journal.lessonType)} · ${journal.lessonCount} зан.",
+                    color = SecondaryText,
+                    fontSize = 12.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            AdminBadge(
+                text = journalStatusLabel(journal.status),
+                color = journalStatusColor(journal.status),
+                background = journalStatusBg(journal.status)
+            )
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            when (journal.status) {
+                "active" -> {
+                    SecondaryButton("Заморозить", onClick = { onAction("lock") })
+                    DangerButton("В архив", onClick = { onAction("archive") })
+                }
+                "locked" -> {
+                    PrimaryButton("Разморозить", onClick = { onAction("unlock") })
+                }
+                "archived" -> {
+                    PrimaryButton("Восстановить", onClick = { onAction("restore") })
+                }
+            }
+        }
+    }
+    Box(Modifier.fillMaxWidth().height(1.dp).background(BackgroundColor))
+}
+
+// ─── 5. Admin Periods ─────────────────────────────────────────────────────────
+
+private fun formatDate(value: String?): String {
+    if (value.isNullOrBlank()) return "—"
+    return try {
+        val dt = OffsetDateTime.parse(value)
+        dt.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+    } catch (_: Exception) {
+        value
+    }
+}
+
+@Composable
+fun AdminPeriodsRoute(journalApi: JournalApi) {
+    val scope = rememberCoroutineScope()
+
+    var periods by remember { mutableStateOf<List<AdminPeriod>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    data class PendingToggle(val period: AdminPeriod, val closing: Boolean)
+    var pendingToggle by remember { mutableStateOf<PendingToggle?>(null) }
+
+    fun loadPeriods() {
+        scope.launch {
+            isLoading = true
+            error = null
+            runCatching {
+                periods = journalApi.getAdminPeriods(includeClosed = true).data
+            }.onFailure { error = it.message ?: "Не удалось загрузить периоды" }
+            isLoading = false
+        }
+    }
+
+    LaunchedEffect(Unit) { loadPeriods() }
+
+    pendingToggle?.let { pt ->
+        ReasonDialog(
+            title = if (pt.closing) "Закрыть период?" else "Открыть период?",
+            onConfirm = { reason ->
+                scope.launch {
+                    runCatching {
+                        if (pt.closing) {
+                            journalApi.closeAdminPeriod(pt.period.id, AdminActionRequest(reason))
+                        } else {
+                            journalApi.reopenAdminPeriod(pt.period.id, AdminActionRequest(reason))
+                        }
+                    }.onFailure { error = it.message }
+                    pendingToggle = null
+                    loadPeriods()
+                }
+            },
+            onDismiss = { pendingToggle = null }
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BackgroundColor)
+    ) {
+        when {
+            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = PrimaryBlue)
+            }
+            error != null -> Column(Modifier.padding(16.dp)) { ErrorCard(error!!) }
+            periods.isEmpty() -> Box(
+                Modifier.fillMaxSize().padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Периоды не найдены", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+            }
+            else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(periods) { period ->
+                    PeriodAdminRow(
+                        period = period,
+                        onToggle = { pendingToggle = PendingToggle(period, !(period.isClosed ?: false)) }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PeriodAdminRow(period: AdminPeriod, onToggle: () -> Unit) {
+    val isClosed = period.isClosed ?: false
+    val isActive = period.isActive ?: false
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = period.name ?: "—",
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryBlue,
+                    fontSize = 15.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "${formatDate(period.startsAt)} — ${formatDate(period.endsAt)}",
+                    color = SecondaryText,
+                    fontSize = 13.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                if (isActive) {
+                    AdminBadge("Активный", PrimaryBlue, AccentBadge)
+                }
+                AdminBadge(
+                    text = if (isClosed) "Закрыт" else "Открыт",
+                    color = if (isClosed) DangerColor else GreenColor,
+                    background = if (isClosed) DangerLight else GreenLight
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        if (isClosed) {
+            PrimaryButton("Открыть", onClick = onToggle)
+        } else {
+            DangerButton("Закрыть", onClick = onToggle)
+        }
+    }
+    Box(Modifier.fillMaxWidth().height(1.dp).background(BackgroundColor))
+}
+
+// ─── 6. Admin Access Bindings ─────────────────────────────────────────────────
+
+@Composable
+fun AdminAccessRoute(journalApi: JournalApi) {
+    val scope = rememberCoroutineScope()
+
+    var bindings by remember { mutableStateOf<List<AdminAccessBinding>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+    var showRevoked by remember { mutableStateOf(false) }
+    var revokingId by remember { mutableStateOf<String?>(null) }
+
+    fun loadBindings() {
+        scope.launch {
+            isLoading = true
+            error = null
+            runCatching {
+                bindings = journalApi.getAdminAccessBindings(activeOnly = !showRevoked).data
+            }.onFailure { error = it.message ?: "Не удалось загрузить доступы" }
+            isLoading = false
+        }
+    }
+
+    LaunchedEffect(showRevoked) { loadBindings() }
+
+    // Revoke confirmation
+    revokingId?.let { id ->
+        AlertDialog(
+            onDismissRequest = { revokingId = null },
+            title = { Text("Отозвать доступ?", fontWeight = FontWeight.Bold, color = PrimaryBlue) },
+            text = { Text("Это действие нельзя отменить.", color = SecondaryText) },
+            confirmButton = {
+                DangerButton("Отозвать", onClick = {
+                    scope.launch {
+                        runCatching {
+                            journalApi.revokeAdminAccessBinding(id)
+                        }.onFailure { error = it.message }
+                        revokingId = null
+                        loadBindings()
+                    }
+                })
+            },
+            dismissButton = {
+                TextButton(onClick = { revokingId = null }) {
+                    Text("Отмена", color = SecondaryText)
+                }
+            }
+        )
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(BackgroundColor)
+    ) {
+        // Toggle active/all
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(CardBackground)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text("Показывать:", color = PrimaryBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            AdminDropdown(
+                label = "Активные",
+                selected = if (showRevoked) "all" else "active",
+                options = listOf("Активные" to "active", "Все" to "all"),
+                onSelected = { showRevoked = it == "all" }
+            )
+        }
+
+        when {
+            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = PrimaryBlue)
+            }
+            error != null -> Column(Modifier.padding(16.dp)) { ErrorCard(error!!) }
+            bindings.isEmpty() -> Box(
+                Modifier.fillMaxSize().padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Доступы не найдены", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+            }
+            else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(bindings) { binding ->
+                    AccessBindingRow(
+                        binding = binding,
+                        onRevoke = { revokingId = binding.id }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AccessBindingRow(
+    binding: AdminAccessBinding,
+    onRevoke: () -> Unit
+) {
+    val isRevoked = binding.revokedAt != null
+    val accessLabel = if (binding.accessLevel == "write") "Запись" else "Чтение"
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Получатель: ${shortenId(binding.granteeId ?: "—")}",
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryBlue,
+                    fontSize = 14.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Выдал: ${shortenId(binding.granterId ?: "—")}",
+                    color = SecondaryText,
+                    fontSize = 12.sp
+                )
+                Text(
+                    text = "Дисциплина: ${shortenId(binding.disciplineId ?: "—")}",
+                    color = SecondaryText,
+                    fontSize = 12.sp
+                )
+                Text(
+                    text = "Группа: ${shortenId(binding.groupId ?: "—")}",
+                    color = SecondaryText,
+                    fontSize = 12.sp
+                )
+                Text(
+                    text = "Выдан: ${formatDateTime(binding.grantedAt)}",
+                    color = SecondaryText,
+                    fontSize = 11.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                AdminBadge(accessLabel, PrimaryBlue, AccentBadge)
+                AdminBadge(
+                    text = if (isRevoked) "Отозван" else "Активен",
+                    color = if (isRevoked) DangerColor else GreenColor,
+                    background = if (isRevoked) DangerLight else GreenLight
+                )
+            }
+        }
+        if (!isRevoked) {
+            Spacer(modifier = Modifier.height(10.dp))
+            DangerButton("Отозвать", onClick = onRevoke)
+        }
+    }
+    Box(Modifier.fillMaxWidth().height(1.dp).background(BackgroundColor))
+}
+
+// ─── Shared pagination row ────────────────────────────────────────────────────
+
+@Composable
+private fun AdminPaginationRow(page: Int, totalPages: Int, onPrev: () -> Unit, onNext: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground)
+            .padding(12.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TextButton(onClick = { if (page > 1) onPrev() }, enabled = page > 1) {
+            Text("← Назад", color = if (page > 1) PrimaryBlue else SecondaryText)
+        }
+        Text(
+            "$page / $totalPages",
+            modifier = Modifier.padding(horizontal = 16.dp),
+            color = PrimaryBlue,
+            fontWeight = FontWeight.Bold
+        )
+        TextButton(onClick = { if (page < totalPages) onNext() }, enabled = page < totalPages) {
+            Text("Вперёд →", color = if (page < totalPages) PrimaryBlue else SecondaryText)
+        }
+    }
+}

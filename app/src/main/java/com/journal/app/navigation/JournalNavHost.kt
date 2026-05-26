@@ -39,8 +39,11 @@ import com.journal.core.common.config.AppConfig
 import com.journal.core.common.config.JwtUtils
 import com.journal.core.common.config.TokenSession
 import com.journal.core.network.api.JournalApi
+import com.journal.features.admin.dashboard.AdminAccessRoute
 import com.journal.features.admin.dashboard.AdminAuditRoute
 import com.journal.features.admin.dashboard.AdminDashboardRoute
+import com.journal.features.admin.dashboard.AdminJournalsRoute
+import com.journal.features.admin.dashboard.AdminPeriodsRoute
 import com.journal.features.admin.dashboard.AdminUsersRoute
 import com.journal.features.auth.AuthRoute
 import com.journal.features.methodist.templates.MethodistDashboardRoute
@@ -115,7 +118,10 @@ fun JournalNavHost(
                 AdminDashboardRoute(
                     journalApi = journalApi,
                     onOpenUsers = { navController.navigate(Routes.ADMIN_USERS) },
-                    onOpenAudit = { navController.navigate(Routes.ADMIN_AUDIT) }
+                    onOpenAudit = { navController.navigate(Routes.ADMIN_AUDIT) },
+                    onOpenJournals = { navController.navigate(Routes.ADMIN_JOURNALS) },
+                    onOpenPeriods = { navController.navigate(Routes.ADMIN_PERIODS) },
+                    onOpenAccess = { navController.navigate(Routes.ADMIN_ACCESS) }
                 )
             }
             composable(Routes.ADMIN_USERS) {
@@ -123,6 +129,15 @@ fun JournalNavHost(
             }
             composable(Routes.ADMIN_AUDIT) {
                 AdminAuditRoute(journalApi = journalApi)
+            }
+            composable(Routes.ADMIN_JOURNALS) {
+                AdminJournalsRoute(journalApi = journalApi)
+            }
+            composable(Routes.ADMIN_PERIODS) {
+                AdminPeriodsRoute(journalApi = journalApi)
+            }
+            composable(Routes.ADMIN_ACCESS) {
+                AdminAccessRoute(journalApi = journalApi)
             }
             composable(Routes.TEACHER_HOME) {
                 TeacherHomeRoute(
@@ -492,6 +507,9 @@ private fun screenTitle(route: String): String = when {
     route == Routes.ADMIN_DASHBOARD -> "Личный кабинет"
     route == Routes.ADMIN_USERS -> "Пользователи"
     route == Routes.ADMIN_AUDIT -> "Аудит"
+    route == Routes.ADMIN_JOURNALS -> "Журналы"
+    route == Routes.ADMIN_PERIODS -> "Учебные периоды"
+    route == Routes.ADMIN_ACCESS -> "Доступы"
     else -> "Электронный журнал"
 }
 

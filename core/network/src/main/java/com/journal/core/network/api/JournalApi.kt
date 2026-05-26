@@ -2,10 +2,14 @@ package com.journal.core.network.api
 
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriodsResponse
+import com.journal.core.model.teacher.AdminAccessBinding
+import com.journal.core.model.teacher.AdminAccessBindingsResponse
 import com.journal.core.model.teacher.AdminActionRequest
 import com.journal.core.model.teacher.AdminAuditResponse
 import com.journal.core.model.teacher.AdminDocumentsResponse
+import com.journal.core.model.teacher.AdminJournalContext
 import com.journal.core.model.teacher.AdminJournalsResponse
+import com.journal.core.model.teacher.AdminPeriod
 import com.journal.core.model.teacher.AdminPeriodsResponse
 import com.journal.core.model.teacher.AdminUpdateUserRequest
 import com.journal.core.model.teacher.AdminUser
@@ -341,17 +345,51 @@ interface JournalApi {
     @GET("admin/journals")
     suspend fun getAdminJournals(
         @Query("page") page: Int? = null,
-        @Query("page_size") pageSize: Int? = null
+        @Query("page_size") pageSize: Int? = null,
+        @Query("status") status: String? = null,
+        @Query("period_id") periodId: String? = null,
+        @Query("teacher_id") teacherId: String? = null,
+        @Query("group_id") groupId: String? = null,
+        @Query("discipline_id") disciplineId: String? = null
     ): AdminJournalsResponse
+
+    @POST("admin/journals/{id}/{action}")
+    suspend fun adminJournalAction(
+        @Path("id") journalId: String,
+        @Path("action") action: String,
+        @Body request: AdminActionRequest
+    ): AdminJournalContext
 
     @GET("admin/periods")
     suspend fun getAdminPeriods(
         @Query("include_closed") includeClosed: Boolean = true
     ): AdminPeriodsResponse
 
+    @POST("admin/periods/{id}/close")
+    suspend fun closeAdminPeriod(
+        @Path("id") periodId: String,
+        @Body request: AdminActionRequest
+    ): AdminPeriod
+
+    @POST("admin/periods/{id}/reopen")
+    suspend fun reopenAdminPeriod(
+        @Path("id") periodId: String,
+        @Body request: AdminActionRequest
+    ): AdminPeriod
+
     @GET("admin/documents")
     suspend fun getAdminDocuments(
         @Query("page") page: Int? = null,
         @Query("page_size") pageSize: Int? = null
     ): AdminDocumentsResponse
+
+    @GET("admin/access-bindings")
+    suspend fun getAdminAccessBindings(
+        @Query("active_only") activeOnly: Boolean = false
+    ): AdminAccessBindingsResponse
+
+    @DELETE("admin/access-bindings/{id}")
+    suspend fun revokeAdminAccessBinding(
+        @Path("id") bindingId: String
+    )
 }
