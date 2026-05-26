@@ -1,7 +1,8 @@
 package com.journal.features.admin.dashboard
 
-import android.os.Environment
-import android.widget.Toast
+import android.content.Intent
+import androidx.core.content.FileProvider
+import java.io.File
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -1343,13 +1344,17 @@ fun AdminJournalsRoute(journalApi: JournalApi) {
     fun exportJournal(journalId: String) {
         scope.launch {
             runCatching {
-                val response = journalApi.exportAdminJournal(journalId)
-                val ext = if ((response.contentType()?.toString() ?: "").contains("csv")) "csv" else "xlsx"
-                val bytes = response.bytes()
-                val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: context.cacheDir
-                val file = java.io.File(dir, "journal_${journalId.takeLast(8)}.$ext")
-                file.writeBytes(bytes)
-                Toast.makeText(context, "Сохранено: ${file.name}", Toast.LENGTH_LONG).show()
+                val body = journalApi.exportAdminJournal(journalId)
+                val bytes = body.bytes()
+                val exportDir = File(context.cacheDir, "exports").apply { mkdirs() }
+                val file = File(exportDir, "journal_${journalId.takeLast(8)}.xlsx").apply { writeBytes(bytes) }
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+                context.startActivity(Intent.createChooser(intent, "Экспорт журнала"))
             }.onFailure { error = it.message ?: "Ошибка экспорта" }
         }
     }
