@@ -600,28 +600,31 @@ fun AdminUsersRoute(journalApi: JournalApi) {
                 }
             },
             confirmButton = {
-                PrimaryButton("Сохранить") {
-                    scope.launch {
-                        editingUser?.let { user ->
-                            runCatching {
-                                journalApi.updateAdminUser(
-                                    user.id,
-                                    AdminUpdateUserRequest(
-                                        fullName = editFullName.trim().ifBlank { null },
-                                        firstName = editFirstName.trim().ifBlank { null },
-                                        lastName = editLastName.trim().ifBlank { null },
-                                        patronymic = editPatronymic.trim().ifBlank { null },
-                                        email = editEmail.trim().ifBlank { null },
-                                        username = editUsername.trim().ifBlank { null },
-                                        profileSyncLocked = editSyncLocked
+                PrimaryButton(
+                    text = "Сохранить",
+                    onClick = {
+                        scope.launch {
+                            editingUser?.let { user ->
+                                runCatching {
+                                    journalApi.updateAdminUser(
+                                        user.id,
+                                        AdminUpdateUserRequest(
+                                            fullName = editFullName.trim().ifBlank { null },
+                                            firstName = editFirstName.trim().ifBlank { null },
+                                            lastName = editLastName.trim().ifBlank { null },
+                                            patronymic = editPatronymic.trim().ifBlank { null },
+                                            email = editEmail.trim().ifBlank { null },
+                                            username = editUsername.trim().ifBlank { null },
+                                            profileSyncLocked = editSyncLocked
+                                        )
                                     )
-                                )
-                            }.onFailure { error = it.message }
-                            editingUser = null
-                            loadUsers()
+                                }.onFailure { error = it.message }
+                                editingUser = null
+                                loadUsers()
+                            }
                         }
                     }
-                }
+                )
             },
             dismissButton = {
                 TextButton(onClick = { editingUser = null }) {
@@ -1042,7 +1045,7 @@ private fun AuditEventRow(event: AuditEvent) {
                 }
                 if (!event.entityId.isNullOrBlank()) {
                     Text(
-                        text = event.entityId,
+                        text = event.entityId.orEmpty(),
                         color = SecondaryText,
                         fontSize = 11.sp,
                         maxLines = 1,
