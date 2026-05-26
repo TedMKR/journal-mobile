@@ -90,6 +90,7 @@ dependencies {
     implementation(project(":features:teacher:ved"))
     implementation(project(":features:student:home"))
     implementation(project(":features:methodist:templates"))
+    implementation(project(":features:admin:dashboard"))
 
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.biometric:biometric:1.1.0")

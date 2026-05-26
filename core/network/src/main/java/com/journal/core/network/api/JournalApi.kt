@@ -2,6 +2,14 @@ package com.journal.core.network.api
 
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriodsResponse
+import com.journal.core.model.teacher.AdminActionRequest
+import com.journal.core.model.teacher.AdminAuditResponse
+import com.journal.core.model.teacher.AdminDocumentsResponse
+import com.journal.core.model.teacher.AdminJournalsResponse
+import com.journal.core.model.teacher.AdminPeriodsResponse
+import com.journal.core.model.teacher.AdminUpdateUserRequest
+import com.journal.core.model.teacher.AdminUser
+import com.journal.core.model.teacher.AdminUsersResponse
 import com.journal.core.model.teacher.AssignLessonTemplateRequest
 import com.journal.core.model.teacher.CatalogResponse
 import com.journal.core.model.teacher.CreateAssessmentFormRequest
@@ -290,4 +298,60 @@ interface JournalApi {
     suspend fun createJournal(
         @Body request: CreateJournalRequest
     ): CreateJournalResponse
+
+    // ─── Admin endpoints ──────────────────────────────────────────────────────
+
+    @GET("admin/users")
+    suspend fun getAdminUsers(
+        @Query("page") page: Int? = null,
+        @Query("page_size") pageSize: Int? = null,
+        @Query("q") query: String? = null,
+        @Query("user_type") userType: String? = null,
+        @Query("status") status: String? = null
+    ): AdminUsersResponse
+
+    @PATCH("admin/users/{id}")
+    suspend fun updateAdminUser(
+        @Path("id") userId: String,
+        @Body request: AdminUpdateUserRequest
+    ): AdminUser
+
+    @POST("admin/users/{id}/block")
+    suspend fun blockAdminUser(
+        @Path("id") userId: String,
+        @Body request: AdminActionRequest
+    ): AdminUser
+
+    @POST("admin/users/{id}/unblock")
+    suspend fun unblockAdminUser(
+        @Path("id") userId: String,
+        @Body request: AdminActionRequest
+    ): AdminUser
+
+    @GET("admin/audit")
+    suspend fun getAdminAudit(
+        @Query("page") page: Int? = null,
+        @Query("page_size") pageSize: Int? = null,
+        @Query("action") action: String? = null,
+        @Query("entity_type") entityType: String? = null,
+        @Query("from") from: String? = null,
+        @Query("to") to: String? = null
+    ): AdminAuditResponse
+
+    @GET("admin/journals")
+    suspend fun getAdminJournals(
+        @Query("page") page: Int? = null,
+        @Query("page_size") pageSize: Int? = null
+    ): AdminJournalsResponse
+
+    @GET("admin/periods")
+    suspend fun getAdminPeriods(
+        @Query("include_closed") includeClosed: Boolean = true
+    ): AdminPeriodsResponse
+
+    @GET("admin/documents")
+    suspend fun getAdminDocuments(
+        @Query("page") page: Int? = null,
+        @Query("page_size") pageSize: Int? = null
+    ): AdminDocumentsResponse
 }

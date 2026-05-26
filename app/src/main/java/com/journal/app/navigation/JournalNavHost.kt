@@ -39,6 +39,9 @@ import com.journal.core.common.config.AppConfig
 import com.journal.core.common.config.JwtUtils
 import com.journal.core.common.config.TokenSession
 import com.journal.core.network.api.JournalApi
+import com.journal.features.admin.dashboard.AdminAuditRoute
+import com.journal.features.admin.dashboard.AdminDashboardRoute
+import com.journal.features.admin.dashboard.AdminUsersRoute
 import com.journal.features.auth.AuthRoute
 import com.journal.features.methodist.templates.MethodistDashboardRoute
 import com.journal.features.methodist.templates.MethodistJournalCreateRoute
@@ -102,10 +105,24 @@ fun JournalNavHost(
                     val startRoute = when (selectedRole) {
                         "methodologist" -> Routes.METHODIST_DASHBOARD
                         "student" -> Routes.STUDENT_SCHEDULE
+                        "admin" -> Routes.ADMIN_DASHBOARD
                         else -> Routes.TEACHER_HOME
                     }
                     navController.navigate(startRoute)
                 })
+            }
+            composable(Routes.ADMIN_DASHBOARD) {
+                AdminDashboardRoute(
+                    journalApi = journalApi,
+                    onOpenUsers = { navController.navigate(Routes.ADMIN_USERS) },
+                    onOpenAudit = { navController.navigate(Routes.ADMIN_AUDIT) }
+                )
+            }
+            composable(Routes.ADMIN_USERS) {
+                AdminUsersRoute(journalApi = journalApi)
+            }
+            composable(Routes.ADMIN_AUDIT) {
+                AdminAuditRoute(journalApi = journalApi)
             }
             composable(Routes.TEACHER_HOME) {
                 TeacherHomeRoute(
@@ -345,13 +362,14 @@ private fun RightSideMenu(
                 Column(modifier = Modifier.align(Alignment.CenterStart)) {
                     Text("Меню", color = MenuPrimary, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                     Text(
-                        when (role) {
-                            "methodologist" -> "Методист"
-                            "student" -> "Студент"
-                            else -> "Преподаватель"
-                        },
-                        color = MenuPrimary.copy(alpha = 0.65f)
-                    )
+                    when (role) {
+                        "methodologist" -> "Методист"
+                        "student" -> "Студент"
+                        "admin" -> "Администратор"
+                        else -> "Преподаватель"
+                    },
+                    color = MenuPrimary.copy(alpha = 0.65f)
+                )
                 }
                 Text(
                     text = "×",
@@ -373,6 +391,11 @@ private fun RightSideMenu(
                 "student" -> listOf(
                     MenuItem("Расписание", Routes.STUDENT_SCHEDULE),
                     MenuItem("Личный кабинет", Routes.STUDENT_DASHBOARD)
+                )
+                "admin" -> listOf(
+                    MenuItem("Личный кабинет", Routes.ADMIN_DASHBOARD),
+                    MenuItem("Пользователи", Routes.ADMIN_USERS),
+                    MenuItem("Аудит", Routes.ADMIN_AUDIT)
                 )
                 else -> listOf(
                     MenuItem("Расписание", Routes.TEACHER_HOME),
@@ -449,7 +472,8 @@ private fun canNavigateBack(role: String?, currentRoute: String?): Boolean {
     return currentRoute !in setOf(
         Routes.TEACHER_HOME,
         Routes.STUDENT_SCHEDULE,
-        Routes.METHODIST_DASHBOARD
+        Routes.METHODIST_DASHBOARD,
+        Routes.ADMIN_DASHBOARD
     )
 }
 
@@ -465,6 +489,9 @@ private fun screenTitle(route: String): String = when {
     route == Routes.METHODIST_JOURNALS -> "Журналы"
     route == Routes.METHODIST_TEMPLATES -> "КТП"
     route == Routes.METHODIST_JOURNAL_CREATE -> "Создание журнала"
+    route == Routes.ADMIN_DASHBOARD -> "Личный кабинет"
+    route == Routes.ADMIN_USERS -> "Пользователи"
+    route == Routes.ADMIN_AUDIT -> "Аудит"
     else -> "Электронный журнал"
 }
 
@@ -476,5 +503,6 @@ private data class MenuItem(
 private fun roleStartRoute(role: String): String = when (role) {
     "methodologist" -> Routes.METHODIST_DASHBOARD
     "student" -> Routes.STUDENT_SCHEDULE
+    "admin" -> Routes.ADMIN_DASHBOARD
     else -> Routes.TEACHER_HOME
 }

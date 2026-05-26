@@ -32,5 +32,6 @@ include(
     ":features:teacher:dashboard",
     ":features:teacher:ved",
     ":features:student:home",
-    ":features:methodist:templates"
+    ":features:methodist:templates",
+    ":features:admin:dashboard"
 )

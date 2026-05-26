@@ -156,6 +156,7 @@ private fun DebugAuthContent(onContinue: (String) -> Unit) {
             RoleChip("teacher", selectedRole == "teacher") { selectedRole = "teacher" }
             RoleChip("student", selectedRole == "student") { selectedRole = "student" }
             RoleChip("methodologist", selectedRole == "methodologist") { selectedRole = "methodologist" }
+            RoleChip("admin", selectedRole == "admin") { selectedRole = "admin" }
         }
 
         Button(

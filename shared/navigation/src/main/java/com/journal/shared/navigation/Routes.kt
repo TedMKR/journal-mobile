@@ -13,6 +13,9 @@ object Routes {
     const val METHODIST_JOURNALS = "methodist_journals"
     const val METHODIST_TEMPLATES = "methodist_templates"
     const val METHODIST_JOURNAL_CREATE = "methodist_journal_create"
+    const val ADMIN_DASHBOARD = "admin_dashboard"
+    const val ADMIN_USERS = "admin_users"
+    const val ADMIN_AUDIT = "admin_audit"
 
     fun teacherJournal(
         groupId: String,
