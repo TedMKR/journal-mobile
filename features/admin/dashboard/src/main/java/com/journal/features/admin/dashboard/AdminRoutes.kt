@@ -31,10 +31,12 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -81,6 +83,7 @@ private val PrimaryBlue = Color(0xFF223268)
 private val SecondaryText = Color(0xFF6D7885)
 private val LightBlue = Color(0xFFD3D7E1)
 private val FieldBorder = Color(0xFFD1D5DB)
+private val InputTextColor = Color(0xFF1F2937)
 private val DangerColor = Color(0xFFC44A4A)
 private val DangerLight = Color(0xFFFFE4E6)
 private val GreenColor = Color(0xFF16A34A)
@@ -236,7 +239,12 @@ private fun AdminDropdown(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text("▾", color = SecondaryText, fontSize = 12.sp)
+                Icon(
+                    painter = painterResource(R.drawable.arrow_bottom),
+                    contentDescription = null,
+                    tint = SecondaryText,
+                    modifier = Modifier.size(12.dp)
+                )
             }
         }
         DropdownMenu(
@@ -301,6 +309,8 @@ private fun ReasonDialog(
                 label = { Text("Причина") },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = InputTextColor,
+                    unfocusedTextColor = InputTextColor,
                     focusedBorderColor = PrimaryBlue,
                     unfocusedBorderColor = LightBlue,
                     focusedLabelColor = PrimaryBlue
@@ -833,6 +843,8 @@ fun AdminUsersRoute(journalApi: JournalApi) {
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
                 colors = OutlinedTextFieldDefaults.colors(
+                    focusedTextColor = InputTextColor,
+                    unfocusedTextColor = InputTextColor,
                     focusedBorderColor = PrimaryBlue,
                     unfocusedBorderColor = LightBlue,
                     focusedLabelColor = PrimaryBlue
@@ -1029,6 +1041,8 @@ private fun EditField(label: String, value: String, onChange: (String) -> Unit) 
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         colors = OutlinedTextFieldDefaults.colors(
+            focusedTextColor = InputTextColor,
+            unfocusedTextColor = InputTextColor,
             focusedBorderColor = PrimaryBlue,
             unfocusedBorderColor = LightBlue,
             focusedLabelColor = PrimaryBlue
