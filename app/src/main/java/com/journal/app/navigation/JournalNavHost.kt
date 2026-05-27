@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -429,10 +430,9 @@ private fun AnimatedVisibilityScope.RightSideMenu(
                 .padding(horizontal = 18.dp, vertical = 28.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Box(modifier = Modifier.fillMaxWidth()) {
-                Column(modifier = Modifier.align(Alignment.CenterStart)) {
-                    Text("Меню", color = MenuPrimary, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-                    Text(
+            Column {
+                Text("Меню", color = MenuPrimary, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+                Text(
                     when (role) {
                         "methodologist" -> "Методист"
                         "student" -> "Студент"
@@ -440,16 +440,6 @@ private fun AnimatedVisibilityScope.RightSideMenu(
                         else -> "Преподаватель"
                     },
                     color = MenuPrimary.copy(alpha = 0.65f)
-                )
-                }
-                Text(
-                    text = "×",
-                    modifier = Modifier
-                        .align(Alignment.CenterEnd)
-                        .clickable(onClick = onDismiss)
-                        .padding(8.dp),
-                    color = MenuPrimary,
-                    style = MaterialTheme.typography.headlineSmall
                 )
             }
 
@@ -487,6 +477,20 @@ private fun AnimatedVisibilityScope.RightSideMenu(
 
             LogoutRow(onClick = onLogout)
         }
+
+        // × positioned at the same screen location as the ☰ in AppHeader
+        Text(
+            text = "×",
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 12.dp, end = 16.dp)
+                .clickable(onClick = onDismiss)
+                .padding(horizontal = 13.dp, vertical = 8.dp),
+            color = MenuPrimary,
+            style = MaterialTheme.typography.titleLarge,
+            fontSize = 30.sp, //размер
+            fontWeight = FontWeight.Bold
+        )
     }
 }
 
