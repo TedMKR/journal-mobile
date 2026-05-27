@@ -130,7 +130,7 @@ private fun StudentScaffold(
         modifier = Modifier
             .fillMaxSize()
             .background(Background)
-            .padding(horizontal = 10.dp, vertical = 8.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         content()
@@ -285,7 +285,6 @@ private fun ProfileSummaryCard(
             fontWeight = FontWeight.Bold
         )
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            profile?.studentCode?.takeIf { it.isNotBlank() }?.let { Text("Код: $it", color = Color.White.copy(alpha = 0.84f)) }
             profile?.groupName?.takeIf { it.isNotBlank() }?.let { Text("Группа: $it", color = Color.White.copy(alpha = 0.84f)) }
             if (profile?.isHeadStudent == true) InfoChip("Староста")
         }

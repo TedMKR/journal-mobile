@@ -658,7 +658,7 @@ private suspend fun syncTopics(
 private fun MethodologistScaffold(
     @Suppress("UNUSED_PARAMETER") title: String,
     @Suppress("UNUSED_PARAMETER") subtitle: String? = null,
-    actions: @Composable RowScope.() -> Unit = {},
+    actions: (@Composable RowScope.() -> Unit)? = null,
     useContentCard: Boolean = true,
     content: @Composable ColumnScope.() -> Unit
 ) {
@@ -667,15 +667,17 @@ private fun MethodologistScaffold(
             .fillMaxSize()
             .background(BackgroundColor)
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+            .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-            content = actions
-        )
+        if (actions != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically,
+                content = actions
+            )
+        }
         if (useContentCard) {
             Column(
                 modifier = Modifier
