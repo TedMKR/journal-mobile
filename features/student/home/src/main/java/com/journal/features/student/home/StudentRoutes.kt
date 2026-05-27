@@ -597,10 +597,9 @@ private fun JournalTag(text: String) {
 }
 
 @Composable
-private fun JournalStatSmallCard(title: String, value: String) {
+private fun JournalStatSmallCard(title: String, value: String, modifier: Modifier = Modifier) {
     Column(
-        modifier = Modifier
-            .width(120.dp)
+        modifier = modifier
             .background(LightBlue, RoundedCornerShape(12.dp))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(6.dp)
@@ -644,12 +643,20 @@ private fun StudentStatsCard(card: StudentSubjectCard) {
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     JournalStatSmallCard(
-                        "Средний\nбалл",
-                        card.avgGrade?.let { "%.1f".format(it) } ?: "—"
+                        title = "Средний балл",
+                        value = card.avgGrade?.let { "%.1f".format(it) } ?: "—",
+                        modifier = Modifier.weight(1f)
                     )
-                    JournalStatSmallCard("Пропущено", card.absencesTotal.toString())
+                    JournalStatSmallCard(
+                        title = "Пропущено",
+                        value = card.absencesTotal.toString(),
+                        modifier = Modifier.weight(1f)
+                    )
                 }
                 JournalAttendanceChartCard(chartMonths)
                 JournalProgressCard(
