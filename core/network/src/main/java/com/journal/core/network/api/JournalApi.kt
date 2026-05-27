@@ -39,6 +39,7 @@ import com.journal.core.model.teacher.RequestReportPayload
 import com.journal.core.model.teacher.StudentJournalData
 import com.journal.core.model.teacher.StudentLessonsResponse
 import com.journal.core.model.teacher.StudentProfile
+import com.journal.core.model.teacher.StudentSubjectCard
 import com.journal.core.model.teacher.StudentSubjectsResponse
 import com.journal.core.model.teacher.TeacherProfile
 import com.journal.core.model.teacher.TeacherStats
@@ -74,6 +75,13 @@ interface JournalApi {
     suspend fun getStudentSubjects(
         @Query("period_id") periodId: String? = null
     ): StudentSubjectsResponse
+
+    @GET("students/me/subjects/{disciplineId}/card")
+    suspend fun getStudentSubjectCard(
+        @Path("disciplineId") disciplineId: String,
+        @Query("period_id") periodId: String,
+        @Query("group_id") groupId: String
+    ): StudentSubjectCard
 
     @GET("students/me/journal")
     suspend fun getStudentJournal(

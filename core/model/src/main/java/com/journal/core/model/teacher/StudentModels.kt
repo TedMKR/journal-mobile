@@ -59,6 +59,60 @@ data class StudentSubjectsResponse(
 )
 
 @Serializable
+data class StudentSubjectCard(
+    @SerialName("student") val student: StudentCardProfile? = null,
+    @SerialName("discipline_id") val disciplineId: String,
+    @SerialName("discipline_name") val disciplineName: String,
+    @SerialName("teacher_name") val teacherName: String? = null,
+    @SerialName("group_id") val groupId: String,
+    @SerialName("group_name") val groupName: String,
+    @SerialName("period_id") val periodId: String,
+    @SerialName("lessons_attended") val lessonsAttended: Int = 0,
+    @SerialName("lessons_total") val lessonsTotal: Int = 0,
+    @SerialName("absences_total") val absencesTotal: Int = 0,
+    @SerialName("absences_valid_excuse") val absencesValidExcuse: Int = 0,
+    @SerialName("avg_grade") val avgGrade: Double? = null,
+    @SerialName("attendance_by_month") val attendanceByMonth: List<StudentAttendanceByMonth> = emptyList(),
+    @SerialName("journal_lessons") val journalLessons: List<StudentJournalLesson> = emptyList(),
+    @SerialName("journal_grades") val journalGrades: List<StudentJournalGrade> = emptyList()
+)
+
+@Serializable
+data class StudentCardProfile(
+    @SerialName("id") val id: String,
+    @SerialName("full_name") val fullName: String,
+    @SerialName("student_code") val studentCode: String? = null,
+    @SerialName("is_head_student") val isHeadStudent: Boolean = false
+)
+
+@Serializable
+data class StudentAttendanceByMonth(
+    @SerialName("month") val month: String,
+    @SerialName("attendance_pct") val attendancePct: Double = 0.0
+)
+
+@Serializable
+data class StudentJournalLesson(
+    @SerialName("lesson_id") val lessonId: String,
+    @SerialName("date") val date: String,
+    @SerialName("scheduled_at") val scheduledAt: String,
+    @SerialName("lesson_type") val lessonType: String,
+    @SerialName("topic") val topic: String? = null,
+    @SerialName("attendance_status") val attendanceStatus: String? = null,
+    @SerialName("attendance_comment") val attendanceComment: String? = null
+)
+
+@Serializable
+data class StudentJournalGrade(
+    @SerialName("assessment_form_id") val assessmentFormId: String,
+    @SerialName("title") val title: String,
+    @SerialName("type") val type: String,
+    @SerialName("date") val date: String,
+    @SerialName("value") val value: String? = null,
+    @SerialName("comment") val comment: String? = null
+)
+
+@Serializable
 data class StudentJournalData(
     @SerialName("discipline") val discipline: JournalGridRef,
     @SerialName("academic_period") val academicPeriod: JournalGridAcademicPeriod,

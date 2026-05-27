@@ -51,6 +51,7 @@ import com.journal.features.methodist.templates.MethodistJournalCreateRoute
 import com.journal.features.methodist.templates.MethodistJournalsRoute
 import com.journal.features.methodist.templates.MethodistTemplatesRoute
 import com.journal.features.student.home.StudentDashboardRoute
+import com.journal.features.student.home.StudentJournalRoute
 import com.journal.features.student.home.StudentScheduleRoute
 import com.journal.features.teacher.dashboard.TeacherDashboardRoute
 import com.journal.features.teacher.home.TeacherHomeRoute
@@ -179,7 +180,27 @@ fun JournalNavHost(
                 TeacherVedRoute(journalApi = journalApi)
             }
             composable(Routes.STUDENT_SCHEDULE) {
-                StudentScheduleRoute(journalApi = journalApi)
+                StudentScheduleRoute(
+                    journalApi = journalApi,
+                    onOpenLesson = { disciplineId, periodId, groupId ->
+                        navController.navigate(Routes.studentJournal(disciplineId, periodId, groupId))
+                    }
+                )
+            }
+            composable(
+                route = Routes.STUDENT_JOURNAL,
+                arguments = listOf(
+                    navArgument("disciplineId") { type = NavType.StringType },
+                    navArgument("periodId") { type = NavType.StringType },
+                    navArgument("groupId") { type = NavType.StringType }
+                )
+            ) { entry ->
+                StudentJournalRoute(
+                    journalApi = journalApi,
+                    disciplineId = entry.arguments?.getString("disciplineId").orEmpty(),
+                    periodId = entry.arguments?.getString("periodId").orEmpty(),
+                    groupId = entry.arguments?.getString("groupId").orEmpty()
+                )
             }
             composable(Routes.STUDENT_DASHBOARD) {
                 StudentDashboardRoute(journalApi = journalApi, jwtFirstName = jwtFirstName)
@@ -500,6 +521,7 @@ private fun screenTitle(route: String): String = when {
     route.startsWith("teacher_student_card") -> "Карточка студента"
     route == Routes.STUDENT_SCHEDULE -> "Расписание занятий"
     route == Routes.STUDENT_DASHBOARD -> "Личный кабинет"
+    route.startsWith("student_journal") -> "Журнал занятий"
     route == Routes.METHODIST_DASHBOARD -> "Личный кабинет"
     route == Routes.METHODIST_JOURNALS -> "Журналы"
     route == Routes.METHODIST_TEMPLATES -> "КТП"

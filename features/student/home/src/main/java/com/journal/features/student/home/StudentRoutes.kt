@@ -2,7 +2,9 @@ package com.journal.features.student.home
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,7 +15,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -30,12 +34,17 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.journal.core.model.teacher.StudentJournalGrade
+import com.journal.core.model.teacher.StudentJournalLesson
 import com.journal.core.model.teacher.StudentLesson
+import com.journal.core.model.teacher.StudentSubjectCard
 import com.journal.core.model.teacher.StudentProfile
 import com.journal.core.model.teacher.StudentSubjectSummary
 import com.journal.core.network.api.JournalApi
+import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -50,6 +59,17 @@ private val Accent = Color(0xFF3B82F6)
 private val Danger = Color(0xFFDC2626)
 private val Success = Color(0xFF16A34A)
 
+// Journal table colours
+private val JournalHeaderBg    = Color(0xFFD3D7E1)
+private val JournalCellBorder  = Color(0xFFC9CED8)
+private val JournalPresentColor = Color(0xFF1F8A5B)
+private val JournalAbsentColor  = Color(0xFFC44A4A)
+private val JournalExcuseColor  = Color(0xFFE19B2C)
+
+private const val STUDENT_NAME_COL   = 190
+private const val STUDENT_ATTEND_COL = 82
+private const val STUDENT_GRADE_COL  = 112
+
 private val dayNames = listOf(
     "Понедельник",
     "Вторник",
@@ -62,7 +82,7 @@ private val dayNames = listOf(
 @Composable
 fun StudentScheduleRoute(
     journalApi: JournalApi,
-    onOpenSubject: () -> Unit = {}
+    onOpenLesson: (disciplineId: String, periodId: String, groupId: String) -> Unit = { _, _, _ -> }
 ) {
     var lessons by remember { mutableStateOf<List<StudentLesson>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
@@ -81,7 +101,7 @@ fun StudentScheduleRoute(
         when {
             isLoading -> CenterState { CircularProgressIndicator(color = PrimaryText) }
             error != null -> CenterState { Text(error.orEmpty(), color = Danger) }
-            else -> ScheduleContent(lessons = lessons, onOpenSubject = onOpenSubject)
+            else -> ScheduleContent(lessons = lessons, onOpenLesson = onOpenLesson)
         }
     }
 }
@@ -141,7 +161,7 @@ private fun StudentScaffold(
 @Composable
 private fun ScheduleContent(
     lessons: List<StudentLesson>,
-    onOpenSubject: () -> Unit
+    onOpenLesson: (disciplineId: String, periodId: String, groupId: String) -> Unit
 ) {
     val groupedLessons = lessons.groupBy { lessonDayIndex(it.scheduledAt) }
 
@@ -152,7 +172,7 @@ private fun ScheduleContent(
                     dayName = dayName,
                     lessons = groupedLessons[dayIndex].orEmpty()
                         .sortedWith(compareBy({ it.lessonOrderNumber ?: Int.MAX_VALUE }, { it.scheduledAt })),
-                    onOpenSubject = onOpenSubject
+                    onOpenLesson = onOpenLesson
                 )
             }
         }
@@ -163,7 +183,7 @@ private fun ScheduleContent(
 private fun StudentDayScheduleCard(
     dayName: String,
     lessons: List<StudentLesson>,
-    onOpenSubject: () -> Unit
+    onOpenLesson: (disciplineId: String, periodId: String, groupId: String) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -189,7 +209,10 @@ private fun StudentDayScheduleCard(
             lessons.forEach { lesson ->
                 StudentLessonCard(
                     lesson = lesson,
-                    onClick = onOpenSubject
+                    onClick = {
+                        val pid = lesson.periodId
+                        if (pid != null) onOpenLesson(lesson.disciplineId, pid, lesson.groupId)
+                    }
                 )
             }
         }
@@ -449,4 +472,274 @@ private fun lessonTypeName(type: String): String = when (type) {
     "lab" -> "Лабораторная"
     "seminar" -> "Семинар"
     else -> type
+}
+
+// ─── Student Journal (read-only) ──────────────────────────────────────────────
+
+@Composable
+fun StudentJournalRoute(
+    journalApi: JournalApi,
+    disciplineId: String,
+    periodId: String,
+    groupId: String
+) {
+    var data by remember { mutableStateOf<StudentSubjectCard?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(disciplineId, periodId, groupId) {
+        isLoading = true
+        error = null
+        runCatching { journalApi.getStudentSubjectCard(disciplineId, periodId, groupId) }
+            .onSuccess { data = it }
+            .onFailure { error = it.message ?: "Не удалось загрузить журнал" }
+        isLoading = false
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Background)
+    ) {
+        when {
+            isLoading -> CenterState { CircularProgressIndicator(color = PrimaryText) }
+            error != null -> CenterState { Text(error.orEmpty(), color = Danger, textAlign = TextAlign.Center) }
+            data != null -> StudentJournalContent(data!!)
+        }
+    }
+}
+
+@Composable
+private fun StudentJournalContent(card: StudentSubjectCard) {
+    val hScroll = rememberScrollState()
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(0.dp)
+    ) {
+        // Header info card
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+                    .background(CardBackground, RoundedCornerShape(16.dp))
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                Text(
+                    card.disciplineName,
+                    color = PrimaryText,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
+                card.teacherName?.takeIf { it.isNotBlank() }?.let {
+                    Text(it, color = MutedText, style = MaterialTheme.typography.bodyMedium)
+                }
+                Text(
+                    card.groupName,
+                    color = MutedText,
+                    style = MaterialTheme.typography.bodySmall
+                )
+                // Attendance summary
+                Text(
+                    "Посещаемость: ${card.lessonsAttended}/${card.lessonsTotal}",
+                    color = MutedText,
+                    style = MaterialTheme.typography.bodySmall
+                )
+            }
+        }
+
+        // Table label
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(CardBackground, RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp)
+            ) {
+                Text("Журнал посещаемости", color = PrimaryText, fontWeight = FontWeight.Bold)
+            }
+        }
+
+        // Header row
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(CardBackground)
+                    .padding(start = 8.dp)
+            ) {
+                Row(modifier = Modifier.horizontalScroll(hScroll)) {
+                    StudentJournalTableHeader(card.journalLessons, card.journalGrades)
+                }
+            }
+        }
+
+        // Data row — current student only
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(CardBackground)
+                    .padding(start = 8.dp)
+            ) {
+                Row(modifier = Modifier.horizontalScroll(hScroll)) {
+                    StudentJournalDataRow(card.journalLessons, card.journalGrades)
+                }
+            }
+        }
+
+        // Attendance legend
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(CardBackground, RoundedCornerShape(bottomStart = 16.dp, bottomEnd = 16.dp))
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                StudentLegendItem("П", JournalPresentColor, "Присутствовал")
+                StudentLegendItem("Н", JournalAbsentColor, "Отсутствовал")
+                StudentLegendItem("У", JournalExcuseColor, "Уважительно")
+            }
+        }
+    }
+}
+
+@Composable
+private fun StudentJournalTableHeader(
+    lessons: List<StudentJournalLesson>,
+    grades: List<StudentJournalGrade>
+) {
+    Row {
+        StudentJournalCell(
+            text = "Студент",
+            width = STUDENT_NAME_COL,
+            isHeader = true,
+            textAlign = TextAlign.Start
+        )
+        lessons.forEach { lesson ->
+            StudentJournalCell(
+                text = "${studentFormatDate(lesson.date)}\n${studentLessonTypeName(lesson.lessonType)}",
+                width = STUDENT_ATTEND_COL,
+                isHeader = true
+            )
+        }
+        grades.forEach { grade ->
+            StudentJournalCell(
+                text = "${grade.title}\n${studentFormTypeName(grade.type)}",
+                width = STUDENT_GRADE_COL,
+                isHeader = true
+            )
+        }
+    }
+}
+
+@Composable
+private fun StudentJournalDataRow(
+    lessons: List<StudentJournalLesson>,
+    grades: List<StudentJournalGrade>
+) {
+    Row {
+        StudentJournalCell(
+            text = "Я",
+            width = STUDENT_NAME_COL,
+            textAlign = TextAlign.Start
+        )
+        lessons.forEach { lesson ->
+            StudentJournalCell(
+                text = studentAttendanceSymbol(lesson.attendanceStatus),
+                width = STUDENT_ATTEND_COL,
+                color = studentAttendanceColor(lesson.attendanceStatus)
+            )
+        }
+        grades.forEach { grade ->
+            StudentJournalCell(
+                text = grade.value.orEmpty().ifBlank { "—" },
+                width = STUDENT_GRADE_COL,
+                color = PrimaryText
+            )
+        }
+    }
+}
+
+@Composable
+private fun StudentJournalCell(
+    text: String,
+    width: Int,
+    isHeader: Boolean = false,
+    color: Color = PrimaryText,
+    textAlign: TextAlign = TextAlign.Center
+) {
+    Box(
+        modifier = Modifier
+            .width(width.dp)
+            .height(if (isHeader) 64.dp else 46.dp)
+            .background(if (isHeader) JournalHeaderBg else CardBackground)
+            .border(0.5.dp, JournalCellBorder),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = color,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = if (isHeader) FontWeight.SemiBold else FontWeight.Normal,
+            textAlign = textAlign,
+            maxLines = if (isHeader) 3 else 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp)
+        )
+    }
+}
+
+@Composable
+private fun StudentLegendItem(symbol: String, color: Color, label: String) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        Text(symbol, color = color, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+        Text(label, color = MutedText, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+private fun studentAttendanceSymbol(status: String?): String = when (status) {
+    "present"      -> "П"
+    "absent"       -> "Н"
+    "valid_excuse" -> "У"
+    null           -> ""
+    else           -> status
+}
+
+private fun studentAttendanceColor(status: String?): Color = when (status) {
+    "present"      -> JournalPresentColor
+    "absent"       -> JournalAbsentColor
+    "valid_excuse" -> JournalExcuseColor
+    else           -> PrimaryText
+}
+
+private fun studentFormatDate(date: String): String = runCatching {
+    LocalDate.parse(date.take(10)).format(DateTimeFormatter.ofPattern("dd.MM"))
+}.getOrElse { date }
+
+private fun studentLessonTypeName(type: String): String = when (type) {
+    "lecture"      -> "Лекция"
+    "practice"     -> "Практика"
+    "lab"          -> "Лаб."
+    "seminar"      -> "Семинар"
+    "consultation" -> "Консульт."
+    "exam"         -> "Экзамен"
+    else           -> type
+}
+
+private fun studentFormTypeName(type: String): String = when (type) {
+    "quiz"     -> "КР"
+    "exam"     -> "Экзамен"
+    "lab"      -> "Лаб"
+    "practice" -> "Практика"
+    else       -> type
 }

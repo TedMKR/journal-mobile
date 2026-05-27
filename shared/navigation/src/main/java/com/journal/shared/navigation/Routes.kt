@@ -9,6 +9,7 @@ object Routes {
     const val TEACHER_STUDENT_CARD = "teacher_student_card/{groupId}/{disciplineId}/{periodId}/{studentId}"
     const val STUDENT_SCHEDULE = "student_schedule"
     const val STUDENT_DASHBOARD = "student_dashboard"
+    const val STUDENT_JOURNAL = "student_journal/{disciplineId}/{periodId}/{groupId}"
     const val METHODIST_DASHBOARD = "methodist_dashboard"
     const val METHODIST_JOURNALS = "methodist_journals"
     const val METHODIST_TEMPLATES = "methodist_templates"
@@ -33,4 +34,7 @@ object Routes {
 
     fun teacherStudentCard(groupId: String, disciplineId: String, periodId: String, studentId: String): String =
         "teacher_student_card/$groupId/$disciplineId/$periodId/$studentId"
+
+    fun studentJournal(disciplineId: String, periodId: String, groupId: String): String =
+        "student_journal/$disciplineId/$periodId/$groupId"
 }
