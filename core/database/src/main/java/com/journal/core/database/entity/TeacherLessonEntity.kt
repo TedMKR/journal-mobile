@@ -52,6 +52,9 @@ data class TeacherLessonEntity(
     @ColumnInfo(name = "teacher_name")
     val teacherName: String? = null,
 
+    @ColumnInfo(name = "lesson_order_number")
+    val lessonOrderNumber: Int? = null,
+
     /** Timestamp (ms) when this row was fetched from the server */
     @ColumnInfo(name = "cached_at")
     val cachedAt: Long = System.currentTimeMillis()

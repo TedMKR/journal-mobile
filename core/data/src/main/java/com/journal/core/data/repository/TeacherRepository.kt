@@ -75,7 +75,8 @@ private fun TeacherLessonEntity.toDomain() = TeacherLesson(
     attendanceMarked = attendanceMarked,
     topic = topic,
     teacherId = teacherId,
-    teacherName = teacherName
+    teacherName = teacherName,
+    lessonOrderNumber = lessonOrderNumber
 )
 
 private fun TeacherLesson.toEntity() = TeacherLessonEntity(
@@ -93,5 +94,6 @@ private fun TeacherLesson.toEntity() = TeacherLessonEntity(
     attendanceMarked = attendanceMarked,
     topic = topic,
     teacherId = teacherId,
-    teacherName = teacherName
+    teacherName = teacherName,
+    lessonOrderNumber = lessonOrderNumber
 )

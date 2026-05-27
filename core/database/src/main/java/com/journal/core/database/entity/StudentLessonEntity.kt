@@ -52,6 +52,9 @@ data class StudentLessonEntity(
     @ColumnInfo(name = "my_attendance_status")
     val myAttendanceStatus: String? = null,
 
+    @ColumnInfo(name = "lesson_order_number")
+    val lessonOrderNumber: Int? = null,
+
     @ColumnInfo(name = "cached_at")
     val cachedAt: Long = System.currentTimeMillis()
 )

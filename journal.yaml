@@ -11,32 +11,54 @@ info:
 
     | Service | Port | Purpose |
     |---|---|---|
-    | **Edge service** | `:8080` | Public API. Validates JWT, enforces RBAC, proxies to Domain. |
-    | **Domain service** | `:8081` | Internal API (`/internal/v1/...`). No auth. Reachable only inside Docker network. |
+    | **Edge service** | `:8080` | Public API (`/api/v1/...`). Validates JWT (or debug auth), enforces RBAC, proxies to Domain. |
+    | **Domain service** | `:8081` | Internal API (`/internal/v1/...`). No auth middleware. Reachable only inside the Docker network. |
 
-    **Always use port `:8080` (Edge) for API calls.**
-    Calling Domain service directly (`:8081`) bypasses authentication.
+    **Always call Edge on `:8080`.** Direct calls to Domain (`:8081`) bypass authentication and use a different path prefix.
 
     ## Authentication
 
-    All endpoints except `/health` and `/ready` require a Bearer token from Keycloak:
+    ### Public endpoints (no Bearer token)
 
-    ```
+    - `GET /health`, `GET /ready`, `GET /metrics` — on the Edge root (not under `/api/v1`)
+    - `GET /api/v1/mobile/app-download` — public mobile APK link
+    - `GET /api/openapi.yaml`, `GET /api/docs` — when API docs are enabled (`API_DOCS_ENABLED=true`, or default in non-prod)
+
+    All other `/api/v1/*` routes require authentication.
+
+    ### Production / external Keycloak
+
+    Clients obtain an OIDC access token via Authorization Code + PKCE (`journal-web`, `journal-mobile`).
+    Edge validates the JWT against the configured realm; `journal-backend` is the API audience/client used for validation, not a user login client.
+
+    ```http
     Authorization: Bearer <access_token>
     ```
 
-    Get a token:
+    Token issuer and realm come from environment variables `KEYCLOAK_URL` and `KEYCLOAK_REALM`
+    (for example an external `https://sso.example.edu/realms/Test`).
+
+    ### Local prod-local stack (`DEBUG_BYPASS_AUTH=true`)
+
+    When the stack runs with debug auth enabled, JWT verification is skipped. Send the role explicitly:
+
+    ```http
+    X-Debug-Role: teacher
     ```
-    POST http://localhost:8180/realms/university-journal/protocol/openid-connect/token
-    Content-Type: application/x-www-form-urlencoded
 
-    grant_type=password&client_id=journal-backend&username=teacher1&password=teacher123
-    ```
+    Allowed values: `teacher`, `student`, `admin`, `methodologist`.
+    This mode is for local/integration testing only and is blocked when `APP_ENV=prod`.
 
-    ## Postman setup
+    ## API exploration
 
-    Import `GET http://localhost:8080/api/openapi.yaml` into Postman.
-    The collection variable `baseUrl` will be set to `http://localhost:8080/api/v1` automatically.
+    | URL | Purpose |
+    |---|---|
+    | `http://localhost:8080/api/docs` | Swagger UI (Edge direct) |
+    | `http://localhost:8080/api/openapi.yaml` | OpenAPI spec for Postman / codegen |
+    | `http://localhost/api/docs` | Same via Nginx when the full compose stack publishes port 80 |
+
+    **Postman:** import from `http://localhost:8080/api/openapi.yaml` (or the Nginx URL above).
+    Set server/base URL to `http://localhost:8080/api/v1`. With debug auth, add header `X-Debug-Role`; with Keycloak, use `Authorization: Bearer <token>`.
   version: 1.0.0
   contact:
     name: University Journal System
@@ -48,9 +70,9 @@ servers:
   - url: /api/v1
     description: Current origin - Edge service (recommended for Swagger UI)
   - url: http://localhost:8080/api/v1
-    description: Local development - Edge service direct (auth required, use Bearer token)
-  - url: http://domain:8081/api/v1
-    description: Docker-internal - Domain service direct (no auth, internal use only)
+    description: Local development - Edge direct (Bearer JWT or X-Debug-Role when DEBUG_BYPASS_AUTH=true)
+  - url: http://domain:8081/internal/v1
+    description: Docker-internal - Domain service direct (no auth; paths differ from public Edge API)
 
 tags:
   - name: schedule
@@ -91,17 +113,99 @@ tags:
 
       Archived records are excluded from all operational views by default.
       Pass `include_archived=true` on `GET /lessons/{id}/attendance` or
-      `GET /assessment-forms/{id}/grades` to include them (teacher/admin/dean only;
+      `GET /assessment-forms/{id}/grades` to include them (teacher/admin only;
       students never see archived records).
 
       **409 Conflict** is returned when attempting to archive an already-archived record
       or restore a non-archived record.
   - name: health
     description: Service health and readiness probes
+  - name: app-download
+    description: Public mobile application download link and admin settings
+  - name: backups
+    description: Admin backup and restore-check operations for the application scope only
+  - name: admin-dashboard
+    description: |
+      Admin dashboard summary for the application health overview.
+
+      Combines read-only counters from users, journals, documents, backups and
+      import diagnostics for the admin home page.
+
+      **Roles:** `admin`.
   - name: grants
     description: Teacher-to-teacher journal access delegation (read or write access sharing)
   - name: lesson-templates
     description: КТП (calendar-thematic plan) templates - plan authoring, topic management, and assignment to teaching contexts
+  - name: admin-journals
+    description: |
+      Admin journal context lifecycle management.
+
+      Each journal context (`teacher + discipline + group + period + lesson_type`)
+      has a status:
+
+      - `active` — журнал открыт, запись разрешена
+      - `locked` — **заморозка** (временная блокировка записи; снимается через unlock)
+      - `archived` — **архивирование** (журнал закрыт для редактирования; возврат через restore)
+
+      **Заморозка (lock / unlock):** `active ↔ locked` — временно запретить правки
+      (аттестация, проверка), затем вернуть в работу.
+
+      **Архивирование (archive / restore):** `active → archived → active` — закрыть
+      журнал по завершении периода или административному решению; restore возвращает
+      журнал в рабочее состояние (не путать с unlock).
+
+      All state-changing actions require a `reason` and create an audit event.
+
+      **Roles:** `admin`.
+  - name: admin-audit
+    description: |
+      Admin audit log — read-only view of all significant administrative events.
+
+      Events include `JOURNAL_LOCKED`, `JOURNAL_UNLOCKED`, `JOURNAL_ARCHIVED`,
+      `JOURNAL_RESTORED`. Each event captures `before_state`, `after_state`
+      (base64-encoded JSON snapshots) and `context` (JSON with `reason`).
+
+      **Roles:** `admin`.
+  - name: admin-users
+    description: |
+      Local backend user profile administration.
+
+      Authentication and base roles may come from external IAM/Keycloak, but
+      the application still owns local profile state: student/teacher display
+      names, profile sync locking and application-level block/unblock.
+
+      **Roles:** `admin`.
+  - name: admin-periods
+    description: |
+      Admin academic period lifecycle management.
+
+      Closing a period sets `academic_periods.is_closed=true`; attendance,
+      assessment form and grade writes are rejected by the existing
+      `PERIOD_CLOSED` write guard. Reopening a period is a controlled
+      late-entry operation and must include a reason.
+
+      Period close/reopen does not change journal context statuses
+      (`active`, `locked`, `archived`).
+
+      **Roles:** `admin`.
+  - name: admin-access
+    description: |
+      Admin subject access binding management.
+
+      MVP uses `journal_access_grants` for teacher-to-teacher journal
+      delegation. Creating a binding verifies that the selected granter owns
+      an active source journal context or teaching assignment for the requested
+      group, discipline and optional period.
+
+      **Roles:** `admin`.
+  - name: admin-documents
+    description: |
+      Admin document operations over the existing reports/document task contour.
+
+      MVP exposes current attestation statement creation, document task list/detail,
+      generated file download and statement template discovery.
+
+      **Roles:** `admin`.
   - name: admin-imports
     description: |
       Student import lifecycle.
@@ -146,7 +250,7 @@ paths:
       operationId: getReadiness
       summary: Readiness probe
       description: |
-        Returns `{"status":"ready"}` when PostgreSQL and Redis are reachable.
+        Returns `{"status":"ready"}` when PostgreSQL is reachable and migrations are applied.
         Returns `503` when the database is unavailable.
         Registered at `GET /ready` (no `/api/v1/` prefix).
       responses:
@@ -162,6 +266,1970 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+
+  # -- Mobile App Download -------------------------------------------------
+  /mobile/app-download:
+    get:
+      tags: [app-download]
+      operationId: getMobileAppDownload
+      summary: Get public mobile app download link
+      description: |
+        Public endpoint for frontend/mobile landing screens. Does not require
+        authentication. Returns `is_visible=false` and `download_url=null` when
+        the APK download should be hidden.
+      security: []
+      responses:
+        "200":
+          description: Current public mobile app download state
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileAppDownloadResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/mobile/app-download:
+    put:
+      tags: [app-download]
+      operationId: updateMobileAppDownload
+      summary: Update mobile app download link
+      description: |
+        Updates the public APK download URL and visibility flag.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateMobileAppDownloadRequest'
+      responses:
+        "200":
+          description: Updated mobile app download settings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MobileAppDownloadResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Application Backups -------------------------------------------------
+  /admin/backups:
+    get:
+      tags: [backups]
+      operationId: listBackups
+      summary: List backup capabilities and artifacts
+      description: |
+        Admin-only backup dashboard endpoint for frontend/mobile.
+
+        Scope is intentionally limited to this application data and application
+        runtime artifacts configured in this API.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Backup capabilities and known artifacts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupListResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [backups]
+      operationId: createBackup
+      summary: Create a backup artifact
+      description: |
+        Creates a backup artifact synchronously.
+
+        First implementation supports only `component=database`, which creates
+        a PostgreSQL custom-format dump (`pg_dump -Fc`) of the application DB.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateBackupRequest'
+      responses:
+        "201":
+          description: Backup artifact created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupArtifact'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/backups/{artifact_id}:
+    get:
+      tags: [backups]
+      operationId: getBackup
+      summary: Get backup artifact metadata
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: artifact_id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: db_20260520T120000Z
+      responses:
+        "200":
+          description: Backup artifact metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupArtifact'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/backups/{artifact_id}/file:
+    get:
+      tags: [backups]
+      operationId: downloadBackupFile
+      summary: Download backup artifact file
+      description: |
+        Downloads the backup artifact binary. Intended for administrators, not
+        normal mobile users.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: artifact_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Backup dump file
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/backups/{artifact_id}/restore-check:
+    post:
+      tags: [backups]
+      operationId: checkBackupRestore
+      summary: Validate backup artifact restore metadata
+      description: |
+        Runs a lightweight restore-check for a database dump using
+        `pg_restore --list`. This verifies that the custom-format dump is
+        readable and contains restorable entries; it does not overwrite the
+        running application database.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: artifact_id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Restore-check passed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupArtifact'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "422":
+          description: Restore-check failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BackupArtifact'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Admin Dashboard ------------------------------------------------------
+  /admin/dashboard-summary:
+    get:
+      tags: [admin-dashboard]
+      operationId: getAdminDashboardSummary
+      summary: Get admin dashboard summary
+      description: |
+        Returns read-only counters for the admin home page:
+        local users, journal statuses, document tasks, backup status and import
+        diagnostics. This endpoint does not mutate data and does not grant admin
+        write access to journal attendance or grades.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Admin dashboard summary
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDashboardSummary'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Admin Journals -------------------------------------------------------
+  /admin/journals:
+    get:
+      tags: [admin-journals]
+      operationId: listAdminJournals
+      summary: List journal contexts (admin)
+      description: |
+        Returns a paginated list of all journal contexts with their current
+        lifecycle status. Supports filtering by status, period, teacher, group,
+        and discipline.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          description: Filter by lifecycle status
+          schema:
+            type: string
+            enum: [active, locked, archived]
+        - name: period_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: teacher_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: group_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: discipline_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Paginated list of journal contexts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminJournalListResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/journals/{journal_context_id}:
+    get:
+      tags: [admin-journals]
+      operationId: getAdminJournal
+      summary: Get one journal context (admin)
+      description: |
+        Returns a single journal context by ID, including full lifecycle metadata
+        (`locked_at`, `locked_by`, `locked_reason`, `archived_*`).
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: journal_context_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Journal context object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminJournalContext'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/journals/{journal_context_id}/export:
+    get:
+      tags: [admin-journals]
+      operationId: exportAdminJournal
+      summary: Export one journal context as CSV
+      description: |
+        Downloads a CSV export for the selected `journal_context_id`.
+        The export contains normalized attendance and grade rows for the
+        journal scope and creates a `JOURNAL_EXPORTED` audit event.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: journal_context_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: CSV journal export
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/journals/{journal_context_id}/lock:
+    post:
+      tags: [admin-journals]
+      operationId: lockJournal
+      summary: Lock a journal context (temporary freeze)
+      description: |
+        **Заморозка журнала** — переводит контекст из `active` в `locked`.
+        Временно запрещает запись (посещаемость, оценки). Снимается через `unlock`.
+        Для закрытия журнала по завершении периода используйте `archive`, не lock.
+
+        Creates a `JOURNAL_LOCKED` audit event.
+
+        **Allowed from:** `active` only.
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: journal_context_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminJournalActionRequest'
+            examples:
+              lock:
+                summary: Заморозка журнала
+                value:
+                  reason: Промежуточная аттестация — журнал заморожен до 25 мая
+      responses:
+        "200":
+          description: Updated journal context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminJournalContext'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "422":
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/journals/{journal_context_id}/unlock:
+    post:
+      tags: [admin-journals]
+      operationId: unlockJournal
+      summary: Unlock a journal context (end freeze)
+      description: |
+        **Снятие заморозки** — переводит журнал из `locked` в `active`.
+        Используется после временной блокировки (lock), не после архивирования.
+
+        Creates a `JOURNAL_UNLOCKED` audit event.
+
+        **Allowed from:** `locked` only.
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: journal_context_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminJournalActionRequest'
+            examples:
+              unlock:
+                summary: Снятие заморозки
+                value:
+                  reason: Аттестация завершена — журнал снова открыт для записи
+      responses:
+        "200":
+          description: Updated journal context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminJournalContext'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "422":
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/journals/{journal_context_id}/archive:
+    post:
+      tags: [admin-journals]
+      operationId: archiveJournal
+      summary: Archive a journal context (close for storage)
+      description: |
+        **Архивирование журнала** — переводит контекст из `active` в `archived`.
+        Журнал закрыт для редактирования (посещаемость и оценки не принимаются).
+        Это не заморозка: для временной блокировки используйте `lock` / `unlock`.
+
+        Creates a `JOURNAL_ARCHIVED` audit event.
+
+        **Allowed from:** `active` only (если журнал в `locked` — сначала `unlock`).
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: journal_context_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminJournalActionRequest'
+            examples:
+              archive:
+                summary: Архивирование журнала
+                value:
+                  reason: Семестр завершён — журнал передан в архив
+      responses:
+        "200":
+          description: Updated journal context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminJournalContext'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "422":
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/journals/{journal_context_id}/restore:
+    post:
+      tags: [admin-journals]
+      operationId: restoreJournal
+      summary: Restore an archived journal context (from archive)
+      description: |
+        **Восстановление из архива** — переводит журнал из `archived` в `active`.
+        Возвращает журнал в рабочее состояние после архивирования.
+        Не путать с `unlock`: unlock снимает только заморозку (`locked` → `active`).
+
+        Creates a `JOURNAL_RESTORED` audit event.
+
+        **Allowed from:** `archived` only.
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: journal_context_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminJournalActionRequest'
+            examples:
+              restore:
+                summary: Восстановление из архива
+                value:
+                  reason: Ошибочное архивирование — журнал возвращён в работу
+      responses:
+        "200":
+          description: Updated journal context
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminJournalContext'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "422":
+          description: Invalid status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Admin Users ----------------------------------------------------------
+  /admin/users:
+    get:
+      tags: [admin-users]
+      operationId: listAdminUsers
+      summary: List local user profiles for administration
+      description: |
+        Returns local backend profiles for teachers and students. These profiles
+        are managed by the application even when authentication and base roles
+        come from external IAM/Keycloak.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: q
+          in: query
+          description: Search by full name, email or username
+          schema:
+            type: string
+        - name: user_type
+          in: query
+          schema:
+            type: string
+            enum: [teacher, student]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [active, blocked]
+      responses:
+        "200":
+          description: Paginated list of local user profiles
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserListResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Admin Access Bindings ------------------------------------------------
+  /admin/access-bindings:
+    get:
+      tags: [admin-access]
+      operationId: listAdminAccessBindings
+      summary: List subject access bindings
+      description: |
+        Returns teacher-to-teacher access bindings backed by `journal_access_grants`.
+        Direct administrative management for teaching assignments and starosta
+        grants is exposed through typed subresources under this collection.
+
+        `active_only=true` excludes revoked and expired bindings.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: grantee_id
+          in: query
+          required: false
+          description: Filter by grantee Keycloak UUID
+          schema:
+            type: string
+        - name: granter_id
+          in: query
+          required: false
+          description: Filter by granter Keycloak UUID
+          schema:
+            type: string
+        - name: discipline_id
+          in: query
+          required: false
+          description: Filter by discipline UUID
+          schema:
+            type: string
+            format: uuid
+        - name: group_id
+          in: query
+          required: false
+          description: Filter by academic group UUID
+          schema:
+            type: string
+            format: uuid
+        - name: active_only
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: List of admin access bindings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccessBindingListResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      tags: [admin-access]
+      operationId: createAdminAccessBinding
+      summary: Create a subject access binding
+      description: |
+        Creates a teacher-to-teacher journal access delegation on behalf of a
+        source teacher.
+
+        The `granter_id` field is required for the admin endpoint and must
+        refer to a teacher that has an active source journal context or teaching
+        assignment for the requested group, discipline and optional period.
+
+        Creates an `ACCESS_BINDING_CREATED` audit event.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminAccessBindingCreateRequest'
+      responses:
+        "201":
+          description: Access binding created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccessBindingResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/access-bindings/{binding_id}:
+    get:
+      tags: [admin-access]
+      operationId: getAdminAccessBinding
+      summary: Get a subject access binding
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: binding_id
+          in: path
+          required: true
+          description: Access binding UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Access binding
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminAccessBindingResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+    delete:
+      tags: [admin-access]
+      operationId: revokeAdminAccessBinding
+      summary: Revoke a subject access binding
+      description: |
+        Soft-revokes the binding (`journal_access_grants.revoked_at = NOW()`).
+        Creates an `ACCESS_BINDING_REVOKED` audit event.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: binding_id
+          in: path
+          required: true
+          description: Access binding UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Access binding revoked
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/access-bindings/teaching-assignments:
+    get:
+      tags: [admin-access]
+      operationId: listAdminTeachingAssignments
+      summary: List teaching assignment bindings
+      description: |
+        Returns direct teacher-to-discipline/group/period assignments backed by
+        `teaching_assignments`.
+
+        `active_only=true` excludes revoked assignments.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: teacher_id
+          in: query
+          required: false
+          description: Filter by internal teacher_profiles.id UUID
+          schema:
+            type: string
+            format: uuid
+        - name: discipline_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: group_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: period_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: active_only
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: List of teaching assignment bindings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTeachingAssignmentListResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [admin-access]
+      operationId: createAdminTeachingAssignment
+      summary: Create a teaching assignment binding
+      description: |
+        Creates a direct active teaching assignment for a teacher, discipline,
+        group and academic period. Duplicate active assignments for the same
+        context return `409 Conflict`.
+
+        Creates an `ACCESS_BINDING_CREATED` audit event.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminTeachingAssignmentCreateRequest'
+      responses:
+        "201":
+          description: Teaching assignment created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTeachingAssignmentResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          $ref: '#/components/responses/Conflict'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/access-bindings/teaching-assignments/{assignment_id}:
+    get:
+      tags: [admin-access]
+      operationId: getAdminTeachingAssignment
+      summary: Get a teaching assignment binding
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assignment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Teaching assignment binding
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminTeachingAssignmentResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags: [admin-access]
+      operationId: revokeAdminTeachingAssignment
+      summary: Revoke a teaching assignment binding
+      description: |
+        Soft-revokes the assignment by setting `teaching_assignments.revoked_at = NOW()`.
+        Creates an `ACCESS_BINDING_REVOKED` audit event.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: assignment_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Teaching assignment revoked
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/access-bindings/head-student-grants:
+    get:
+      tags: [admin-access]
+      operationId: listAdminHeadStudentGrants
+      summary: List head-student grant bindings
+      description: |
+        Returns starosta access grants backed by `head_student_grants`.
+
+        `active_only=true` excludes revoked and expired grants.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: head_student_id
+          in: query
+          required: false
+          description: Filter by internal students.id UUID
+          schema:
+            type: string
+            format: uuid
+        - name: granted_by
+          in: query
+          required: false
+          description: Filter by actor/teacher Keycloak UUID stored in granted_by
+          schema:
+            type: string
+        - name: discipline_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: group_id
+          in: query
+          required: false
+          schema:
+            type: string
+            format: uuid
+        - name: active_only
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: List of head-student grant bindings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminHeadStudentGrantListResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [admin-access]
+      operationId: createAdminHeadStudentGrant
+      summary: Create or refresh a head-student grant binding
+      description: |
+        Creates or refreshes a starosta access grant for a group and discipline.
+        When `granted_by` is omitted, the admin actor id is stored.
+
+        Creates an `ACCESS_BINDING_CREATED` audit event.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminHeadStudentGrantCreateRequest'
+      responses:
+        "201":
+          description: Head-student grant created or refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminHeadStudentGrantResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/access-bindings/head-student-grants/{grant_id}:
+    get:
+      tags: [admin-access]
+      operationId: getAdminHeadStudentGrant
+      summary: Get a head-student grant binding
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: grant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Head-student grant binding
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminHeadStudentGrantResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags: [admin-access]
+      operationId: revokeAdminHeadStudentGrant
+      summary: Revoke a head-student grant binding
+      description: |
+        Soft-revokes the grant by setting `head_student_grants.revoked_at = NOW()`.
+        Creates an `ACCESS_BINDING_REVOKED` audit event.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: grant_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Head-student grant revoked
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/users/{user_id}:
+    get:
+      tags: [admin-users]
+      operationId: getAdminUser
+      summary: Get a local user profile
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Local user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+    patch:
+      tags: [admin-users]
+      operationId: updateAdminUser
+      summary: Update local user profile fields
+      description: |
+        Updates local profile fields. For teacher profiles, changing name or email
+        locks profile sync by default so the next IAM login does not overwrite
+        the administrator correction.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserUpdateRequest'
+      responses:
+        "200":
+          description: Updated local user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/users/{user_id}/block:
+    post:
+      tags: [admin-users]
+      operationId: blockAdminUser
+      summary: Block a local user profile in the application
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserActionRequest'
+      responses:
+        "200":
+          description: Blocked local user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/users/{user_id}/unblock:
+    post:
+      tags: [admin-users]
+      operationId: unblockAdminUser
+      summary: Unblock a local user profile in the application
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminUserActionRequest'
+      responses:
+        "200":
+          description: Unblocked local user profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUser'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Admin Periods --------------------------------------------------------
+  /admin/periods:
+    get:
+      tags: [admin-periods]
+      operationId: listAdminPeriods
+      summary: List academic periods for administration
+      description: |
+        Returns academic periods for the admin UI. By default includes closed
+        periods so the administrator can reopen a period for controlled late entry.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: include_closed
+          in: query
+          required: false
+          schema:
+            type: boolean
+            default: true
+      responses:
+        "200":
+          description: List of academic periods
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminPeriodListResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+    post:
+      tags: [admin-periods]
+      operationId: createAcademicPeriod
+      summary: Create an academic period
+      description: |
+        Creates a new academic period for schedules, journals and imports.
+        The date range must not overlap an existing academic period.
+
+        Creates a `PERIOD_CREATED` audit event.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminPeriodCreateRequest'
+      responses:
+        "201":
+          description: Created academic period
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicPeriod'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "409":
+          description: Date range overlaps an existing academic period
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/periods/{period_id}:
+    patch:
+      tags: [admin-periods]
+      operationId: updateAcademicPeriod
+      summary: Update an academic period
+      description: |
+        Updates the period name and/or date range. The resulting date range
+        must be valid and must not overlap another academic period.
+
+        Creates a `PERIOD_UPDATED` audit event.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminPeriodUpdateRequest'
+      responses:
+        "200":
+          description: Updated academic period
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicPeriod'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          description: Date range overlaps an existing academic period
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+    delete:
+      tags: [admin-periods]
+      operationId: deleteAcademicPeriod
+      summary: Delete an unused academic period
+      description: |
+        Deletes an academic period only when it has no dependent journal data,
+        teaching assignments, template assignments, access grants, imports or
+        journal contexts. Periods with data return `409 PERIOD_IN_USE`.
+
+        Creates a `PERIOD_DELETED` audit event.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminPeriodDeleteRequest'
+      responses:
+        "204":
+          description: Academic period deleted
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "409":
+          description: Academic period has dependent data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/periods/{period_id}/close:
+    post:
+      tags: [admin-periods]
+      operationId: closeAcademicPeriod
+      summary: Close an academic period for journal writes
+      description: |
+        Sets `academic_periods.is_closed=true`. After this operation,
+        attendance, assessment form and grade write endpoints reject regular
+        writes with `422 PERIOD_CLOSED`.
+
+        Creates a `PERIOD_CLOSED` audit event.
+
+        **Allowed from:** open periods only.
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminPeriodActionRequest'
+      responses:
+        "200":
+          description: Updated academic period
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicPeriod'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "422":
+          description: Invalid period status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/periods/{period_id}/reopen:
+    post:
+      tags: [admin-periods]
+      operationId: reopenAcademicPeriod
+      summary: Reopen a closed academic period for late entry
+      description: |
+        Sets `academic_periods.is_closed=false`. This is a controlled
+        late-entry operation and requires a reason. Optional `reopen_until`
+        is recorded in audit context; the current schema does not persist it
+        as an automatic scheduler.
+
+        Creates a `PERIOD_REOPENED` audit event.
+
+        **Allowed from:** closed periods only.
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: period_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminPeriodActionRequest'
+      responses:
+        "200":
+          description: Updated academic period
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AcademicPeriod'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "422":
+          description: Invalid period status transition
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Admin Audit ----------------------------------------------------------
+  /admin/audit:
+    get:
+      tags: [admin-audit]
+      operationId: listAdminAuditEvents
+      summary: List admin audit events
+      description: |
+        Returns a paginated list of audit events. Supports filtering by actor,
+        event type, entity, and time range.
+
+        `before_state`, `after_state`, and `context` are base64-encoded JSON blobs.
+        Decode with `atob()` / `Buffer.from(str, 'base64').toString()`.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+        - name: actor_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: action
+          in: query
+          description: Event type filter (e.g. JOURNAL_LOCKED)
+          schema:
+            type: string
+        - name: entity_type
+          in: query
+          schema:
+            type: string
+            example: JournalContext
+        - name: entity_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          description: Start of time range (RFC3339)
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          description: End of time range (RFC3339)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: Paginated list of audit events
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEventListResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/audit/{audit_id}:
+    get:
+      tags: [admin-audit]
+      operationId: getAdminAuditEvent
+      summary: Get one audit event
+      description: |
+        Returns a single audit event by ID.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: audit_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Audit event object
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuditEvent'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/audit/export:
+    get:
+      tags: [admin-audit]
+      operationId: exportAdminAuditEvents
+      summary: Export admin audit events as CSV
+      description: |
+        Downloads a bounded CSV export of audit events and creates an
+        `AUDIT_EXPORTED` audit event.
+
+        `from` and `to` are required RFC3339 timestamps. The online export is
+        limited to a 31-day window and 10000 rows; narrower filters should be
+        used for larger audit tables.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: actor_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: action
+          in: query
+          description: Event type filter (e.g. JOURNAL_LOCKED)
+          schema:
+            type: string
+        - name: entity_type
+          in: query
+          schema:
+            type: string
+            example: JournalContext
+        - name: entity_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: from
+          in: query
+          required: true
+          description: Start of export range (RFC3339)
+          schema:
+            type: string
+            format: date-time
+        - name: to
+          in: query
+          required: true
+          description: End of export range (RFC3339)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        "200":
+          description: CSV audit export
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+          headers:
+            Content-Disposition:
+              schema:
+                type: string
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "422":
+          description: Export row limit exceeded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  # -- Admin Documents ------------------------------------------------------
+  /admin/documents:
+    get:
+      tags: [admin-documents]
+      operationId: listAdminDocuments
+      summary: List admin document tasks
+      description: |
+        Returns document generation tasks visible to the system administrator.
+        The MVP is backed by `document_tasks` and is intended for operational
+        tracking of generated current attestation statements.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: job_type
+          in: query
+          schema:
+            type: string
+            enum: [current_attestation_statement]
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, running, done, failed, permanently_failed]
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 50
+      responses:
+        "200":
+          description: Paginated document task list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminDocumentListResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/documents/current-attestation:
+    post:
+      tags: [admin-documents]
+      operationId: createAdminCurrentAttestationDocument
+      summary: Create a current attestation statement document as admin
+      description: |
+        Creates a current attestation statement document through the existing
+        report generation pipeline. This endpoint fixes `report_type` to
+        `current_attestation_statement`; `teacher_id` is required because the
+        admin acts as an operational supervisor, not as the teacher.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdminCurrentAttestationDocumentRequest'
+      responses:
+        "202":
+          description: Document generation task accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobAccepted'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/documents/{document_id}:
+    get:
+      tags: [admin-documents]
+      operationId: getAdminDocument
+      summary: Get one admin document task
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Document task
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DocumentTask'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/documents/{document_id}/file:
+    get:
+      tags: [admin-documents]
+      operationId: downloadAdminDocumentFile
+      summary: Download a generated admin document file
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: document_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Generated document file
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/statement-templates:
+    get:
+      tags: [admin-documents]
+      operationId: listAdminStatementTemplates
+      summary: List available statement templates
+      description: |
+        Returns statement templates available for admin document creation.
+        The MVP exposes the versioned DOCX current attestation template.
+
+        **Roles:** `admin`.
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Available statement templates
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatementTemplateListResponse'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
 
   # -- Academic Periods ----------------------------------------------------
   /academic-periods:
@@ -261,6 +2329,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         "403":
           $ref: '#/components/responses/Forbidden'
+        "422":
+          $ref: '#/components/responses/PeriodClosed'
         "500":
           $ref: '#/components/responses/InternalServerError'
 
@@ -269,7 +2339,13 @@ paths:
       tags: [catalogs]
       operationId: listTeachers
       summary: List teacher profiles for selector UI
-      description: Returns teacher profiles known to the system through profile sync.
+      description: |
+        Returns teacher profiles known to the system through profile sync.
+
+        **Roles:** `teacher`, `methodologist`, `admin`
+
+        Teachers use this selector when issuing `JournalAccessGrant` delegations
+        to another teacher.
       security:
         - bearerAuth: []
       parameters:
@@ -325,6 +2401,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         "403":
           $ref: '#/components/responses/Forbidden'
+        "422":
+          $ref: '#/components/responses/PeriodClosed'
         "500":
           $ref: '#/components/responses/InternalServerError'
 
@@ -492,9 +2570,16 @@ paths:
       description: |
         Returns the active student roster for a group as of the given period.
         This is the primary endpoint for building the journal grid rows.
+        Methodologists use it to show the ready group roster before applying
+        a `replace_active_roster` import or reusing the same group composition
+        across lecture/practice/lab journal views.
+        Roles: `teacher`, `admin`, `methodologist`.
 
         Students are ordered by last name ascending.
-        Only students with an active `EnrollmentHistory` record for the given period are returned.
+        When `period_id` is provided, the roster is evaluated as of the end of
+        that academic period; for the current period the as-of date is today.
+        When omitted, only currently active enrollments (`left_at IS NULL`) are
+        returned.
       security:
         - bearerAuth: []
       parameters:
@@ -531,6 +2616,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         "404":
           $ref: '#/components/responses/NotFound'
+        "422":
+          $ref: '#/components/responses/PeriodClosed'
         "500":
           $ref: '#/components/responses/InternalServerError'
 
@@ -545,7 +2632,7 @@ paths:
         attendance records, assessment forms, grade records and edit permissions.
 
         Edge passes the authenticated Keycloak user id to Domain. Domain resolves it
-        to `teacher_profiles.id` for teachers. Methodologist/admin/dean callers pass
+        to `teacher_profiles.id` for teachers. Methodologist/admin callers pass
         `teacher_id` to select the target journal context.
       security:
         - bearerAuth: []
@@ -574,7 +2661,7 @@ paths:
         - name: teacher_id
           in: query
           required: false
-          description: Target teacher UUID. Required for methodologist/admin/dean; teachers may omit it for their own journal.
+          description: Target teacher UUID. Required for Methodologist/admin; teachers may omit it for their own journal.
           schema:
             type: string
             format: uuid
@@ -621,6 +2708,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         "404":
           $ref: '#/components/responses/NotFound'
+        "422":
+          $ref: '#/components/responses/PeriodClosed'
         "500":
           $ref: '#/components/responses/InternalServerError'
 
@@ -707,6 +2796,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         "404":
           $ref: '#/components/responses/NotFound'
+        "422":
+          $ref: '#/components/responses/PeriodClosed'
         "500":
           $ref: '#/components/responses/InternalServerError'
 
@@ -720,7 +2811,7 @@ paths:
         Returns attendance records for the given lesson.
         By default only **active** (non-archived) records are returned.
         Pass `include_archived=true` to also retrieve soft-deleted records
-        (teacher, admin, dean only - students always see the filtered view).
+        (teacher, admin only - students always see the filtered view).
       security:
         - bearerAuth: []
       parameters:
@@ -730,7 +2821,7 @@ paths:
           required: false
           description: |
             When `true`, include archived (soft-deleted) attendance records in the response.
-            Allowed for roles: `teacher`, `admin`, `dean`. Ignored for `student`.
+            Allowed for roles: `teacher`, `admin`. Ignored for `student`.
           schema:
             type: boolean
             default: false
@@ -752,6 +2843,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         "404":
           $ref: '#/components/responses/NotFound'
+        "422":
+          $ref: '#/components/responses/PeriodClosed'
         "500":
           $ref: '#/components/responses/InternalServerError'
 
@@ -784,7 +2877,7 @@ paths:
         "403":
           $ref: '#/components/responses/Forbidden'
         "422":
-          $ref: '#/components/responses/PeriodClosed'
+          $ref: '#/components/responses/JournalWriteBlocked'
         "500":
           $ref: '#/components/responses/InternalServerError'
 
@@ -823,7 +2916,7 @@ paths:
         "403":
           $ref: '#/components/responses/Forbidden'
         "422":
-          $ref: '#/components/responses/PeriodClosed'
+          $ref: '#/components/responses/JournalWriteBlocked'
         "500":
           $ref: '#/components/responses/InternalServerError'
 
@@ -927,6 +3020,8 @@ paths:
           $ref: '#/components/responses/Unauthorized'
         "403":
           $ref: '#/components/responses/Forbidden'
+        "422":
+          $ref: '#/components/responses/JournalWriteBlocked'
         "500":
           $ref: '#/components/responses/InternalServerError'
 
@@ -968,10 +3063,6 @@ paths:
         - **Rename** - update `title` to reflect a corrected name.
         - **Change type** - update `form_type` when the teacher selected the wrong control form.
         - **Change date** - update `date`; the backend re-resolves `period_id` from the new date.
-        - **Close** (`status: "closed"`) - lock the form so no new grades can be added.
-          Any teacher or admin can close a form they own.
-        - **Reopen** (`status: "open"`) - only `admin` or `dean` can reopen a closed form
-          (equivalent to a late-entry correction).
 
         Journal binding fields (`discipline_id`, `group_id`, `teacher_id`) are immutable after creation.
 
@@ -1001,6 +3092,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         "404":
           $ref: '#/components/responses/NotFound'
+        "422":
+          $ref: '#/components/responses/JournalWriteBlocked'
         "500":
           $ref: '#/components/responses/InternalServerError'
 
@@ -1024,6 +3117,8 @@ paths:
           $ref: '#/components/responses/Forbidden'
         "404":
           $ref: '#/components/responses/NotFound'
+        "422":
+          $ref: '#/components/responses/JournalWriteBlocked'
         "500":
           $ref: '#/components/responses/InternalServerError'
 
@@ -1036,7 +3131,7 @@ paths:
         Returns grade records for the given assessment form.
         By default only **active** (non-archived) records are returned.
         Pass `include_archived=true` to also retrieve soft-deleted records
-        (teacher, admin, dean only - students always see the filtered view).
+        (teacher, admin only - students always see the filtered view).
       security:
         - bearerAuth: []
       parameters:
@@ -1046,7 +3141,7 @@ paths:
           required: false
           description: |
             When `true`, include archived (soft-deleted) grade records in the response.
-            Allowed for roles: `teacher`, `admin`, `dean`. Ignored for `student`.
+            Allowed for roles: `teacher`, `admin`. Ignored for `student`.
           schema:
             type: boolean
             default: false
@@ -1101,7 +3196,7 @@ paths:
         "409":
           $ref: '#/components/responses/Conflict'
         "422":
-          $ref: '#/components/responses/PeriodClosed'
+          $ref: '#/components/responses/JournalWriteBlocked'
         "500":
           $ref: '#/components/responses/InternalServerError'
 
@@ -1136,7 +3231,7 @@ paths:
         "404":
           $ref: '#/components/responses/NotFound'
         "422":
-          $ref: '#/components/responses/PeriodClosed'
+          $ref: '#/components/responses/JournalWriteBlocked'
         "500":
           $ref: '#/components/responses/InternalServerError'
 
@@ -1152,7 +3247,7 @@ paths:
         from all `GET /lessons/{id}/attendance` responses unless
         `include_archived=true` is passed.
 
-        **Allowed roles:** `teacher`, `admin`, `dean`.
+        **Allowed roles:** `teacher`, `admin`.
 
         **409 Conflict** is returned if the record is already archived.
         An `AuditEvent` of type `attendance_record_archived` is persisted.
@@ -1197,7 +3292,7 @@ paths:
         Clears the archive flag (`is_archived = false`) on the attendance record,
         making it visible again in operational views.
 
-        **Allowed roles:** `teacher`, `admin`, `dean`.
+        **Allowed roles:** `teacher`, `admin`.
 
         **409 Conflict** is returned if the record is not archived (i.e., it is already active).
         An `AuditEvent` of type `attendance_record_restored` is persisted.
@@ -1239,7 +3334,7 @@ paths:
         from all `GET /assessment-forms/{id}/grades` responses unless
         `include_archived=true` is passed.
 
-        **Allowed roles:** `teacher`, `admin`, `dean`.
+        **Allowed roles:** `teacher`, `admin`.
 
         **409 Conflict** is returned if the record is already archived.
         An `AuditEvent` of type `grade_record_archived` is persisted.
@@ -1284,7 +3379,7 @@ paths:
         Clears the archive flag (`is_archived = false`) on the grade record,
         making it visible again in operational views.
 
-        **Allowed roles:** `teacher`, `admin`, `dean`.
+        **Allowed roles:** `teacher`, `admin`.
 
         **409 Conflict** is returned if the record is not archived (i.e., it is already active).
         An `AuditEvent` of type `grade_record_restored` is persisted.
@@ -1344,6 +3439,61 @@ paths:
         "500":
           $ref: '#/components/responses/InternalServerError'
 
+  /current-attestation/prefill:
+    get:
+      tags: [reports]
+      operationId: getCurrentAttestationPrefill
+      summary: Get prefill data for current attestation statement creation
+      description: |
+        Returns the journal context, default editable display values, default options,
+        available formats, and active group roster needed by frontend/mobile before
+        creating `current_attestation_statement`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: group_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: discipline_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: academic_period_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: teacher_id
+          in: query
+          required: false
+          description: Internal teacher profile UUID; required for admin/methodologist, optional for teacher.
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Prefill data for current attestation statement form
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CurrentAttestationPrefill'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
   /reports/{job_id}/status:
     get:
       tags: [reports]
@@ -1366,6 +3516,45 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DocumentTask'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /reports/{job_id}/file:
+    get:
+      tags: [reports]
+      operationId: getReportFile
+      summary: Download generated report file
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: job_id
+          in: path
+          required: true
+          description: Report job UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Generated DOCX/PDF report file
+          headers:
+            Content-Disposition:
+              description: Attachment filename
+              schema:
+                type: string
+          content:
+            application/vnd.openxmlformats-officedocument.wordprocessingml.document:
+              schema:
+                type: string
+                format: binary
+            application/pdf:
+              schema:
+                type: string
+                format: binary
         "401":
           $ref: '#/components/responses/Unauthorized'
         "404":
@@ -1527,6 +3716,60 @@ paths:
         "500":
           $ref: '#/components/responses/InternalServerError'
 
+  /students/me/subjects/archive:
+    get:
+      tags: [student]
+      operationId: getMySubjectsArchive
+      summary: Get archived subject summaries from closed periods
+      description: |
+        Returns paginated subject summaries for the authenticated student from
+        closed academic periods only (`academic_periods.is_closed = true`).
+
+        The endpoint is intentionally separate from `/students/me/subjects`
+        so mobile clients can cache and paginate archive data independently
+        from the current subjects list.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of archived subject rows to return
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          description: Number of archived subject rows to skip
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Paginated list of archived subjects with aggregated progress
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/StudentSubjectSummary'
+                  meta:
+                    $ref: '#/components/schemas/PaginationMeta'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
   /students/me/subjects/{discipline_id}/card:
     get:
       tags: [student]
@@ -1542,9 +3785,10 @@ paths:
         - Grade summary (avg, assessments completed/total)
         - Monthly attendance breakdown for a progress chart
 
-        `period_id` is required because the same subject can exist in current
-        and archived academic periods; the client should pass the value returned
-        by `GET /students/me/subjects`.
+        `period_id` and `group_id` are required because the same subject can
+        exist in multiple academic periods and in multiple active enrollment
+        groups for one student. The client should pass both values returned by
+        `GET /students/me/subjects`.
       security:
         - bearerAuth: []
       parameters:
@@ -1559,6 +3803,13 @@ paths:
           in: query
           required: true
           description: Academic period UUID
+          schema:
+            type: string
+            format: uuid
+        - name: group_id
+          in: query
+          required: true
+          description: Academic group UUID from the selected subjects list row
           schema:
             type: string
             format: uuid
@@ -1843,7 +4094,7 @@ paths:
       description: |
         Returns all available calendar-thematic plan (КТП) templates.
 
-        - **teacher / dean**: see all non-archived templates for their discipline(s).
+        - **teacher**: see all non-archived templates for their discipline(s).
         - **methodologist / admin**: see all templates; may pass `include_deleted=true`
           to also retrieve soft-deleted (archived) templates.
 
@@ -2355,8 +4606,20 @@ paths:
         - `hours_this_week` - total lesson hours scheduled for the current ISO week
           (uses `ends_at - scheduled_at`; falls back to 1.5 h per lesson if `ends_at` is null)
         - `avg_grade` - average grade across all assessment forms created by this teacher
+
+        **Roles:** `teacher`, `methodologist`, `admin`.
+        Teachers may omit `teacher_id` and always receive their own statistics.
+        `methodologist` and `admin` must pass `teacher_id`.
       security:
         - bearerAuth: []
+      parameters:
+        - name: teacher_id
+          in: query
+          required: false
+          description: Target teacher profile UUID or Keycloak UUID. Required for methodologist/admin.
+          schema:
+            type: string
+            format: uuid
       responses:
         "200":
           description: Teacher statistics
@@ -2383,9 +4646,19 @@ paths:
         Frontend is expected to compute percentages from raw counts.
         `students_in_group` is the number of active enrollments for the period -
         useful as the denominator when computing group-level attendance rate.
+
+        **Roles:** `teacher`, `methodologist`, `admin`.
+        Teachers may omit `teacher_id`; `methodologist` and `admin` must pass it.
       security:
         - bearerAuth: []
       parameters:
+        - name: teacher_id
+          in: query
+          required: false
+          description: Target teacher profile UUID or Keycloak UUID. Required for methodologist/admin.
+          schema:
+            type: string
+            format: uuid
         - name: group_id
           in: query
           required: true
@@ -2434,13 +4707,31 @@ paths:
         Returns average grade value and grade count per group for a given period.
         Used for the teacher dashboard bar chart.
         Groups with no grade records are excluded from the response.
+
+        **Roles:** `teacher`, `methodologist`, `admin`.
+        Teachers may omit `teacher_id`; `methodologist` and `admin` must pass it.
+        `discipline_id` can be used to inspect performance by subject.
       security:
         - bearerAuth: []
       parameters:
+        - name: teacher_id
+          in: query
+          required: false
+          description: Target teacher profile UUID or Keycloak UUID. Required for methodologist/admin.
+          schema:
+            type: string
+            format: uuid
         - name: period_id
           in: query
           required: false
           description: Academic period UUID (defaults to current active period)
+          schema:
+            type: string
+            format: uuid
+        - name: discipline_id
+          in: query
+          required: false
+          description: Optional discipline UUID for subject-scoped group performance.
           schema:
             type: string
             format: uuid
@@ -2451,6 +4742,111 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GroupsPerformance'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /analytics/problem-students:
+    get:
+      tags: [dashboard]
+      operationId: listProblemStudents
+      summary: List students with risky grade patterns
+      description: |
+        Returns students whose journal grades contain a significant share of grade `2`
+        or a run of consecutive grade `2` values. The endpoint is intended for
+        methodologist/admin web and mobile screens.
+
+        Defaults are conservative: at least `3` total grades are required before a
+        percentage is considered, and `3` consecutive grade `2` values are always
+        treated as a problem signal.
+
+        **Roles:** `methodologist`, `admin`.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: student_id
+          in: query
+          required: false
+          description: Optional student UUID filter.
+          schema:
+            type: string
+            format: uuid
+        - name: group_id
+          in: query
+          required: false
+          description: Optional academic group UUID filter.
+          schema:
+            type: string
+            format: uuid
+        - name: discipline_id
+          in: query
+          required: false
+          description: Optional discipline UUID filter.
+          schema:
+            type: string
+            format: uuid
+        - name: period_id
+          in: query
+          required: false
+          description: Optional academic period UUID filter.
+          schema:
+            type: string
+            format: uuid
+        - name: min_grades
+          in: query
+          required: false
+          description: Minimum total grade count before percentage-based detection is applied.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 3
+        - name: min_failing_grades
+          in: query
+          required: false
+          description: Minimum consecutive grade `2` run treated as a problem signal.
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 1000
+            default: 3
+        - name: failing_percent_threshold
+          in: query
+          required: false
+          description: Minimum percent of grade `2` records in the journal scope.
+          schema:
+            type: number
+            format: float
+            minimum: 0
+            maximum: 100
+            default: 50
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 50
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        "200":
+          description: Problem student analytics.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProblemStudentsResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
         "401":
           $ref: '#/components/responses/Unauthorized'
         "403":
@@ -2529,7 +4925,9 @@ paths:
   #
   # Lifecycle:
   #   POST /admin/imports/students   -> batch created, preview built synchronously
+  #   GET  /admin/imports            -> import batch history for diagnostics
   #   GET  /admin/imports/{id}       -> current status + preview rows
+  #   GET  /admin/imports/{id}/errors -> row-level errors/warnings
   #   GET  /admin/imports/{id}/conflicts -> conflicts list (if any)
   #   POST /admin/imports/{id}/conflicts/{cid}/resolve -> resolve one conflict
   #   POST /admin/imports/{id}/apply -> finalize: write EnrollmentHistory + AuditEvent
@@ -2583,6 +4981,75 @@ paths:
           $ref: '#/components/responses/Forbidden'
         "404":
           $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/imports:
+    get:
+      tags: [admin-imports]
+      operationId: listImportBatches
+      summary: List import batches for diagnostics
+      description: |
+        Returns paginated import batch history with status, actor, affected group/period,
+        summary counters, conflict count and persisted row-level error counts.
+
+        This is the read-only diagnostics endpoint for admin/methodologist support screens.
+
+        **Roles:** `admin`, `methodologist`
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, validating, preview_ready, conflicts_detected, resolved, applying, completed, failed, partial, cancelled]
+        - name: group_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: period_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: started_by
+          in: query
+          description: Keycloak sub claim of the user who started the import
+          schema:
+            type: string
+        - name: import_mode
+          in: query
+          schema:
+            type: string
+            enum: [merge, replace_active_roster]
+      responses:
+        "200":
+          description: Paginated import batch history
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportBatchHistoryListResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
         "500":
           $ref: '#/components/responses/InternalServerError'
 
@@ -2673,8 +5140,8 @@ paths:
       operationId: cancelImportBatch
       summary: Cancel an import batch
       description: |
-        Cancels the batch by setting `status = failed`.
-        Only allowed when `status` is NOT `completed`, `applying`, or `failed`.
+        Cancels the batch by setting `status = cancelled`.
+        Only allowed when `status` is NOT `completed`, `partial`, `cancelled`, `applying`, or `failed`.
 
         **Roles:** `admin`
       security:
@@ -2747,6 +5214,45 @@ paths:
                     type: array
                     items:
                       $ref: '#/components/schemas/ImportConflict'
+        "401":
+          $ref: '#/components/responses/Unauthorized'
+        "403":
+          $ref: '#/components/responses/Forbidden'
+        "404":
+          $ref: '#/components/responses/NotFound'
+        "500":
+          $ref: '#/components/responses/InternalServerError'
+
+  /admin/imports/{batch_id}/errors:
+    get:
+      tags: [admin-imports]
+      operationId: listImportBatchErrors
+      summary: List row-level import errors
+      description: |
+        Returns persisted row-level import errors and warnings for the batch.
+        Use this endpoint when the history list shows `errors_count > 0` or
+        when support needs to inspect failed validation rows.
+
+        **Roles:** `admin`, `methodologist`
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: batch_id
+          in: path
+          required: true
+          description: Import batch UUID
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Row-level import errors and warnings
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ImportItemErrorsResponse'
+        "400":
+          $ref: '#/components/responses/ValidationError'
         "401":
           $ref: '#/components/responses/Unauthorized'
         "403":
@@ -3075,6 +5581,12 @@ components:
         scheduled_at:
           type: string
           format: date-time
+        lesson_order_number:
+          type: integer
+          minimum: 1
+          maximum: 8
+          nullable: true
+          description: Real pair number from the external schedule when available.
         topic:
           type: string
           nullable: true
@@ -3116,7 +5628,7 @@ components:
 
     JournalGridAssessmentForm:
       type: object
-      required: [assessment_form_id, title, type, date, status, updated_at]
+      required: [assessment_form_id, title, type, date, updated_at]
       properties:
         assessment_form_id:
           type: string
@@ -3125,7 +5637,7 @@ components:
           type: string
         type:
           type: string
-          enum: [exam, quiz, homework, project]
+          enum: [exam, quiz, homework, project, colloquium, survey, lab_work, control_work, essay, final_grade]
         max_score:
           type: integer
           nullable: true
@@ -3133,9 +5645,6 @@ components:
         date:
           type: string
           format: date-time
-        status:
-          type: string
-          enum: [open, closed]
         updated_at:
           type: string
           format: date-time
@@ -3218,6 +5727,10 @@ components:
         lesson_type:
           type: string
           enum: [lecture, practice, lab, seminar]
+        plan_id:
+          type: string
+          format: uuid
+          nullable: true
         lesson_count:
           type: integer
         created_at:
@@ -3267,6 +5780,12 @@ components:
         lessons_created:
           type: integer
           description: Always 0 in this endpoint; dated lessons are not synthesized.
+        lessons_updated:
+          type: integer
+          description: Existing lessons updated with КТП topic bindings after assigning plan_id.
+        lessons_without_topic:
+          type: integer
+          description: Existing lessons left without a КТП topic because the plan has fewer topic slots than lessons.
         assignment_id:
           type: string
           format: uuid
@@ -3332,8 +5851,8 @@ components:
           description: Internal `teacher_profiles.id` of the teacher.
         teacher_name:
           type: string
-          description: "Abbreviated name, e.g. Петров П.П. (empty if no profile)"
-          example: "Петров П.П."
+          description: "Full teacher name, e.g. Петров Иван Сергеевич (empty if no profile)"
+          example: "Петров Иван Сергеевич"
         period_id:
           type: string
           format: uuid
@@ -3345,6 +5864,12 @@ components:
           type: string
           format: date-time
           nullable: true
+        lesson_order_number:
+          type: integer
+          minimum: 1
+          maximum: 8
+          nullable: true
+          description: Real pair number from the external schedule when available.
         lesson_type:
           type: string
           enum: [lecture, practice, lab, seminar]
@@ -3379,7 +5904,8 @@ components:
           type: string
         teacher_name:
           type: string
-          description: Abbreviated teacher name
+          description: Full teacher name
+          example: "Петров Иван Сергеевич"
         group_id:
           type: string
           format: uuid
@@ -3406,7 +5932,7 @@ components:
 
     StudentSubjectCard:
       type: object
-      required: [student, discipline_id, discipline_name, teacher_name, period_id,
+      required: [student, discipline_id, discipline_name, teacher_name, group_id, group_name, period_id,
                  lessons_attended, lessons_total, absences_total, absences_valid_excuse,
                  assessments_completed, assessments_total, attendance_by_month,
                  journal_lessons, journal_grades]
@@ -3420,6 +5946,13 @@ components:
         discipline_name:
           type: string
         teacher_name:
+          type: string
+          description: Full teacher name
+          example: "Петров Иван Сергеевич"
+        group_id:
+          type: string
+          format: uuid
+        group_name:
           type: string
         period_id:
           type: string
@@ -3503,6 +6036,12 @@ components:
         scheduled_at:
           type: string
           format: date-time
+        lesson_order_number:
+          type: integer
+          minimum: 1
+          maximum: 8
+          nullable: true
+          description: Real pair number from the external schedule when available.
         lesson_type:
           type: string
           enum: [lecture, practice, lab, seminar]
@@ -3533,7 +6072,7 @@ components:
           type: string
         type:
           type: string
-          enum: [exam, quiz, homework, project]
+          enum: [exam, quiz, homework, project, colloquium, survey, lab_work, control_work, essay, final_grade]
         date:
           type: string
           format: date-time
@@ -3610,6 +6149,81 @@ components:
           format: date-time
           nullable: true
           description: Optional expiry time for the grant (e.g. end of semester). Null = no expiry.
+
+    AdminTeachingAssignment:
+      type: object
+      required: [id, teacher_id, discipline_id, group_id, period_id, assigned_at]
+      description: Direct teacher assignment to a discipline, group and academic period.
+      properties:
+        id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          format: uuid
+          description: Internal teacher_profiles.id UUID
+        discipline_id:
+          type: string
+          format: uuid
+        group_id:
+          type: string
+          format: uuid
+        period_id:
+          type: string
+          format: uuid
+        assigned_at:
+          type: string
+          format: date-time
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    AdminTeachingAssignmentCreateRequest:
+      type: object
+      required: [teacher_id, discipline_id, group_id, period_id]
+      properties:
+        teacher_id:
+          type: string
+          format: uuid
+          description: Internal teacher_profiles.id UUID
+        discipline_id:
+          type: string
+          format: uuid
+        group_id:
+          type: string
+          format: uuid
+        period_id:
+          type: string
+          format: uuid
+
+    AdminHeadStudentGrantCreateRequest:
+      type: object
+      required: [group_id, discipline_id, head_student_id]
+      properties:
+        group_id:
+          type: string
+          format: uuid
+        discipline_id:
+          type: string
+          format: uuid
+        head_student_id:
+          type: string
+          format: uuid
+          description: Internal students.id UUID
+        granted_by:
+          type: string
+          description: Optional actor/teacher Keycloak UUID; defaults to admin actor id.
+        allows_late_entry:
+          type: boolean
+          default: false
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
 
     PaginationMeta:
       type: object
@@ -3720,6 +6334,136 @@ components:
           type: integer
           description: Total number of grade records for this group
 
+    ProblemStudentsResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemStudentEntry'
+        meta:
+          $ref: '#/components/schemas/ProblemStudentsMeta'
+
+    ProblemStudentsMeta:
+      type: object
+      required: [total, limit, offset, min_grades, min_failing_grades, failing_grade_value, failing_percent_threshold]
+      properties:
+        total:
+          type: integer
+        limit:
+          type: integer
+        offset:
+          type: integer
+        min_grades:
+          type: integer
+        min_failing_grades:
+          type: integer
+        failing_grade_value:
+          type: integer
+          example: 2
+        failing_percent_threshold:
+          type: number
+          format: float
+
+    ProblemStudentEntry:
+      type: object
+      required:
+        - student_id
+        - student_name
+        - group_id
+        - group_name
+        - discipline_id
+        - discipline_name
+        - period_id
+        - period_name
+        - grade_count
+        - failing_grade_count
+        - failing_grade_percent
+        - max_consecutive_failing_grades
+        - has_consecutive_failing_problem
+        - failing_grades
+      properties:
+        student_id:
+          type: string
+          format: uuid
+        student_name:
+          type: string
+        student_code:
+          type: string
+          nullable: true
+        group_id:
+          type: string
+          format: uuid
+        group_name:
+          type: string
+        discipline_id:
+          type: string
+          format: uuid
+        discipline_name:
+          type: string
+        period_id:
+          type: string
+          format: uuid
+        period_name:
+          type: string
+        grade_count:
+          type: integer
+        failing_grade_count:
+          type: integer
+        failing_grade_percent:
+          type: number
+          format: float
+        max_consecutive_failing_grades:
+          type: integer
+        has_consecutive_failing_problem:
+          type: boolean
+        failing_grades:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProblemFailingGrade'
+        last_detected_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    ProblemFailingGrade:
+      type: object
+      required: [grade_id, assessment_form_id, assessment_title, form_type, form_date, value, is_private, teacher_id, teacher_name, created_at, updated_at]
+      properties:
+        grade_id:
+          type: string
+          format: uuid
+        assessment_form_id:
+          type: string
+          format: uuid
+        assessment_title:
+          type: string
+        form_type:
+          type: string
+        form_date:
+          type: string
+          format: date
+        value:
+          type: integer
+          example: 2
+        comment:
+          type: string
+          nullable: true
+        is_private:
+          type: boolean
+        teacher_id:
+          type: string
+          format: uuid
+        teacher_name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
     # -- Archive ------------------------------------------------------------
     ArchivedJournalEntry:
       type: object
@@ -3804,6 +6548,663 @@ components:
         message:
           type: string
 
+    # -- Mobile App Download -----------------------------------------------
+    MobileAppDownloadResponse:
+      type: object
+      required: [is_visible, updated_at]
+      properties:
+        is_visible:
+          type: boolean
+          description: Whether the frontend should show the APK download action.
+        download_url:
+          type: string
+          format: uri
+          nullable: true
+          description: Public APK download URL. Null when hidden or not configured.
+          example: "https://example.edu/downloads/university-journal.apk"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last settings update timestamp.
+
+    UpdateMobileAppDownloadRequest:
+      type: object
+      required: [is_visible]
+      properties:
+        is_visible:
+          type: boolean
+          description: Set false to hide the download action from public clients.
+        download_url:
+          type: string
+          format: uri
+          maxLength: 2048
+          nullable: true
+          description: Required when `is_visible=true`; must be an absolute http/https URL.
+
+    # -- Application Backups -----------------------------------------------
+    BackupCapability:
+      type: object
+      required: [component, status, actions]
+      properties:
+        component:
+          type: string
+          enum: [database, files, configs]
+        status:
+          type: string
+          enum: [enabled, disabled, not_configured]
+        reason:
+          type: string
+          nullable: true
+        actions:
+          type: array
+          description: Button/action model for frontend and mobile clients.
+          items:
+            $ref: '#/components/schemas/BackupAction'
+
+    BackupAction:
+      type: object
+      required: [id, label, enabled]
+      properties:
+        id:
+          type: string
+          enum: [create, metadata, download, restore_check]
+        label:
+          type: string
+          example: Создать резервную копию БД
+        method:
+          type: string
+          enum: [GET, POST]
+          nullable: true
+        href:
+          type: string
+          nullable: true
+          example: /api/v1/admin/backups
+        enabled:
+          type: boolean
+        reason:
+          type: string
+          nullable: true
+        body:
+          type: object
+          nullable: true
+          additionalProperties:
+            type: string
+          example:
+            component: database
+
+    AdminJournalContext:
+      type: object
+      required: [id, teacher_id, teacher_name, discipline_id, discipline_name, group_id, group_name, period_id, period_name, lesson_type, lesson_count, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        teacher_id:
+          type: string
+          format: uuid
+        teacher_name:
+          type: string
+        discipline_id:
+          type: string
+          format: uuid
+        discipline_name:
+          type: string
+        group_id:
+          type: string
+          format: uuid
+        group_name:
+          type: string
+        period_id:
+          type: string
+          format: uuid
+        period_name:
+          type: string
+        lesson_type:
+          type: string
+          enum: [lecture, practice, lab, seminar, consultation, exam]
+        lesson_count:
+          type: integer
+        status:
+          type: string
+          enum: [active, locked, archived]
+        locked_at:
+          type: string
+          format: date-time
+          nullable: true
+        locked_by:
+          type: string
+          format: uuid
+          nullable: true
+        locked_reason:
+          type: string
+          nullable: true
+        archived_at:
+          type: string
+          format: date-time
+          nullable: true
+        archived_by:
+          type: string
+          format: uuid
+          nullable: true
+        archived_reason:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AdminUser:
+      type: object
+      required: [id, user_type, full_name, status, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_type:
+          type: string
+          enum: [teacher, student]
+        keycloak_id:
+          type: string
+          format: uuid
+          nullable: true
+        full_name:
+          type: string
+        first_name:
+          type: string
+          nullable: true
+        last_name:
+          type: string
+          nullable: true
+        patronymic:
+          type: string
+          nullable: true
+        email:
+          type: string
+          format: email
+          nullable: true
+        username:
+          type: string
+          nullable: true
+        student_code:
+          type: string
+          nullable: true
+        group_id:
+          type: string
+          format: uuid
+          nullable: true
+        group_name:
+          type: string
+          nullable: true
+        external_schedule_ref:
+          type: string
+          nullable: true
+        status:
+          type: string
+          enum: [active, blocked]
+        blocked_at:
+          type: string
+          format: date-time
+          nullable: true
+        blocked_by:
+          type: string
+          format: uuid
+          nullable: true
+        blocked_reason:
+          type: string
+          nullable: true
+        profile_sync_locked:
+          type: boolean
+          nullable: true
+          description: Teacher profiles only. Prevents IAM login sync from overwriting admin corrections.
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    AdminUserListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminUser'
+        meta:
+          type: object
+          required: [total, page, page_size]
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            page_size:
+              type: integer
+
+    AdminUserUpdateRequest:
+      type: object
+      properties:
+        full_name:
+          type: string
+          description: Student profile full name
+        first_name:
+          type: string
+          description: Teacher first name
+        last_name:
+          type: string
+          description: Teacher last name
+        patronymic:
+          type: string
+          description: Teacher patronymic
+        email:
+          type: string
+          format: email
+        username:
+          type: string
+          description: Student username
+        external_schedule_ref:
+          type: string
+          description: Teacher external schedule reference
+        profile_sync_locked:
+          type: boolean
+          description: Explicitly lock/unlock teacher profile sync from IAM
+
+    AdminUserActionRequest:
+      type: object
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: Required for block; optional for unblock.
+
+    AdminJournalListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminJournalContext'
+        meta:
+          type: object
+          required: [total, page, page_size]
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            page_size:
+              type: integer
+
+    AdminJournalActionRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: |
+            Причина изменения статуса журнала (обязательно).
+            Для `lock`/`unlock` — причина заморозки или её снятия.
+            Для `archive`/`restore` — причина архивирования или восстановления из архива.
+            См. examples в конкретной операции.
+          example: Административное действие — указать причину
+
+    AdminPeriodListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AcademicPeriod'
+
+    AdminPeriodCreateRequest:
+      type: object
+      required: [name, starts_at, ends_at]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: Human-readable period name; whitespace-only values are rejected.
+        starts_at:
+          type: string
+          format: date-time
+          description: Period start timestamp.
+        ends_at:
+          type: string
+          format: date-time
+          description: Period end timestamp; must be greater than or equal to starts_at.
+        is_closed:
+          type: boolean
+          default: false
+          description: Whether the period starts in closed/read-only state.
+
+    AdminPeriodUpdateRequest:
+      type: object
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          description: New human-readable period name; whitespace-only values are rejected.
+        starts_at:
+          type: string
+          format: date-time
+          description: New period start timestamp.
+        ends_at:
+          type: string
+          format: date-time
+          description: New period end timestamp.
+
+    AdminPeriodDeleteRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: Required non-blank reason for deleting an unused academic period.
+
+    AdminPeriodActionRequest:
+      type: object
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+          description: Required non-blank reason for closing or reopening an academic period; whitespace-only values are rejected.
+        reopen_until:
+          type: string
+          format: date-time
+          nullable: true
+          description: Optional late-entry window marker recorded in audit context.
+
+    AuditEvent:
+      type: object
+      required: [id, event_type, actor_id, actor_role, entity_type, entity_id, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        event_type:
+          type: string
+          enum: [JOURNAL_LOCKED, JOURNAL_UNLOCKED, JOURNAL_ARCHIVED, JOURNAL_RESTORED, JOURNAL_EXPORTED, USER_PROFILE_UPDATED, USER_BLOCKED, USER_UNBLOCKED, PERIOD_CLOSED, PERIOD_REOPENED, AUDIT_EXPORTED]
+          description: Type of the administrative event
+        actor_id:
+          type: string
+          format: uuid
+          description: UUID of the user who performed the action
+        actor_role:
+          type: string
+          description: Role of the actor at the time of the action
+        entity_type:
+          type: string
+          example: JournalContext
+        entity_id:
+          type: string
+          format: uuid
+          description: UUID of the affected entity
+        before_state:
+          type: string
+          nullable: true
+          description: Base64-encoded JSON snapshot of the entity before the change
+        after_state:
+          type: string
+          nullable: true
+          description: Base64-encoded JSON snapshot of the entity after the change
+        context:
+          type: string
+          nullable: true
+          description: Base64-encoded JSON with additional context (e.g. `{"reason":"..."}`)
+        request_id:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    AuditEventListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AuditEvent'
+        meta:
+          type: object
+          required: [total, page, page_size]
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            page_size:
+              type: integer
+
+    BackupArtifact:
+      type: object
+      required: [id, component, status, file_name, size_bytes, created_at, actions]
+      properties:
+        id:
+          type: string
+          example: db_20260520T120000Z
+        component:
+          type: string
+          enum: [database]
+        status:
+          type: string
+          enum: [created, failed]
+        file_name:
+          type: string
+          example: db_20260520T120000Z.dump
+        size_bytes:
+          type: integer
+          format: int64
+        sha256:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        checked_at:
+          type: string
+          format: date-time
+          nullable: true
+        check_status:
+          type: string
+          enum: [passed, failed]
+          nullable: true
+        error_message:
+          type: string
+          nullable: true
+        actions:
+          type: array
+          description: Per-artifact button/action model for frontend and mobile clients.
+          items:
+            $ref: '#/components/schemas/BackupAction'
+
+    BackupListResponse:
+      type: object
+      required: [capabilities, artifacts, meta]
+      properties:
+        capabilities:
+          type: array
+          items:
+            $ref: '#/components/schemas/BackupCapability'
+        artifacts:
+          type: array
+          items:
+            $ref: '#/components/schemas/BackupArtifact'
+        meta:
+          type: object
+          required: [total, backup_dir]
+          properties:
+            total:
+              type: integer
+            backup_dir:
+              type: string
+            storage_hint:
+              type: string
+              nullable: true
+              example: Docker volume backup_data смонтирован в Domain по пути /app/backups
+
+    AdminDashboardSummary:
+      type: object
+      required: [generated_at, users, journals, documents, backups, imports]
+      properties:
+        generated_at:
+          type: string
+          format: date-time
+        users:
+          $ref: '#/components/schemas/AdminDashboardUsersSummary'
+        journals:
+          $ref: '#/components/schemas/AdminDashboardJournalsSummary'
+        documents:
+          $ref: '#/components/schemas/AdminDashboardDocumentsSummary'
+        backups:
+          $ref: '#/components/schemas/AdminDashboardBackupsSummary'
+        imports:
+          $ref: '#/components/schemas/AdminDashboardImportsSummary'
+
+    AdminDashboardUsersSummary:
+      type: object
+      required: [total, active, blocked, teachers, students]
+      properties:
+        total:
+          type: integer
+        active:
+          type: integer
+        blocked:
+          type: integer
+        teachers:
+          type: integer
+        students:
+          type: integer
+
+    AdminDashboardJournalsSummary:
+      type: object
+      required: [total, active, locked, archived]
+      properties:
+        total:
+          type: integer
+        active:
+          type: integer
+        locked:
+          type: integer
+        archived:
+          type: integer
+
+    AdminDashboardDocumentsSummary:
+      type: object
+      required: [total, pending, running, done, failed, permanently_failed]
+      properties:
+        total:
+          type: integer
+        pending:
+          type: integer
+        running:
+          type: integer
+        done:
+          type: integer
+        failed:
+          type: integer
+        permanently_failed:
+          type: integer
+        latest_created_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    AdminDashboardBackupsSummary:
+      type: object
+      required: [status, artifacts]
+      properties:
+        status:
+          type: string
+          enum: [enabled, error]
+          description: Backup subsystem status as seen by Domain.
+        artifacts:
+          type: integer
+          description: Number of known backup artifacts.
+        latest_id:
+          type: string
+          nullable: true
+        latest_status:
+          type: string
+          nullable: true
+        latest_created_at:
+          type: string
+          format: date-time
+          nullable: true
+        error_message:
+          type: string
+          nullable: true
+
+    AdminDashboardImportsSummary:
+      type: object
+      required:
+        - total
+        - pending
+        - validating
+        - preview_ready
+        - conflicts_detected
+        - resolved
+        - applying
+        - completed
+        - failed
+        - partial
+        - cancelled
+        - errors_total
+      properties:
+        total:
+          type: integer
+        pending:
+          type: integer
+        validating:
+          type: integer
+        preview_ready:
+          type: integer
+        conflicts_detected:
+          type: integer
+        resolved:
+          type: integer
+        applying:
+          type: integer
+        completed:
+          type: integer
+        failed:
+          type: integer
+        partial:
+          type: integer
+        cancelled:
+          type: integer
+        errors_total:
+          type: integer
+          description: Number of persisted row-level import errors.
+        latest_status:
+          type: string
+          enum: [pending, validating, preview_ready, conflicts_detected, resolved, applying, completed, failed, partial, cancelled]
+          nullable: true
+        latest_started_at:
+          type: string
+          format: date-time
+          nullable: true
+
+    CreateBackupRequest:
+      type: object
+      properties:
+        component:
+          type: string
+          enum: [database]
+          default: database
+          description: Only `database` is currently supported by the application API.
+
     # -- Academic Periods ---------------------------------------------------
     AcademicPeriod:
       type: object
@@ -3818,12 +7219,12 @@ components:
           example: "Осенний семестр 2024-2025"
         starts_at:
           type: string
-          format: date
-          description: Period start date (YYYY-MM-DD)
+          format: date-time
+          description: Period start timestamp. Runtime serializes PostgreSQL DATE as RFC3339 midnight UTC.
         ends_at:
           type: string
-          format: date
-          description: Period end date (YYYY-MM-DD)
+          format: date-time
+          description: Period end timestamp. Runtime serializes PostgreSQL DATE as RFC3339 midnight UTC.
         is_closed:
           type: boolean
           description: Closed periods cannot be edited (attendance / grades are locked)
@@ -3963,6 +7364,12 @@ components:
           format: date-time
           nullable: true
           description: Lesson end datetime (RFC3339)
+        lesson_order_number:
+          type: integer
+          minimum: 1
+          maximum: 8
+          nullable: true
+          description: Real pair number from the external schedule when available.
         lesson_type:
           type: string
           enum: [lecture, practice, lab, seminar]
@@ -4035,7 +7442,7 @@ components:
           type: boolean
           description: |
             True if this record was created or last modified after the academic period was closed.
-            Post-session entries are allowed only for users with admin/dean role or explicitly granted late-entry permission.
+            Post-session entries are allowed only for users with admin role or explicitly granted late-entry permission.
         late_entry_reason:
           type: string
           nullable: true
@@ -4092,7 +7499,7 @@ components:
           default: false
           description: |
             Set to true to allow writing to a closed academic period (post-session entry).
-            Requires admin or dean role, or explicit late-entry permission on the teacher profile.
+            Requires admin role, or explicit late-entry permission on the teacher profile.
         late_entry_reason:
           type: string
           maxLength: 500
@@ -4202,7 +7609,7 @@ components:
         is_late_entry:
           type: boolean
           default: false
-          description: Set to true to create a grade in a closed period (requires admin/dean role)
+          description: Set to true to create a grade in a closed period (requires admin role)
         late_entry_reason:
           type: string
           maxLength: 500
@@ -4223,7 +7630,7 @@ components:
         is_late_entry:
           type: boolean
           default: false
-          description: Set to true to update a grade in a closed period (requires admin/dean role)
+          description: Set to true to update a grade in a closed period (requires admin role)
         late_entry_reason:
           type: string
           maxLength: 500
@@ -4232,7 +7639,7 @@ components:
     # -- Assessment Forms ---------------------------------------------------
     AssessmentForm:
       type: object
-      required: [id, title, form_type, date, discipline_id, group_id, teacher_id, period_id, status, created_at]
+      required: [id, title, form_type, date, discipline_id, group_id, teacher_id, period_id, created_at]
       properties:
         id:
           type: string
@@ -4241,7 +7648,7 @@ components:
           type: string
         form_type:
           type: string
-          enum: [exam, quiz, homework, project]
+          enum: [exam, quiz, homework, project, colloquium, survey, lab_work, control_work, essay, final_grade]
         date:
           type: string
           format: date
@@ -4260,9 +7667,6 @@ components:
           type: string
           format: uuid
           description: Academic period the form belongs to.
-        status:
-          type: string
-          enum: [open, closed]
         created_at:
           type: string
           format: date-time
@@ -4270,7 +7674,7 @@ components:
     UpdateAssessmentFormRequest:
       type: object
       description: |
-        At least one of `title`, `form_type`, `date` or `status` must be provided.
+        At least one of `title`, `form_type` or `date` must be provided.
         `discipline_id`, `group_id` and `teacher_id` stay immutable after creation.
       properties:
         title:
@@ -4280,20 +7684,12 @@ components:
           description: New title for the assessment form
         form_type:
           type: string
-          enum: [exam, quiz, homework, project]
+          enum: [exam, quiz, homework, project, colloquium, survey, lab_work, control_work, essay, final_grade]
           description: New assessment form type
         date:
           type: string
           format: date
           description: New form date (YYYY-MM-DD); period_id is re-resolved from this date
-        status:
-          type: string
-          enum: [open, closed]
-          description: |
-            Lifecycle transition:
-            - `closed` - lock the form (no new grades allowed). Any teacher/admin can close.
-            - `open` - reopen a closed form. Requires `admin` or `dean` role.
-
     CreateAssessmentFormRequest:
       type: object
       required: [title, form_type, date, discipline_id, group_id]
@@ -4304,7 +7700,7 @@ components:
           maxLength: 255
         form_type:
           type: string
-          enum: [exam, quiz, homework, project]
+          enum: [exam, quiz, homework, project, colloquium, survey, lab_work, control_work, essay, final_grade]
         date:
           type: string
           format: date
@@ -4328,10 +7724,10 @@ components:
       properties:
         report_type:
           type: string
-          enum: [attendance_summary, grade_sheet, group_performance]
+          enum: [attendance_summary, grade_sheet, group_performance, current_attestation_statement]
         format:
           type: string
-          enum: [pdf, excel]
+          enum: [pdf, excel, docx]
         group_id:
           type: string
           format: uuid
@@ -4344,6 +7740,248 @@ components:
           type: string
           format: uuid
           nullable: true
+        academic_period_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Alias for period_id used by journal endpoints.
+        teacher_id:
+          type: string
+          format: uuid
+          nullable: true
+        return_to_department_by:
+          type: string
+          format: date
+          nullable: true
+        progress_as_of:
+          type: string
+          format: date
+          nullable: true
+        overrides:
+          $ref: '#/components/schemas/CurrentAttestationStatementOverrides'
+        options:
+          $ref: '#/components/schemas/CurrentAttestationStatementOptions'
+
+    AdminCurrentAttestationDocumentRequest:
+      type: object
+      required:
+        - format
+        - group_id
+        - discipline_id
+        - academic_period_id
+        - teacher_id
+        - return_to_department_by
+        - progress_as_of
+      properties:
+        format:
+          type: string
+          enum: [docx, pdf]
+          default: docx
+        group_id:
+          type: string
+          format: uuid
+        discipline_id:
+          type: string
+          format: uuid
+        period_id:
+          type: string
+          format: uuid
+          nullable: true
+        academic_period_id:
+          type: string
+          format: uuid
+          nullable: true
+          description: Alias for period_id used by journal endpoints.
+        teacher_id:
+          type: string
+          format: uuid
+        return_to_department_by:
+          type: string
+          format: date
+        progress_as_of:
+          type: string
+          format: date
+        overrides:
+          $ref: '#/components/schemas/CurrentAttestationStatementOverrides'
+        options:
+          $ref: '#/components/schemas/CurrentAttestationStatementOptions'
+
+    AdminDocumentListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/DocumentTask'
+        meta:
+          type: object
+          required: [total, page, page_size]
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            page_size:
+              type: integer
+
+    StatementTemplate:
+      type: object
+      required: [id, report_type, name, formats]
+      properties:
+        id:
+          type: string
+        report_type:
+          type: string
+          enum: [current_attestation_statement]
+        name:
+          type: string
+        formats:
+          type: array
+          items:
+            type: string
+            enum: [docx, pdf]
+        template_path:
+          type: string
+
+    StatementTemplateListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/StatementTemplate'
+
+    CurrentAttestationStatementOverrides:
+      type: object
+      properties:
+        semester_label:
+          type: string
+        faculty_name:
+          type: string
+        department_name:
+          type: string
+        lecture_teacher_name:
+          type: string
+        practice_teacher_name:
+          type: string
+
+    CurrentAttestationStatementOptions:
+      type: object
+      properties:
+        include_lecture_absences:
+          type: boolean
+        include_practice_absences:
+          type: boolean
+        include_colloquiums:
+          type: boolean
+        include_labs:
+          type: boolean
+        include_control_works:
+          type: boolean
+        include_final_grade:
+          type: boolean
+
+    CurrentAttestationPrefill:
+      type: object
+      required: [report_type, available_formats, context, defaults, students]
+      properties:
+        report_type:
+          type: string
+          enum: [current_attestation_statement]
+        available_formats:
+          type: array
+          items:
+            type: string
+            enum: [docx, pdf]
+        context:
+          $ref: '#/components/schemas/CurrentAttestationPrefillContext'
+        defaults:
+          $ref: '#/components/schemas/CurrentAttestationPrefillDefaults'
+        students:
+          type: array
+          items:
+            $ref: '#/components/schemas/CurrentAttestationPrefillStudent'
+
+    CurrentAttestationPrefillContext:
+      type: object
+      required:
+        - group_id
+        - group_name
+        - discipline_id
+        - discipline_name
+        - academic_period_id
+        - academic_period_name
+        - academic_period_start
+        - academic_period_end
+        - course
+        - faculty_name
+        - department_name
+        - lecture_teacher_name
+        - practice_teacher_name
+      properties:
+        group_id:
+          type: string
+          format: uuid
+        group_name:
+          type: string
+        discipline_id:
+          type: string
+          format: uuid
+        discipline_name:
+          type: string
+        academic_period_id:
+          type: string
+          format: uuid
+        academic_period_name:
+          type: string
+        academic_period_start:
+          type: string
+          format: date
+        academic_period_end:
+          type: string
+          format: date
+        teacher_id:
+          type: string
+          format: uuid
+          nullable: true
+        course:
+          type: integer
+        faculty_name:
+          type: string
+        department_name:
+          type: string
+        lecture_teacher_name:
+          type: string
+        practice_teacher_name:
+          type: string
+
+    CurrentAttestationPrefillDefaults:
+      type: object
+      required: [format, overrides, options]
+      properties:
+        format:
+          type: string
+          enum: [docx, pdf]
+        overrides:
+          $ref: '#/components/schemas/CurrentAttestationStatementOverrides'
+        options:
+          $ref: '#/components/schemas/CurrentAttestationStatementOptions'
+
+    CurrentAttestationPrefillStudent:
+      type: object
+      required: [number, id, full_name]
+      properties:
+        number:
+          type: integer
+        id:
+          type: string
+          format: uuid
+        full_name:
+          type: string
+        student_code:
+          type: string
 
     DocumentTask:
       type: object
@@ -4360,7 +7998,7 @@ components:
         result:
           type: object
           nullable: true
-          description: Available when status is 'done'; contains file_url
+          description: Available when status is 'done'; contains file_path, file_name, content_type and generated_at.
         error_msg:
           type: string
           nullable: true
@@ -4409,7 +8047,7 @@ components:
           type: string
           format: uuid
           nullable: true
-          description: Academic period the grant is scoped to (null = all periods)
+          description: Academic period the grant is scoped to. New grants always have a value.
         access_level:
           $ref: '#/components/schemas/JournalAccessGrantAccessLevel'
         granted_at:
@@ -4435,7 +8073,7 @@ components:
 
     GrantJournalAccessRequest:
       type: object
-      required: [grantee_id, discipline_id, group_id, access_level]
+      required: [grantee_id, discipline_id, group_id, period_id, access_level]
       description: Request body for creating a journal access delegation
       properties:
         granter_id:
@@ -4458,8 +8096,7 @@ components:
         period_id:
           type: string
           format: uuid
-          nullable: true
-          description: Scope to a specific academic period (null = all periods)
+          description: Academic period to share. All-period grants are intentionally unsupported.
         access_level:
           $ref: '#/components/schemas/JournalAccessGrantAccessLevel'
         expires_at:
@@ -4467,6 +8104,70 @@ components:
           format: date-time
           nullable: true
           description: Optional automatic expiry (e.g. end of semester)
+
+    AdminAccessBinding:
+      allOf:
+        - $ref: '#/components/schemas/JournalAccessGrant'
+      description: |
+        Administrative access binding. MVP representation is a
+        `JournalAccessGrant`; future binding types can extend this schema.
+
+    AdminAccessBindingCreateRequest:
+      allOf:
+        - $ref: '#/components/schemas/GrantJournalAccessRequest'
+      required: [granter_id, grantee_id, discipline_id, group_id, access_level]
+      description: |
+        Admin request for creating a journal access binding. Unlike the teacher
+        endpoint, `granter_id` is required because the admin issues access on
+        behalf of a source teacher.
+
+    AdminAccessBindingResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminAccessBinding'
+
+    AdminAccessBindingListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminAccessBinding'
+
+    AdminTeachingAssignmentResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/AdminTeachingAssignment'
+
+    AdminTeachingAssignmentListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdminTeachingAssignment'
+
+    AdminHeadStudentGrantResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/HeadStudentGrant'
+
+    AdminHeadStudentGrantListResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/HeadStudentGrant'
 
     # -- Lesson Template schemas ------------------------------------------------
     LessonTemplate:
@@ -5007,7 +8708,7 @@ components:
           format: uuid
         status:
           type: string
-          enum: [pending, validating, preview_ready, conflicts_detected, resolved, applying, completed, failed, partial]
+          enum: [pending, validating, preview_ready, conflicts_detected, resolved, applying, completed, failed, partial, cancelled]
         summary:
           $ref: '#/components/schemas/ImportSummary'
         rows:
@@ -5020,6 +8721,82 @@ components:
           items:
             $ref: '#/components/schemas/ImportConflict'
 
+    ImportBatchHistoryItem:
+      type: object
+      required: [id, import_type, import_mode, started_by, started_at, status, errors_count, warnings_count, conflicts_count]
+      description: Compact import batch row for admin diagnostics and history lists.
+      properties:
+        id:
+          type: string
+          format: uuid
+        import_type:
+          type: string
+          example: students
+        import_mode:
+          type: string
+          enum: [merge, replace_active_roster]
+        group_id:
+          type: string
+          format: uuid
+          nullable: true
+        group_name:
+          type: string
+          nullable: true
+        period_id:
+          type: string
+          format: uuid
+          nullable: true
+        period_name:
+          type: string
+          nullable: true
+        source_file_name:
+          type: string
+          nullable: true
+        started_by:
+          type: string
+          description: Keycloak sub claim of the user who started the import.
+        started_at:
+          type: string
+          format: date-time
+        finished_at:
+          type: string
+          format: date-time
+          nullable: true
+        status:
+          type: string
+          enum: [pending, validating, preview_ready, conflicts_detected, resolved, applying, completed, failed, partial, cancelled]
+        summary:
+          $ref: '#/components/schemas/ImportSummary'
+          nullable: true
+        errors_count:
+          type: integer
+          description: Persisted row-level errors for this batch.
+        warnings_count:
+          type: integer
+          description: Persisted row-level warnings for this batch.
+        conflicts_count:
+          type: integer
+          description: Persisted conflicts for this batch.
+
+    ImportBatchHistoryListResponse:
+      type: object
+      required: [data, meta]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportBatchHistoryItem'
+        meta:
+          type: object
+          required: [total, page, page_size]
+          properties:
+            total:
+              type: integer
+            page:
+              type: integer
+            page_size:
+              type: integer
+
     ImportBatchStatus:
       type: object
       required: [id, status, started_by, started_at]
@@ -5030,7 +8807,7 @@ components:
           format: uuid
         status:
           type: string
-          enum: [pending, validating, preview_ready, conflicts_detected, resolved, applying, completed, failed, partial]
+          enum: [pending, validating, preview_ready, conflicts_detected, resolved, applying, completed, failed, partial, cancelled]
         group_id:
           type: string
           format: uuid
@@ -5055,6 +8832,43 @@ components:
         summary:
           $ref: '#/components/schemas/ImportSummary'
           nullable: true
+
+    ImportItemError:
+      type: object
+      required: [id, batch_id, severity, error_code, message]
+      properties:
+        id:
+          type: string
+          format: uuid
+        batch_id:
+          type: string
+          format: uuid
+        row_number:
+          type: integer
+          nullable: true
+        severity:
+          type: string
+          enum: [error, warning, info]
+        error_code:
+          type: string
+          description: Machine-readable validation or processing code.
+        message:
+          type: string
+        raw_value:
+          type: string
+          nullable: true
+
+    ImportItemErrorsResponse:
+      type: object
+      required: [batch_id, errors]
+      properties:
+        batch_id:
+          type: string
+          format: uuid
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ImportItemError'
 
     ImportConflictsResponse:
       type: object
@@ -5131,6 +8945,16 @@ components:
 
     PeriodClosed:
       description: Academic period is closed for editing
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+
+    JournalWriteBlocked:
+      description: |
+        Journal write is blocked. Returned when the academic period is closed
+        (`PERIOD_CLOSED`) or when the journal context is locked/archived
+        (`JOURNAL_LOCKED`, `JOURNAL_ARCHIVED`).
       content:
         application/json:
           schema:

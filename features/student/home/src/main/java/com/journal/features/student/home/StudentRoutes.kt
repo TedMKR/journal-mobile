@@ -37,6 +37,7 @@ import com.journal.core.model.teacher.StudentProfile
 import com.journal.core.model.teacher.StudentSubjectSummary
 import com.journal.core.network.api.JournalApi
 import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 private val Background = Color(0xFFEDEEED)
@@ -149,7 +150,8 @@ private fun ScheduleContent(
             item {
                 StudentDayScheduleCard(
                     dayName = dayName,
-                    lessons = groupedLessons[dayIndex].orEmpty().sortedBy { it.scheduledAt },
+                    lessons = groupedLessons[dayIndex].orEmpty()
+                        .sortedWith(compareBy({ it.lessonOrderNumber ?: Int.MAX_VALUE }, { it.scheduledAt })),
                     onOpenSubject = onOpenSubject
                 )
             }
@@ -184,10 +186,9 @@ private fun StudentDayScheduleCard(
                 modifier = Modifier.padding(vertical = 8.dp)
             )
         } else {
-            lessons.forEachIndexed { index, lesson ->
+            lessons.forEach { lesson ->
                 StudentLessonCard(
                     lesson = lesson,
-                    orderNumber = index + 1,
                     onClick = onOpenSubject
                 )
             }
@@ -198,9 +199,9 @@ private fun StudentDayScheduleCard(
 @Composable
 private fun StudentLessonCard(
     lesson: StudentLesson,
-    orderNumber: Int,
     onClick: () -> Unit
 ) {
+    val orderNumber = lesson.lessonOrderNumber ?: 0
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -210,14 +211,16 @@ private fun StudentLessonCard(
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(
-                modifier = Modifier
-                    .background(BadgeBackground, RoundedCornerShape(10.dp))
-                    .padding(horizontal = 10.dp, vertical = 2.dp)
-            ) {
-                Text(orderNumber.toString(), color = PrimaryText, fontWeight = FontWeight.SemiBold)
+            if (orderNumber > 0) {
+                Box(
+                    modifier = Modifier
+                        .background(BadgeBackground, RoundedCornerShape(10.dp))
+                        .padding(horizontal = 10.dp, vertical = 2.dp)
+                ) {
+                    Text(orderNumber.toString(), color = PrimaryText, fontWeight = FontWeight.SemiBold)
+                }
             }
-            Text(lessonSlotTime(orderNumber), color = PrimaryText, style = MaterialTheme.typography.bodyMedium)
+            Text(formatLessonTime(lesson.scheduledAt, lesson.endsAt), color = PrimaryText, style = MaterialTheme.typography.bodyMedium)
             Text(
                 text = lesson.disciplineName,
                 color = PrimaryText,
@@ -433,15 +436,12 @@ private fun lessonDayIndex(scheduledAt: String): Int = runCatching {
     OffsetDateTime.parse(scheduledAt).dayOfWeek.value - 1
 }.getOrDefault(-1)
 
-private fun lessonSlotTime(orderNumber: Int): String = when (orderNumber) {
-    1 -> "09:00 - 10:30"
-    2 -> "10:40 - 12:10"
-    3 -> "12:50 - 14:20"
-    4 -> "14:30 - 16:00"
-    5 -> "16:10 - 17:40"
-    6 -> "17:50 - 19:20"
-    else -> "—"
-}
+private fun formatLessonTime(scheduledAt: String, endsAt: String?): String = runCatching {
+    val fmt = DateTimeFormatter.ofPattern("HH:mm")
+    val start = OffsetDateTime.parse(scheduledAt).format(fmt)
+    val end = endsAt?.let { OffsetDateTime.parse(it).format(fmt) }
+    if (end != null) "$start - $end" else start
+}.getOrElse { "" }
 
 private fun lessonTypeName(type: String): String = when (type) {
     "lecture" -> "Лекция"

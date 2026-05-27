@@ -25,7 +25,9 @@ object DatabaseModule {
             context,
             JournalDatabase::class.java,
             "journal.db"
-        ).build()
+        )
+            .addMigrations(JournalDatabase.MIGRATION_1_2)
+            .build()
 
     @Provides
     fun provideSessionDao(db: JournalDatabase): SessionDao = db.sessionDao()

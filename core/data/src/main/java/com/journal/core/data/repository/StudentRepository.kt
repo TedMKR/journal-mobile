@@ -71,7 +71,8 @@ private fun StudentLessonEntity.toDomain() = StudentLesson(
     status = status,
     location = location,
     topic = topic,
-    myAttendanceStatus = myAttendanceStatus
+    myAttendanceStatus = myAttendanceStatus,
+    lessonOrderNumber = lessonOrderNumber
 )
 
 private fun StudentLesson.toEntity() = StudentLessonEntity(
@@ -89,5 +90,6 @@ private fun StudentLesson.toEntity() = StudentLessonEntity(
     status = status,
     location = location,
     topic = topic,
-    myAttendanceStatus = myAttendanceStatus
+    myAttendanceStatus = myAttendanceStatus,
+    lessonOrderNumber = lessonOrderNumber
 )

@@ -29,7 +29,8 @@ data class StudentLesson(
     @SerialName("status") val status: String? = null,
     @SerialName("location") val location: String? = null,
     @SerialName("topic") val topic: String? = null,
-    @SerialName("my_attendance_status") val myAttendanceStatus: String? = null
+    @SerialName("my_attendance_status") val myAttendanceStatus: String? = null,
+    @SerialName("lesson_order_number") val lessonOrderNumber: Int? = null
 )
 
 @Serializable

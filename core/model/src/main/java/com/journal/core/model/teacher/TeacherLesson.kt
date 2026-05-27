@@ -19,5 +19,6 @@ data class TeacherLesson(
     @SerialName("attendance_marked") val attendanceMarked: Boolean? = null,
     @SerialName("topic") val topic: String? = null,
     @SerialName("teacher_id") val teacherId: String? = null,
-    @SerialName("teacher_name") val teacherName: String? = null
+    @SerialName("teacher_name") val teacherName: String? = null,
+    @SerialName("lesson_order_number") val lessonOrderNumber: Int? = null
 )
