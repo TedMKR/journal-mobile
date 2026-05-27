@@ -2,6 +2,17 @@ package com.journal.app.navigation
 
 import android.content.Intent
 import android.net.Uri
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.AnimatedVisibilityScope
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -96,6 +107,7 @@ fun JournalNavHost(
                 AppHeader(
                     title = screenTitle(currentRoute.orEmpty()),
                     canNavigateBack = canNavigateBack(role = role, currentRoute = currentRoute),
+                    isMenuOpen = isMenuOpen,
                     onBack = { navController.popBackStack() },
                     onMenu = { isMenuOpen = !isMenuOpen }
                 )
@@ -288,7 +300,11 @@ fun JournalNavHost(
             }
         }
 
-        if (isMenuOpen && role != null) {
+        AnimatedVisibility(
+            visible = isMenuOpen && role != null,
+            enter = EnterTransition.None,
+            exit = ExitTransition.None
+        ) {
             RightSideMenu(
                 role = role.orEmpty(),
                 currentRoute = currentRoute.orEmpty(),
@@ -322,6 +338,7 @@ fun JournalNavHost(
 private fun AppHeader(
     title: String,
     canNavigateBack: Boolean,
+    isMenuOpen: Boolean,
     onBack: () -> Unit,
     onMenu: () -> Unit
 ) {
@@ -357,38 +374,56 @@ private fun AppHeader(
             textAlign = TextAlign.Center
         )
 
-        Text(
-            text = "☰",
+        Crossfade(
+            targetState = isMenuOpen,
+            animationSpec = tween(250),
             modifier = Modifier
                 .align(Alignment.CenterEnd)
                 .clickable(onClick = onMenu)
                 .padding(horizontal = 13.dp, vertical = 8.dp),
-            color = MenuPrimary,
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold
-        )
+            label = "menu_icon"
+        ) { open ->
+            Text(
+                text = if (open) "×" else "☰",
+                color = MenuPrimary,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        }
     }
 }
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
-private fun RightSideMenu(
+private fun AnimatedVisibilityScope.RightSideMenu(
     role: String,
     currentRoute: String,
     onDismiss: () -> Unit,
     onNavigate: (String) -> Unit,
     onLogout: () -> Unit
 ) {
+    val animScope = this
     Box(
         modifier = Modifier
             .fillMaxSize()
+            .animateEnterExit(
+                enter = fadeIn(animationSpec = tween(300)),
+                exit = fadeOut(animationSpec = tween(300))
+            )
             .background(MenuOverlay)
             .clickable(onClick = onDismiss)
     ) {
         Column(
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .fillMaxHeight()
-                .width(284.dp)
+            modifier = with(animScope) {
+                Modifier
+                    .align(Alignment.CenterEnd)
+                    .fillMaxHeight()
+                    .width(284.dp)
+                    .animateEnterExit(
+                        enter = slideInHorizontally(animationSpec = tween(300)) { it },
+                        exit = slideOutHorizontally(animationSpec = tween(300)) { it }
+                    )
+            }
                 .background(MenuBackground)
                 .clickable(enabled = false) {}
                 .padding(horizontal = 18.dp, vertical = 28.dp),
