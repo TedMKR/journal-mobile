@@ -71,6 +71,8 @@ data class StudentSubjectCard(
     @SerialName("lessons_total") val lessonsTotal: Int = 0,
     @SerialName("absences_total") val absencesTotal: Int = 0,
     @SerialName("absences_valid_excuse") val absencesValidExcuse: Int = 0,
+    @SerialName("assessments_completed") val assessmentsCompleted: Int = 0,
+    @SerialName("assessments_total") val assessmentsTotal: Int = 0,
     @SerialName("avg_grade") val avgGrade: Double? = null,
     @SerialName("attendance_by_month") val attendanceByMonth: List<StudentAttendanceByMonth> = emptyList(),
     @SerialName("journal_lessons") val journalLessons: List<StudentJournalLesson> = emptyList(),
@@ -88,6 +90,10 @@ data class StudentCardProfile(
 @Serializable
 data class StudentAttendanceByMonth(
     @SerialName("month") val month: String,
+    @SerialName("total_lessons") val totalLessons: Int = 0,
+    @SerialName("attended") val attended: Int = 0,
+    @SerialName("absent") val absent: Int = 0,
+    @SerialName("valid_excuse") val validExcuse: Int = 0,
     @SerialName("attendance_pct") val attendancePct: Double = 0.0
 )
 
