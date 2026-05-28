@@ -78,6 +78,7 @@ data class RequestReportPayload(
     @SerialName("period_id") val periodId: String? = null,
     @SerialName("teacher_id") val teacherId: String? = null,
     @SerialName("return_to_dean_by") val returnToDeanBy: String? = null,
+    @SerialName("return_to_department_by") val returnToDepartmentBy: String? = null,
     @SerialName("progress_as_of") val progressAsOf: String? = null,
     @SerialName("overrides") val overrides: CurrentAttestationOverrides = CurrentAttestationOverrides(),
     @EncodeDefault @SerialName("options") val options: CurrentAttestationOptions = CurrentAttestationOptions()

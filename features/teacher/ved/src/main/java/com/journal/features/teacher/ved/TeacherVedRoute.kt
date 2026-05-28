@@ -268,7 +268,7 @@ fun TeacherVedRoute(journalApi: JournalApi) {
                                 if (updated.status == "failed" || updated.status == "permanently_failed") error = updated.error ?: "Формирование ведомости завершилось ошибкой"
                             }
                         }.onFailure { throwable ->
-                            error = throwable.message ?: "Не удалось сформировать ведомость"
+                            error = throwable.httpErrorMessage().ifBlank { "Не удалось сформировать ведомость" }
                         }
                         isGenerating = false
                     }
@@ -776,11 +776,13 @@ private fun requestStatementPayloads(
     overrides: CurrentAttestationOverrides,
     options: CurrentAttestationOptions
 ): List<RequestReportPayload> {
+    val dateValue = returnToDeanBy.ifBlank { null }
     val base = RequestReportPayload(
         format = format,
         groupId = context.groupId,
         disciplineId = context.disciplineId,
-        returnToDeanBy = returnToDeanBy.ifBlank { null },
+        returnToDeanBy = dateValue,
+        returnToDepartmentBy = dateValue,   // web sends both fields
         progressAsOf = progressAsOf.ifBlank { null },
         overrides = overrides.compact(),
         options = options
@@ -806,7 +808,36 @@ private fun CurrentAttestationOverrides.compact(): CurrentAttestationOverrides =
     practiceTeacherName = practiceTeacherName?.ifBlank { null }
 )
 
-private fun Throwable.isRecoverableReportRequestError(): Boolean = this is HttpException && code() in setOf(400, 404)
+/** Только 404 (или "not found" в теле) считается recoverable — попробуем следующий вариант payload.
+ *  400 — ошибка валидации, не стоит повторять с теми же данными. */
+private fun Throwable.isRecoverableReportRequestError(): Boolean {
+    if (this !is HttpException) return false
+    if (code() == 404) return true
+    val body = runCatching { response()?.errorBody()?.string().orEmpty() }.getOrElse { "" }
+    return body.contains("not found", ignoreCase = true) ||
+           body.contains("teachers can only request reports for their own journal context", ignoreCase = true)
+}
+
+/** Извлекает читаемое сообщение из тела HTTP-ошибки или из throwable.message. */
+internal fun Throwable.httpErrorMessage(): String {
+    if (this is HttpException) {
+        val body = runCatching { response()?.errorBody()?.string().orEmpty() }.getOrElse { "" }
+        if (body.isNotBlank()) {
+            // Пробуем вытащить поле error.message или message из JSON
+            val candidate = body
+                .substringAfter("\"message\":", "")
+                .substringAfter("\"message\" :", "")
+                .trimStart()
+                .removePrefix("\"")
+                .substringBefore("\"")
+                .trim()
+            if (candidate.isNotBlank()) return candidate
+            // Если JSON не разобрался — вернём тело целиком (обрезаем до 200 символов)
+            return body.take(200)
+        }
+    }
+    return message?.takeIf { it.isNotBlank() } ?: "Неизвестная ошибка"
+}
 
 private suspend fun waitForStatement(
     journalApi: JournalApi,
