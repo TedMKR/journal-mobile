@@ -72,23 +72,32 @@ import com.journal.core.model.teacher.AdminUpdateUserRequest
 import com.journal.core.model.teacher.AdminUser
 import com.journal.core.model.teacher.AuditEvent
 import com.journal.core.network.api.JournalApi
+import com.journal.core.ui.AppBackground
+import com.journal.core.ui.AppDanger
+import com.journal.core.ui.AppDangerLight
+import com.journal.core.ui.AppFieldBorder
+import com.journal.core.ui.AppHeaderBackground
+import com.journal.core.ui.AppInputText
+import com.journal.core.ui.AppMutedText
+import com.journal.core.ui.AppPrimary
+import com.journal.core.ui.AppSuccessLight
 import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 
-// ─── Colors (shared with app palette) ────────────────────────────────────────
+// ─── Colors ───────────────────────────────────────────────────────────────────
 
-private val BackgroundColor = Color(0xFFEDEEED)
+private val BackgroundColor = AppBackground
 private val CardBackground = Color.White
-private val PrimaryBlue = Color(0xFF223268)
-private val SecondaryText = Color(0xFF6D7885)
-private val LightBlue = Color(0xFFD3D7E1)
-private val FieldBorder = Color(0xFFD1D5DB)
-private val InputTextColor = Color(0xFF1F2937)
-private val DangerColor = Color(0xFFC44A4A)
-private val DangerLight = Color(0xFFFFE4E6)
+private val PrimaryBlue = AppPrimary
+private val SecondaryText = AppMutedText
+private val LightBlue = AppHeaderBackground
+private val FieldBorder = AppFieldBorder
+private val InputTextColor = AppInputText
+private val DangerColor = AppDanger
+private val DangerLight = AppDangerLight
 private val GreenColor = Color(0xFF16A34A)
-private val GreenLight = Color(0xFFDCFCE7)
+private val GreenLight = AppSuccessLight
 private val AccentBadge = Color(0xFFEFF6FF)
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────

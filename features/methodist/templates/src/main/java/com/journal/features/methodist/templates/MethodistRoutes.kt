@@ -61,19 +61,26 @@ import com.journal.core.model.teacher.TeacherProfile
 import com.journal.core.model.teacher.TopicPayload
 import com.journal.core.model.teacher.UpdateLessonTemplateRequest
 import com.journal.core.network.api.JournalApi
+import com.journal.core.ui.AppBackground
+import com.journal.core.ui.AppDanger
+import com.journal.core.ui.AppFieldBorder
+import com.journal.core.ui.AppFieldPlaceholder
+import com.journal.core.ui.AppHeaderBackground
+import com.journal.core.ui.AppMutedText
+import com.journal.core.ui.AppPrimary
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
 
-private val BackgroundColor = Color(0xFFEDEEED)
+private val BackgroundColor = AppBackground
 private val CardBackground = Color.White
-private val PrimaryText = Color(0xFF223268)
-private val SecondaryText = Color(0xFF6D7885)
-private val LightBlue = Color(0xFFD3D7E1)
-private val FieldBorder = Color(0xFFD1D5DB)
-private val FieldPlaceholder = Color(0xFF9CA3AF)
-private val AccentBlue = Color(0xFF223268)
-private val DangerColor = Color(0xFFC44A4A)
+private val PrimaryText = AppPrimary
+private val SecondaryText = AppMutedText
+private val LightBlue = AppHeaderBackground
+private val FieldBorder = AppFieldBorder
+private val FieldPlaceholder = AppFieldPlaceholder
+private val AccentBlue = AppPrimary
+private val DangerColor = AppDanger
 private const val DashboardVisibleRows = 8
 
 @Composable

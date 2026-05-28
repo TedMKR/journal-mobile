@@ -52,6 +52,11 @@ import com.journal.core.model.teacher.TeacherLesson
 import com.journal.core.model.teacher.TeacherProfile
 import com.journal.core.model.teacher.TeacherStats
 import com.journal.core.network.api.JournalApi
+import com.journal.core.ui.AppBackground
+import com.journal.core.ui.AppHeaderBackground
+import com.journal.core.ui.AppLessonBackground
+import com.journal.core.ui.AppPrimary
+import com.journal.core.ui.AppSecondaryText
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -59,12 +64,12 @@ import kotlin.math.roundToInt
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val BackgroundColor = Color(0xFFEDEEED)
-private val PrimaryText = Color(0xFF223268)
-private val SecondaryText = Color(0xFF7E8E99)
+private val BackgroundColor = AppBackground
+private val PrimaryText = AppPrimary
+private val SecondaryText = AppSecondaryText
 private val CardBackground = Color.White
-private val AccentBackground = Color(0xFFD3D7E1)
-private val LessonBackground = Color(0xFFE4E6EC)
+private val AccentBackground = AppHeaderBackground
+private val LessonBackground = AppLessonBackground
 
 @Composable
 fun TeacherDashboardRoute(

@@ -15,11 +15,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
-private val AppPrimaryText = Color(0xFF223268)
-private val AppCardBackground = Color.White
-private val AppSecondaryText = Color(0xFF7E8E99)
-private val AppLightBlue = Color(0xFFE4E6EC)
-
 /**
  * Стилизованный DatePickerDialog в цветах приложения (тёмно-синий/белый).
  * Используйте вместо стандартного DatePickerDialog + DatePicker.
@@ -37,7 +32,7 @@ fun StyledDatePickerDialog(
             Button(
                 onClick = onConfirm,
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = AppPrimaryText,
+                    containerColor = AppPrimary,
                     contentColor = Color.White
                 ),
                 shape = RoundedCornerShape(8.dp)
@@ -47,31 +42,31 @@ fun StyledDatePickerDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Отмена", color = AppPrimaryText, fontWeight = FontWeight.SemiBold)
+                Text("Отмена", color = AppPrimary, fontWeight = FontWeight.SemiBold)
             }
         },
-        colors = DatePickerDefaults.colors(containerColor = AppCardBackground)
+        colors = DatePickerDefaults.colors(containerColor = Color.White)
     ) {
         DatePicker(
             state = state,
             colors = DatePickerDefaults.colors(
-                containerColor = AppCardBackground,
-                titleContentColor = AppPrimaryText,
-                headlineContentColor = AppPrimaryText,
-                navigationContentColor = AppPrimaryText,
-                subheadContentColor = AppPrimaryText,
+                containerColor = Color.White,
+                titleContentColor = AppPrimary,
+                headlineContentColor = AppPrimary,
+                navigationContentColor = AppPrimary,
+                subheadContentColor = AppPrimary,
                 weekdayContentColor = AppSecondaryText,
-                dayContentColor = AppPrimaryText,
+                dayContentColor = AppPrimary,
                 disabledDayContentColor = Color(0xFFADB5BD),
-                todayContentColor = AppPrimaryText,
-                todayDateBorderColor = AppPrimaryText,
+                todayContentColor = AppPrimary,
+                todayDateBorderColor = AppPrimary,
                 selectedDayContentColor = Color.White,
-                selectedDayContainerColor = AppPrimaryText,
-                yearContentColor = AppPrimaryText,
-                currentYearContentColor = AppPrimaryText,
+                selectedDayContainerColor = AppPrimary,
+                yearContentColor = AppPrimary,
+                currentYearContentColor = AppPrimary,
                 selectedYearContentColor = Color.White,
-                selectedYearContainerColor = AppPrimaryText,
-                dividerColor = AppLightBlue
+                selectedYearContainerColor = AppPrimary,
+                dividerColor = AppLessonBackground
             )
         )
     }

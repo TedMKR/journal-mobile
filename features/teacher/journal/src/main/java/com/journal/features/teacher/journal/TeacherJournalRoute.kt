@@ -52,6 +52,14 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.journal.core.ui.AppBackground
+import com.journal.core.ui.AppDanger
+import com.journal.core.ui.AppFieldBorder
+import com.journal.core.ui.AppFieldPlaceholder
+import com.journal.core.ui.AppHeaderBackground
+import com.journal.core.ui.AppPrimary
+import com.journal.core.ui.AppSuccess
+import com.journal.core.ui.AppWarning
 import com.journal.core.ui.StyledDatePickerDialog
 import com.journal.core.model.teacher.JournalGridAssessmentForm
 import com.journal.core.model.teacher.JournalGridAttendance
@@ -68,18 +76,18 @@ import java.time.format.DateTimeFormatter
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
-private val BackgroundColor = Color(0xFFEDEEED)
-private val PrimaryText = Color(0xFF223268)
+private val BackgroundColor = AppBackground
+private val PrimaryText = AppPrimary
 private val CardBackground = Color.White
-private val HeaderBackground = Color(0xFFD3D7E1)
+private val HeaderBackground = AppHeaderBackground
 private val CellBorder = Color(0xFFC9CED8)
-private val AccentBlue = Color(0xFF223268)
-private val PresentColor = Color(0xFF1F8A5B)
-private val AbsentColor = Color(0xFFC44A4A)
-private val ExcuseColor = Color(0xFFE19B2C)
-private val DangerColor = Color(0xFFC44A4A)
-private val FieldBorder = Color(0xFFD1D5DB)
-private val FieldPlaceholder = Color(0xFF9CA3AF)
+private val AccentBlue = AppPrimary
+private val PresentColor = AppSuccess
+private val AbsentColor = AppDanger
+private val ExcuseColor = AppWarning
+private val DangerColor = AppDanger
+private val FieldBorder = AppFieldBorder
+private val FieldPlaceholder = AppFieldPlaceholder
 private val DialogContainerColor = Color.White
 private val DialogTextColor = Color.Black
 

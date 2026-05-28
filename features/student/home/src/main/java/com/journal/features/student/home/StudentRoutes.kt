@@ -50,29 +50,38 @@ import com.journal.core.model.teacher.StudentSubjectCard
 import com.journal.core.model.teacher.StudentProfile
 import com.journal.core.model.teacher.StudentSubjectSummary
 import com.journal.core.network.api.JournalApi
+import com.journal.core.ui.AppBackground
+import com.journal.core.ui.AppBarBackground
+import com.journal.core.ui.AppDanger
+import com.journal.core.ui.AppHeaderBackground
+import com.journal.core.ui.AppLessonBackground
+import com.journal.core.ui.AppPrimary
+import com.journal.core.ui.AppSecondaryText
+import com.journal.core.ui.AppSuccess
+import com.journal.core.ui.AppWarning
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val Background = Color(0xFFEDEEED)
+private val Background = AppBackground
 private val CardBackground = Color.White
-private val LessonBackground = Color(0xFFE4E6EC)
-private val PrimaryText = Color(0xFF223268)
-private val MutedText = Color(0xFF7E8E99)
-private val BadgeBackground = Color(0xFFD3D7E1)
-private val LightBlue = Color(0xFFD3D7E1)
-private val BarBackground = Color(0xFFCAD0E3)
+private val LessonBackground = AppLessonBackground
+private val PrimaryText = AppPrimary
+private val MutedText = AppSecondaryText
+private val BadgeBackground = AppHeaderBackground
+private val LightBlue = AppHeaderBackground
+private val BarBackground = AppBarBackground
 private val Accent = Color(0xFF3B82F6)
 private val Danger = Color(0xFFDC2626)
 private val Success = Color(0xFF16A34A)
 
 // Journal table colours
-private val JournalHeaderBg    = Color(0xFFD3D7E1)
+private val JournalHeaderBg    = AppHeaderBackground
 private val JournalCellBorder  = Color(0xFFC9CED8)
-private val JournalPresentColor = Color(0xFF1F8A5B)
-private val JournalAbsentColor  = Color(0xFFC44A4A)
-private val JournalExcuseColor  = Color(0xFFE19B2C)
+private val JournalPresentColor = AppSuccess
+private val JournalAbsentColor  = AppDanger
+private val JournalExcuseColor  = AppWarning
 
 private const val STUDENT_NAME_COL   = 190
 private const val STUDENT_ATTEND_COL = 82

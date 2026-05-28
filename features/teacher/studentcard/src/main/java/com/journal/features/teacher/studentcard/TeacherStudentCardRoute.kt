@@ -36,16 +36,21 @@ import androidx.compose.ui.unit.dp
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.JournalGridStudent
 import com.journal.core.network.api.JournalApi
+import com.journal.core.ui.AppBackground
+import com.journal.core.ui.AppBarBackground
+import com.journal.core.ui.AppHeaderBackground
+import com.journal.core.ui.AppPrimary
+import com.journal.core.ui.AppSecondaryText
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val BackgroundColor = Color(0xFFEDEEED)
-private val PrimaryText = Color(0xFF223268)
-private val MutedText = Color(0xFF7E8E99)
+private val BackgroundColor = AppBackground
+private val PrimaryText = AppPrimary
+private val MutedText = AppSecondaryText
 private val CardBackground = Color.White
-private val LightBlue = Color(0xFFD3D7E1)
-private val BarBackground = Color(0xFFCAD0E3)
+private val LightBlue = AppHeaderBackground
+private val BarBackground = AppBarBackground
 
 @Composable
 fun TeacherStudentCardRoute(

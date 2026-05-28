@@ -48,6 +48,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import com.journal.core.ui.AppBackground
+import com.journal.core.ui.AppFieldBorder
+import com.journal.core.ui.AppFieldPlaceholder
+import com.journal.core.ui.AppLessonBackground
+import com.journal.core.ui.AppPrimary
+import com.journal.core.ui.AppSecondaryText
 import com.journal.core.ui.StyledDatePickerDialog
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriod
@@ -67,13 +73,13 @@ import java.time.ZoneOffset
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val BackgroundColor = Color(0xFFEDEEED)
-private val PrimaryText = Color(0xFF223268)
-private val SecondaryText = Color(0xFF7E8E99)
+private val BackgroundColor = AppBackground
+private val PrimaryText = AppPrimary
+private val SecondaryText = AppSecondaryText
 private val CardBackground = Color.White
-private val LightBlue = Color(0xFFE4E6EC)
-private val FieldBorder = Color(0xFFD1D5DB)
-private val FieldPlaceholder = Color(0xFF9CA3AF)
+private val LightBlue = AppLessonBackground
+private val FieldBorder = AppFieldBorder
+private val FieldPlaceholder = AppFieldPlaceholder
 private val Danger = Color(0xFFB42318)
 private val Success = Color(0xFF027A48)
 

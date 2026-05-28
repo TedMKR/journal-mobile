@@ -42,10 +42,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.journal.core.ui.AppFieldBorder
+import com.journal.core.ui.AppFieldPlaceholder
+import com.journal.core.ui.AppPrimary
 
-private val PrimaryText = Color(0xFF223268)
-private val FieldBorder = Color(0xFFD1D5DB)
-private val FieldPlaceholder = Color(0xFF9CA3AF)
+private val PrimaryText = AppPrimary
+private val FieldBorder = AppFieldBorder
+private val FieldPlaceholder = AppFieldPlaceholder
 private val ErrorText = Color(0xFFB91C1C)
 
 @Composable
