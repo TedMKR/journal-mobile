@@ -32,7 +32,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -54,13 +54,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppDanger
-import com.journal.core.ui.AppFieldBorder
-import com.journal.core.ui.AppFieldPlaceholder
 import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppSuccess
 import com.journal.core.ui.AppWarning
 import com.journal.core.ui.StyledDatePickerDialog
+import com.journal.core.ui.appFieldColors
 import com.journal.core.model.teacher.JournalGridAssessmentForm
 import com.journal.core.model.teacher.JournalGridAttendance
 import com.journal.core.model.teacher.JournalGridGrade
@@ -86,8 +85,6 @@ private val PresentColor = AppSuccess
 private val AbsentColor = AppDanger
 private val ExcuseColor = AppWarning
 private val DangerColor = AppDanger
-private val FieldBorder = AppFieldBorder
-private val FieldPlaceholder = AppFieldPlaceholder
 private val DialogContainerColor = Color.White
 private val DialogTextColor = Color.Black
 
@@ -724,7 +721,7 @@ private fun AttendanceDialog(
                     onValueChange = { comment = it },
                     label = { Text("Комментарий") },
                     textStyle = LocalTextStyle.current.copy(color = Color.Black),
-                    colors = journalFieldColors()
+                    colors = appFieldColors()
                 )
             }
         },
@@ -765,7 +762,7 @@ private fun GradeDialog(
                     onValueChange = { comment = it },
                     label = { Text("Комментарий") },
                     textStyle = LocalTextStyle.current.copy(color = Color.Black),
-                    colors = journalFieldColors()
+                    colors = appFieldColors()
                 )
             }
         },
@@ -891,21 +888,6 @@ private fun WebFormField(
 }
 
 @Composable
-private fun journalFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = Color.Black,
-    unfocusedTextColor = Color.Black,
-    focusedContainerColor = Color.White,
-    unfocusedContainerColor = Color.White,
-    focusedBorderColor = PrimaryText,
-    unfocusedBorderColor = FieldBorder,
-    focusedLabelColor = PrimaryText,
-    unfocusedLabelColor = PrimaryText,
-    focusedPlaceholderColor = FieldPlaceholder,
-    unfocusedPlaceholderColor = FieldPlaceholder,
-    cursorColor = PrimaryText
-)
-
-@Composable
 private fun WebOutlinedTextField(
     value: String,
     onValueChange: (String) -> Unit,
@@ -920,7 +902,7 @@ private fun WebOutlinedTextField(
         singleLine = true,
         placeholder = { Text(placeholder, color = Color(0xFF9CA3AF)) },
         textStyle = LocalTextStyle.current.copy(color = Color.Black),
-        colors = journalFieldColors(),
+        colors = appFieldColors(),
         modifier = modifier.fillMaxWidth()
     )
 }
@@ -1036,7 +1018,7 @@ private fun TopicDialog(
                     label = { Text("Тема / комментарий к занятию") },
                     minLines = 3,
                     textStyle = LocalTextStyle.current.copy(color = Color.Black),
-                    colors = journalFieldColors()
+                    colors = appFieldColors()
                 )
             }
         },

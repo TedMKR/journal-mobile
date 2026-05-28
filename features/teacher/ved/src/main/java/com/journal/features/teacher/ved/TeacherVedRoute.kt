@@ -28,7 +28,6 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberDatePickerState
@@ -49,12 +48,11 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.journal.core.ui.AppBackground
-import com.journal.core.ui.AppFieldBorder
-import com.journal.core.ui.AppFieldPlaceholder
 import com.journal.core.ui.AppLessonBackground
 import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppSecondaryText
 import com.journal.core.ui.StyledDatePickerDialog
+import com.journal.core.ui.appFieldColors
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriod
 import com.journal.core.model.teacher.CurrentAttestationOptions
@@ -78,8 +76,6 @@ private val PrimaryText = AppPrimary
 private val SecondaryText = AppSecondaryText
 private val CardBackground = Color.White
 private val LightBlue = AppLessonBackground
-private val FieldBorder = AppFieldBorder
-private val FieldPlaceholder = AppFieldPlaceholder
 private val Danger = Color(0xFFB42318)
 private val Success = Color(0xFF027A48)
 
@@ -574,7 +570,7 @@ private fun SelectField(
                 readOnly = true,
                 placeholder = { Text(placeholder) },
                 textStyle = LocalTextStyle.current.copy(color = Color.Black),
-                colors = statementFieldColors(),
+                colors = appFieldColors(unfocusedLabelColor = AppSecondaryText),
                 trailingIcon = {
                     Image(
                         painter = painterResource(id = R.drawable.arrow_bottom),
@@ -614,25 +610,7 @@ private fun FieldLabel(text: String) {
     Text(text, color = PrimaryText, fontWeight = FontWeight.SemiBold)
 }
 
-@Composable
-private fun statementFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = Color.Black,
-    unfocusedTextColor = Color.Black,
-    disabledTextColor = Color.Black,
-    focusedContainerColor = CardBackground,
-    unfocusedContainerColor = CardBackground,
-    disabledContainerColor = CardBackground,
-    focusedBorderColor = PrimaryText,
-    unfocusedBorderColor = FieldBorder,
-    disabledBorderColor = FieldBorder,
-    focusedLabelColor = PrimaryText,
-    unfocusedLabelColor = SecondaryText,
-    disabledLabelColor = SecondaryText,
-    focusedPlaceholderColor = FieldPlaceholder,
-    unfocusedPlaceholderColor = FieldPlaceholder,
-    disabledPlaceholderColor = FieldPlaceholder,
-    cursorColor = PrimaryText
-)
+
 
 @Composable
 private fun InputField(label: String, value: String, onValueChange: (String) -> Unit, placeholder: String = "") {
@@ -644,7 +622,7 @@ private fun InputField(label: String, value: String, onValueChange: (String) -> 
             placeholder = { Text(placeholder) },
             singleLine = true,
             textStyle = LocalTextStyle.current.copy(color = Color.Black),
-            colors = statementFieldColors(),
+            colors = appFieldColors(unfocusedLabelColor = AppSecondaryText),
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(10.dp)
         )
@@ -685,7 +663,7 @@ private fun DateField(label: String, value: String, onValueChange: (String) -> U
                 placeholder = { Text("YYYY-MM-DD") },
                 singleLine = true,
                 textStyle = LocalTextStyle.current.copy(color = Color.Black),
-                colors = statementFieldColors(),
+                colors = appFieldColors(unfocusedLabelColor = AppSecondaryText),
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(10.dp)
             )

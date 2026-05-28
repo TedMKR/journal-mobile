@@ -25,7 +25,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
+
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -42,13 +42,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.journal.core.ui.AppFieldBorder
-import com.journal.core.ui.AppFieldPlaceholder
 import com.journal.core.ui.AppPrimary
+import com.journal.core.ui.appFieldColors
 
 private val PrimaryText = AppPrimary
-private val FieldBorder = AppFieldBorder
-private val FieldPlaceholder = AppFieldPlaceholder
 private val ErrorText = Color(0xFFB91C1C)
 
 @Composable
@@ -139,7 +136,7 @@ private fun DebugAuthContent(onContinue: (String) -> Unit) {
             shape = RoundedCornerShape(12.dp),
             label = { Text("Логин") },
             textStyle = LocalTextStyle.current.copy(color = Color.Black),
-            colors = authFieldColors(),
+            colors = appFieldColors(),
             singleLine = true
         )
 
@@ -151,7 +148,7 @@ private fun DebugAuthContent(onContinue: (String) -> Unit) {
             label = { Text("Пароль") },
             textStyle = LocalTextStyle.current.copy(color = Color.Black),
             visualTransformation = PasswordVisualTransformation(),
-            colors = authFieldColors(),
+            colors = appFieldColors(),
             singleLine = true
         )
 
@@ -218,21 +215,6 @@ private fun AuthBackgroundCard(content: @Composable ColumnScope.() -> Unit) {
         }
     }
 }
-
-@Composable
-private fun authFieldColors() = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = Color.Black,
-    unfocusedTextColor = Color.Black,
-    focusedContainerColor = Color.White,
-    unfocusedContainerColor = Color.White,
-    focusedBorderColor = PrimaryText,
-    unfocusedBorderColor = FieldBorder,
-    focusedLabelColor = PrimaryText,
-    unfocusedLabelColor = PrimaryText,
-    focusedPlaceholderColor = FieldPlaceholder,
-    unfocusedPlaceholderColor = FieldPlaceholder,
-    cursorColor = PrimaryText
-)
 
 @Composable
 private fun RoleChip(text: String, selected: Boolean, onClick: () -> Unit) {
