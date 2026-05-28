@@ -58,8 +58,8 @@ import com.journal.core.model.teacher.CurrentAttestationOverrides
 import com.journal.core.model.teacher.CurrentAttestationContext
 import com.journal.core.model.teacher.CurrentAttestationPrefill
 import com.journal.core.model.teacher.Discipline
+import com.journal.core.model.teacher.JournalContext
 import com.journal.core.model.teacher.RequestReportPayload
-import com.journal.core.model.teacher.TeacherLesson
 import com.journal.core.network.api.JournalApi
 import java.io.File
 import retrofit2.HttpException
@@ -84,7 +84,7 @@ fun TeacherVedRoute(journalApi: JournalApi) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var periods by remember { mutableStateOf<List<AcademicPeriod>>(emptyList()) }
-    var teacherLessons by remember { mutableStateOf<List<TeacherLesson>>(emptyList()) }
+    var journalContexts by remember { mutableStateOf<List<JournalContext>>(emptyList()) }
     var disciplines by remember { mutableStateOf<List<Discipline>>(emptyList()) }
     var groups by remember { mutableStateOf<List<AcademicGroup>>(emptyList()) }
     var selectedPeriodId by remember { mutableStateOf("") }
@@ -104,18 +104,26 @@ fun TeacherVedRoute(journalApi: JournalApi) {
     var error by remember { mutableStateOf<String?>(null) }
 
     fun syncCatalogs() {
-        val disciplineLessons = selectedGroupId.takeIf { it.isNotBlank() }?.let { groupId ->
-            teacherLessons.filter { it.groupId == groupId }
-        } ?: teacherLessons
-        val groupLessons = selectedDisciplineId.takeIf { it.isNotBlank() }?.let { disciplineId ->
-            teacherLessons.filter { it.disciplineId == disciplineId }
-        } ?: teacherLessons
+        val disciplineContexts = selectedGroupId.takeIf { it.isNotBlank() }?.let { groupId ->
+            journalContexts.filter { context -> context.groupId == groupId || context.group?.id == groupId }
+        } ?: journalContexts
+        val groupContexts = selectedDisciplineId.takeIf { it.isNotBlank() }?.let { disciplineId ->
+            journalContexts.filter { context -> context.disciplineId == disciplineId || context.discipline?.id == disciplineId }
+        } ?: journalContexts
 
-        disciplines = disciplineLessons
-            .mapNotNull { lesson -> lesson.disciplineId?.let { Discipline(id = it, name = lesson.disciplineName) } }
+        disciplines = disciplineContexts
+            .mapNotNull { context ->
+                val id = context.disciplineId ?: context.discipline?.id ?: return@mapNotNull null
+                val name = context.disciplineName ?: context.discipline?.name ?: return@mapNotNull null
+                Discipline(id = id, name = name, code = context.discipline?.code)
+            }
             .distinctBy { it.id }
-        groups = groupLessons
-            .mapNotNull { lesson -> lesson.groupId?.let { AcademicGroup(id = it, name = lesson.groupName) } }
+        groups = groupContexts
+            .mapNotNull { context ->
+                val id = context.groupId ?: context.group?.id ?: return@mapNotNull null
+                val name = context.groupName ?: context.group?.name ?: return@mapNotNull null
+                AcademicGroup(id = id, name = name, faculty = context.group?.faculty, year = context.group?.year)
+            }
             .distinctBy { it.id }
 
         if (selectedDisciplineId.isNotBlank() && disciplines.none { it.id == selectedDisciplineId }) selectedDisciplineId = ""
@@ -146,12 +154,12 @@ fun TeacherVedRoute(journalApi: JournalApi) {
         isLoading = true
         resetPrefill()
         runCatching {
-            journalApi.getLessons(periodId = selectedPeriodId, limit = 300).lessons
-        }.onSuccess { lessons ->
-            teacherLessons = lessons
+            journalApi.getJournals(periodId = selectedPeriodId, limit = 300, offset = 0).data
+        }.onSuccess { contexts ->
+            journalContexts = contexts
             syncCatalogs()
         }.onFailure { throwable ->
-            teacherLessons = emptyList()
+            journalContexts = emptyList()
             disciplines = emptyList()
             groups = emptyList()
             error = throwable.message ?: "Не удалось загрузить группы и предметы преподавателя"
