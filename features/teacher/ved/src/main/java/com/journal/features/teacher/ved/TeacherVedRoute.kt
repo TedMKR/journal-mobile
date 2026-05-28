@@ -58,7 +58,7 @@ import com.journal.core.model.teacher.CurrentAttestationOverrides
 import com.journal.core.model.teacher.CurrentAttestationContext
 import com.journal.core.model.teacher.CurrentAttestationPrefill
 import com.journal.core.model.teacher.Discipline
-import com.journal.core.model.teacher.JournalContext
+import com.journal.core.model.teacher.TeacherLesson
 import com.journal.core.model.teacher.RequestReportPayload
 import com.journal.core.network.api.JournalApi
 import java.io.File
@@ -84,7 +84,7 @@ fun TeacherVedRoute(journalApi: JournalApi) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var periods by remember { mutableStateOf<List<AcademicPeriod>>(emptyList()) }
-    var journalContexts by remember { mutableStateOf<List<JournalContext>>(emptyList()) }
+    var teacherLessons by remember { mutableStateOf<List<TeacherLesson>>(emptyList()) }
     var disciplines by remember { mutableStateOf<List<Discipline>>(emptyList()) }
     var groups by remember { mutableStateOf<List<AcademicGroup>>(emptyList()) }
     var selectedPeriodId by remember { mutableStateOf("") }
@@ -104,26 +104,20 @@ fun TeacherVedRoute(journalApi: JournalApi) {
     var error by remember { mutableStateOf<String?>(null) }
 
     fun syncCatalogs() {
-        val disciplineContexts = selectedGroupId.takeIf { it.isNotBlank() }?.let { groupId ->
-            journalContexts.filter { context -> context.groupId == groupId || context.group?.id == groupId }
-        } ?: journalContexts
-        val groupContexts = selectedDisciplineId.takeIf { it.isNotBlank() }?.let { disciplineId ->
-            journalContexts.filter { context -> context.disciplineId == disciplineId || context.discipline?.id == disciplineId }
-        } ?: journalContexts
+        val disciplineLessons = selectedGroupId.takeIf { it.isNotBlank() }?.let { groupId ->
+            teacherLessons.filter { it.groupId == groupId }
+        } ?: teacherLessons
+        val groupLessons = selectedDisciplineId.takeIf { it.isNotBlank() }?.let { disciplineId ->
+            teacherLessons.filter { it.disciplineId == disciplineId }
+        } ?: teacherLessons
 
-        disciplines = disciplineContexts
-            .mapNotNull { context ->
-                val id = context.disciplineId ?: context.discipline?.id ?: return@mapNotNull null
-                val name = context.disciplineName ?: context.discipline?.name ?: return@mapNotNull null
-                Discipline(id = id, name = name, code = context.discipline?.code)
-            }
+        disciplines = disciplineLessons
+            .filter { it.disciplineId != null }
+            .map { Discipline(id = it.disciplineId!!, name = it.disciplineName) }
             .distinctBy { it.id }
-        groups = groupContexts
-            .mapNotNull { context ->
-                val id = context.groupId ?: context.group?.id ?: return@mapNotNull null
-                val name = context.groupName ?: context.group?.name ?: return@mapNotNull null
-                AcademicGroup(id = id, name = name, faculty = context.group?.faculty, year = context.group?.year)
-            }
+        groups = groupLessons
+            .filter { it.groupId != null }
+            .map { AcademicGroup(id = it.groupId!!, name = it.groupName) }
             .distinctBy { it.id }
 
         if (selectedDisciplineId.isNotBlank() && disciplines.none { it.id == selectedDisciplineId }) selectedDisciplineId = ""
@@ -154,15 +148,16 @@ fun TeacherVedRoute(journalApi: JournalApi) {
         isLoading = true
         resetPrefill()
         runCatching {
-            journalApi.getJournals(periodId = selectedPeriodId, limit = 300, offset = 0).data
-        }.onSuccess { contexts ->
-            journalContexts = contexts
+            loadLessonsForPeriod(journalApi, selectedPeriodId, periods)
+        }.onSuccess { lessons ->
+            teacherLessons = lessons
             syncCatalogs()
         }.onFailure { throwable ->
-            journalContexts = emptyList()
+            teacherLessons = emptyList()
             disciplines = emptyList()
             groups = emptyList()
-            error = throwable.message ?: "Не удалось загрузить группы и предметы преподавателя"
+            error = throwable.message?.takeIf { it.isNotBlank() }
+                ?: "Не удалось загрузить группы и предметы преподавателя"
         }
         isLoading = false
     }
@@ -864,6 +859,40 @@ private fun reportMimeType(format: String): String = when (format) {
     "pdf" -> "application/pdf"
     "excel" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     else -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+}
+
+private suspend fun loadLessonsForPeriod(
+    journalApi: JournalApi,
+    periodId: String,
+    periods: List<AcademicPeriod>
+): List<TeacherLesson> {
+    val period = periods.find { it.id == periodId }
+
+    // Use date-range strategy (mirrors the dashboard approach which is proven to return
+    // disciplineId / groupId in each lesson object).
+    if (period != null) {
+        val dateFrom = period.startsAt.take(10)
+        val dateTo = period.endsAt.take(10)
+        val all = mutableListOf<TeacherLesson>()
+        val pageSize = 200
+        var offset = 0
+        while (true) {
+            val page = journalApi.getLessons(
+                dateFrom = dateFrom,
+                dateTo = dateTo,
+                limit = pageSize,
+                offset = offset
+            )
+            all.addAll(page.lessons)
+            val total = page.total ?: break
+            if (all.size >= total) break
+            offset += pageSize
+        }
+        return all
+    }
+
+    // Fallback: period dates not available yet, try period_id param directly.
+    return journalApi.getLessons(periodId = periodId, limit = 500).lessons
 }
 
 private data class ReadyStatement(
