@@ -436,7 +436,7 @@ private fun StatementFormCard(
                 Button(
                     onClick = onGenerate,
                     enabled = !isGenerating,
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryText),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
                     shape = RoundedCornerShape(10.dp),
                     modifier = Modifier.align(Alignment.End)
                 ) {
@@ -540,7 +540,7 @@ private fun ReadyStatementsCard(
                         Button(
                             onClick = { onDownload(statement) },
                             enabled = statement.status == "done",
-                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryText),
+                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
                             shape = RoundedCornerShape(10.dp)
                         ) { Text("Скачать") }
                     }
@@ -665,7 +665,7 @@ private fun DateField(label: String, value: String, onValueChange: (String) -> U
                         }
                         showDatePicker = false
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryText),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
                     shape = RoundedCornerShape(8.dp)
                 ) {
                     Text("Выбрать")
@@ -676,7 +676,24 @@ private fun DateField(label: String, value: String, onValueChange: (String) -> U
                     Text("Отмена", color = PrimaryText, fontWeight = FontWeight.SemiBold)
                 }
             },
-            colors = DatePickerDefaults.colors(containerColor = CardBackground)
+            colors = DatePickerDefaults.colors(
+                containerColor = CardBackground,
+                titleContentColor = PrimaryText,
+                headlineContentColor = PrimaryText,
+                navigationContentColor = PrimaryText,
+                yearContentColor = PrimaryText,
+                currentYearContentColor = PrimaryText,
+                selectedYearContentColor = Color.White,
+                selectedYearContainerColor = PrimaryText,
+                dayContentColor = PrimaryText,
+                todayContentColor = PrimaryText,
+                todayDateBorderColor = PrimaryText,
+                selectedDayContentColor = Color.White,
+                selectedDayContainerColor = PrimaryText,
+                subheadContentColor = PrimaryText,
+                weekdayContentColor = SecondaryText,
+                dividerColor = LightBlue
+            )
         ) {
             DatePicker(state = datePickerState)
         }
