@@ -22,9 +22,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDefaults
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -51,6 +48,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import com.journal.core.ui.StyledDatePickerDialog
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriod
 import com.journal.core.model.teacher.CurrentAttestationOptions
@@ -655,52 +653,16 @@ private fun DateField(label: String, value: String, onValueChange: (String) -> U
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialSelectedDateMillis)
 
     if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let { selectedMillis ->
-                            onValueChange(selectedMillis.toIsoLocalDate())
-                        }
-                        showDatePicker = false
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Text("Выбрать")
+        StyledDatePickerDialog(
+            state = datePickerState,
+            onDismiss = { showDatePicker = false },
+            onConfirm = {
+                datePickerState.selectedDateMillis?.let { selectedMillis ->
+                    onValueChange(selectedMillis.toIsoLocalDate())
                 }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDatePicker = false }) {
-                    Text("Отмена", color = PrimaryText, fontWeight = FontWeight.SemiBold)
-                }
-            },
-            colors = DatePickerDefaults.colors(containerColor = CardBackground)
-        ) {
-            DatePicker(
-                state = datePickerState,
-                colors = DatePickerDefaults.colors(
-                    containerColor = CardBackground,
-                    titleContentColor = PrimaryText,
-                    headlineContentColor = PrimaryText,
-                    navigationContentColor = PrimaryText,
-                    subheadContentColor = PrimaryText,
-                    weekdayContentColor = SecondaryText,
-                    dayContentColor = PrimaryText,
-                    disabledDayContentColor = Color(0xFFADB5BD),
-                    todayContentColor = PrimaryText,
-                    todayDateBorderColor = PrimaryText,
-                    selectedDayContentColor = Color.White,
-                    selectedDayContainerColor = PrimaryText,
-                    yearContentColor = PrimaryText,
-                    currentYearContentColor = PrimaryText,
-                    selectedYearContentColor = Color.White,
-                    selectedYearContainerColor = PrimaryText,
-                    dividerColor = LightBlue
-                )
-            )
-        }
+                showDatePicker = false
+            }
+        )
     }
 
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

@@ -28,8 +28,6 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DatePicker
-import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.journal.core.ui.StyledDatePickerDialog
 import com.journal.core.model.teacher.JournalGridAssessmentForm
 import com.journal.core.model.teacher.JournalGridAttendance
 import com.journal.core.model.teacher.JournalGridGrade
@@ -783,23 +782,16 @@ private fun AssessmentDialog(
     val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialSelectedDateMillis)
 
     if (showDatePicker) {
-        DatePickerDialog(
-            onDismissRequest = { showDatePicker = false },
-            confirmButton = {
-                DialogPrimaryButton(
-                    text = "Выбрать",
-                    onClick = {
-                        datePickerState.selectedDateMillis?.let { selectedMillis ->
-                            date = selectedMillis.toIsoLocalDate()
-                        }
-                        showDatePicker = false
-                    }
-                )
-            },
-            dismissButton = { DialogTextButton(text = "Отмена", onClick = { showDatePicker = false }) }
-        ) {
-            DatePicker(state = datePickerState)
-        }
+        StyledDatePickerDialog(
+            state = datePickerState,
+            onDismiss = { showDatePicker = false },
+            onConfirm = {
+                datePickerState.selectedDateMillis?.let { selectedMillis ->
+                    date = selectedMillis.toIsoLocalDate()
+                }
+                showDatePicker = false
+            }
+        )
     }
 
     Dialog(onDismissRequest = onDismiss) {
