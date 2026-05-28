@@ -676,26 +676,30 @@ private fun DateField(label: String, value: String, onValueChange: (String) -> U
                     Text("Отмена", color = PrimaryText, fontWeight = FontWeight.SemiBold)
                 }
             },
-            colors = DatePickerDefaults.colors(
-                containerColor = CardBackground,
-                titleContentColor = PrimaryText,
-                headlineContentColor = PrimaryText,
-                navigationContentColor = PrimaryText,
-                yearContentColor = PrimaryText,
-                currentYearContentColor = PrimaryText,
-                selectedYearContentColor = Color.White,
-                selectedYearContainerColor = PrimaryText,
-                dayContentColor = PrimaryText,
-                todayContentColor = PrimaryText,
-                todayDateBorderColor = PrimaryText,
-                selectedDayContentColor = Color.White,
-                selectedDayContainerColor = PrimaryText,
-                subheadContentColor = PrimaryText,
-                weekdayContentColor = SecondaryText,
-                dividerColor = LightBlue
-            )
+            colors = DatePickerDefaults.colors(containerColor = CardBackground)
         ) {
-            DatePicker(state = datePickerState)
+            DatePicker(
+                state = datePickerState,
+                colors = DatePickerDefaults.colors(
+                    containerColor = CardBackground,
+                    titleContentColor = PrimaryText,
+                    headlineContentColor = PrimaryText,
+                    navigationContentColor = PrimaryText,
+                    subheadContentColor = PrimaryText,
+                    weekdayContentColor = SecondaryText,
+                    dayContentColor = PrimaryText,
+                    disabledDayContentColor = Color(0xFFADB5BD),
+                    todayContentColor = PrimaryText,
+                    todayDateBorderColor = PrimaryText,
+                    selectedDayContentColor = Color.White,
+                    selectedDayContainerColor = PrimaryText,
+                    yearContentColor = PrimaryText,
+                    currentYearContentColor = PrimaryText,
+                    selectedYearContentColor = Color.White,
+                    selectedYearContainerColor = PrimaryText,
+                    dividerColor = LightBlue
+                )
+            )
         }
     }
 
