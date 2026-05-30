@@ -37,6 +37,7 @@ import org.junit.Test
  * All external dependencies are mocked with MockK.
  * The offline-first write logic is the primary focus.
  */
+@OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
 class JournalRepositoryTest {
 
     private lateinit var api: JournalApi
