@@ -64,6 +64,8 @@ import com.journal.core.model.teacher.TeacherLesson
 import com.journal.core.model.teacher.RequestReportPayload
 import com.journal.core.network.api.JournalApi
 import java.io.File
+import java.io.IOException
+import java.util.UUID
 import retrofit2.HttpException
 import java.time.Instant
 import java.time.LocalDate
@@ -102,6 +104,10 @@ fun TeacherVedRoute(journalApi: JournalApi) {
     var isGenerating by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    // Idempotency key for async document creation. Preserved across network-error retries;
+    // cleared after a successful job enqueue, on 409 IDEMPOTENCY_CONFLICT, and whenever
+    // the user changes prefill context (new group / discipline / period).
+    var pendingIdempotencyKey by remember { mutableStateOf<String?>(null) }
 
     fun syncCatalogs() {
         val disciplineLessons = selectedGroupId.takeIf { it.isNotBlank() }?.let { groupId ->
@@ -128,6 +134,7 @@ fun TeacherVedRoute(journalApi: JournalApi) {
         prefill = null
         message = null
         error = null
+        pendingIdempotencyKey = null
     }
 
     LaunchedEffect(Unit) {
@@ -238,12 +245,16 @@ fun TeacherVedRoute(journalApi: JournalApi) {
                 onGenerate = {
                     scope.launch {
                         val data = prefill ?: return@launch
+                        // Reuse pending key on network-error retry; generate fresh key for new attempt.
+                        val idempotencyKey = pendingIdempotencyKey ?: UUID.randomUUID().toString()
+                        pendingIdempotencyKey = idempotencyKey
                         isGenerating = true
                         error = null
                         message = null
                         runCatching {
                             val accepted = requestStatementReport(
                                 journalApi = journalApi,
+                                idempotencyKey = idempotencyKey,
                                 context = data.context,
                                 format = selectedFormat,
                                 returnToDeanBy = returnToDeanBy,
@@ -260,6 +271,8 @@ fun TeacherVedRoute(journalApi: JournalApi) {
                                 status = accepted.status ?: "pending"
                             )
                         }.onSuccess { statement ->
+                            // Job successfully enqueued — key no longer needed.
+                            pendingIdempotencyKey = null
                             readyStatements = listOf(statement) + readyStatements.filter { it.jobId != statement.jobId }
                             message = "Ведомость отправлена на формирование"
                             waitForStatement(journalApi, statement) { updated ->
@@ -268,7 +281,18 @@ fun TeacherVedRoute(journalApi: JournalApi) {
                                 if (updated.status == "failed" || updated.status == "permanently_failed") error = updated.error ?: "Формирование ведомости завершилось ошибкой"
                             }
                         }.onFailure { throwable ->
-                            error = throwable.httpErrorMessage().ifBlank { "Не удалось сформировать ведомость" }
+                            if (throwable.isIdempotencyConflict()) {
+                                // Key was already used with different data — reset so next click starts fresh.
+                                pendingIdempotencyKey = null
+                                error = "Ключ идемпотентности уже использован �� другими данными. Пожалуйста, попробуйте ещё раз."
+                            } else if (throwable is IOException) {
+                                // Network error — preserve pendingIdempotencyKey so the next click retries safely.
+                                error = "Ошибка сети. Нажмите «Сформировать» ещё раз — запрос будет повторён безопасно."
+                            } else {
+                                // Non-retryable server error — reset key.
+                                pendingIdempotencyKey = null
+                                error = throwable.httpErrorMessage().ifBlank { "Не удалось сформировать ведомость" }
+                            }
                         }
                         isGenerating = false
                     }
@@ -709,6 +733,7 @@ private fun Long.toIsoLocalDate(): String = Instant.ofEpochMilli(this)
 
 private suspend fun requestStatementReport(
     journalApi: JournalApi,
+    idempotencyKey: String,
     context: CurrentAttestationContext,
     format: String,
     returnToDeanBy: String,
@@ -726,7 +751,9 @@ private suspend fun requestStatementReport(
     var lastError: Throwable? = null
     for (payload in payloads) {
         try {
-            return@let journalApi.requestCurrentAttestationReport(payload)
+            // Pass the same idempotency key for every payload variant: preflight 404s don't
+            // consume the key on the server side, so reusing the key across variants is safe.
+            return@let journalApi.requestCurrentAttestationReport(idempotencyKey, payload)
         } catch (throwable: Throwable) {
             lastError = throwable
             if (!throwable.isRecoverableReportRequestError()) throw throwable
@@ -774,6 +801,15 @@ private fun CurrentAttestationOverrides.compact(): CurrentAttestationOverrides =
     lectureTeacherName = lectureTeacherName?.ifBlank { null },
     practiceTeacherName = practiceTeacherName?.ifBlank { null }
 )
+
+/** Returns true when the server returned 409 IDEMPOTENCY_CONFLICT — the same key was already
+ *  used with a different payload. The client must NOT auto-retry; instead show an error and
+ *  generate a new key only when the user explicitly creates a new document. */
+private fun Throwable.isIdempotencyConflict(): Boolean {
+    if (this !is HttpException || code() != 409) return false
+    val body = runCatching { response()?.errorBody()?.string().orEmpty() }.getOrElse { "" }
+    return body.contains("IDEMPOTENCY_CONFLICT", ignoreCase = true)
+}
 
 /** Только 404 (или "not found" в теле) считается recoverable — попробуем следующий вариант payload.
  *  400 — ошибка валидации, не стоит повторять с теми же данными. */
