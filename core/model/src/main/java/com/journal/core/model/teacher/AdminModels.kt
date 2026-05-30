@@ -144,3 +144,56 @@ data class AdminAccessBinding(
 data class AdminAccessBindingsResponse(
     @SerialName("data") val data: List<AdminAccessBinding> = emptyList()
 )
+
+@Serializable
+data class FailingGradeEntry(
+    @SerialName("grade_id") val gradeId: String? = null,
+    @SerialName("assessment_form_id") val assessmentFormId: String? = null,
+    @SerialName("assessment_title") val assessmentTitle: String? = null,
+    @SerialName("form_type") val formType: String? = null,
+    @SerialName("form_date") val formDate: String? = null,
+    @SerialName("value") val value: Int = 2,
+    @SerialName("comment") val comment: String? = null,
+    @SerialName("is_private") val isPrivate: Boolean = false,
+    @SerialName("teacher_id") val teacherId: String? = null,
+    @SerialName("teacher_name") val teacherName: String? = null,
+    @SerialName("created_at") val createdAt: String? = null,
+    @SerialName("updated_at") val updatedAt: String? = null
+)
+
+@Serializable
+data class ProblemStudentEntry(
+    @SerialName("student_id") val studentId: String,
+    @SerialName("student_name") val studentName: String? = null,
+    @SerialName("student_code") val studentCode: String? = null,
+    @SerialName("group_id") val groupId: String? = null,
+    @SerialName("group_name") val groupName: String? = null,
+    @SerialName("discipline_id") val disciplineId: String? = null,
+    @SerialName("discipline_name") val disciplineName: String? = null,
+    @SerialName("period_id") val periodId: String? = null,
+    @SerialName("period_name") val periodName: String? = null,
+    @SerialName("grade_count") val gradeCount: Int = 0,
+    @SerialName("failing_grade_count") val failingGradeCount: Int = 0,
+    @SerialName("failing_grade_percent") val failingGradePercent: Float = 0f,
+    @SerialName("max_consecutive_failing_grades") val maxConsecutiveFailingGrades: Int = 0,
+    @SerialName("has_consecutive_failing_problem") val hasConsecutiveFailingProblem: Boolean = false,
+    @SerialName("failing_grades") val failingGrades: List<FailingGradeEntry> = emptyList(),
+    @SerialName("last_detected_at") val lastDetectedAt: String? = null
+)
+
+@Serializable
+data class ProblemStudentsMeta(
+    @SerialName("total") val total: Int = 0,
+    @SerialName("limit") val limit: Int = 10,
+    @SerialName("offset") val offset: Int = 0,
+    @SerialName("min_grades") val minGrades: Int = 3,
+    @SerialName("min_failing_grades") val minFailingGrades: Int = 3,
+    @SerialName("failing_grade_value") val failingGradeValue: Int = 2,
+    @SerialName("failing_percent_threshold") val failingPercentThreshold: Float = 50f
+)
+
+@Serializable
+data class ProblemStudentsResponse(
+    @SerialName("data") val data: List<ProblemStudentEntry> = emptyList(),
+    @SerialName("meta") val meta: ProblemStudentsMeta = ProblemStudentsMeta()
+)

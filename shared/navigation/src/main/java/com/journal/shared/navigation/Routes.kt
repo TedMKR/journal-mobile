@@ -20,6 +20,7 @@ object Routes {
     const val ADMIN_JOURNALS = "admin_journals"
     const val ADMIN_PERIODS = "admin_periods"
     const val ADMIN_ACCESS = "admin_access"
+    const val ADMIN_PROBLEM_STUDENTS = "admin_problem_students"
 
     fun teacherJournal(
         groupId: String,

@@ -4,6 +4,7 @@ import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriodsResponse
 import com.journal.core.model.teacher.AdminAccessBinding
 import com.journal.core.model.teacher.AdminAccessBindingsResponse
+import com.journal.core.model.teacher.ProblemStudentsResponse
 import com.journal.core.model.teacher.AdminActionRequest
 import com.journal.core.model.teacher.AdminAuditResponse
 import com.journal.core.model.teacher.AdminDocumentsResponse
@@ -405,4 +406,16 @@ interface JournalApi {
     suspend fun revokeAdminAccessBinding(
         @Path("id") bindingId: String
     )
+
+    @GET("analytics/problem-students")
+    suspend fun getAdminProblemStudents(
+        @Query("period_id") periodId: String? = null,
+        @Query("group_id") groupId: String? = null,
+        @Query("discipline_id") disciplineId: String? = null,
+        @Query("min_grades") minGrades: Int? = null,
+        @Query("min_failing_grades") minFailingGrades: Int? = null,
+        @Query("failing_percent_threshold") failingPercentThreshold: Int? = null,
+        @Query("limit") limit: Int? = null,
+        @Query("offset") offset: Int? = null
+    ): ProblemStudentsResponse
 }

@@ -56,6 +56,7 @@ import com.journal.features.admin.dashboard.AdminAuditRoute
 import com.journal.features.admin.dashboard.AdminDashboardRoute
 import com.journal.features.admin.dashboard.AdminJournalsRoute
 import com.journal.features.admin.dashboard.AdminPeriodsRoute
+import com.journal.features.admin.dashboard.AdminProblemStudentsRoute
 import com.journal.features.admin.dashboard.AdminUsersRoute
 import com.journal.features.auth.AuthRoute
 import com.journal.features.methodist.templates.MethodistDashboardRoute
@@ -135,7 +136,8 @@ fun JournalNavHost(
                     onOpenAudit = { navController.navigate(Routes.ADMIN_AUDIT) },
                     onOpenJournals = { navController.navigate(Routes.ADMIN_JOURNALS) },
                     onOpenPeriods = { navController.navigate(Routes.ADMIN_PERIODS) },
-                    onOpenAccess = { navController.navigate(Routes.ADMIN_ACCESS) }
+                    onOpenAccess = { navController.navigate(Routes.ADMIN_ACCESS) },
+                    onOpenProblemStudents = { navController.navigate(Routes.ADMIN_PROBLEM_STUDENTS) }
                 )
             }
             composable(Routes.ADMIN_USERS) {
@@ -152,6 +154,9 @@ fun JournalNavHost(
             }
             composable(Routes.ADMIN_ACCESS) {
                 AdminAccessRoute(journalApi = journalApi)
+            }
+            composable(Routes.ADMIN_PROBLEM_STUDENTS) {
+                AdminProblemStudentsRoute(journalApi = journalApi)
             }
             composable(Routes.TEACHER_HOME) {
                 TeacherHomeRoute(
@@ -456,7 +461,8 @@ private fun AnimatedVisibilityScope.RightSideMenu(
                 "admin" -> listOf(
                     MenuItem("Личный кабинет", Routes.ADMIN_DASHBOARD),
                     MenuItem("Пользователи", Routes.ADMIN_USERS),
-                    MenuItem("Аудит", Routes.ADMIN_AUDIT)
+                    MenuItem("Аудит", Routes.ADMIN_AUDIT),
+                    MenuItem("Проблемные студенты", Routes.ADMIN_PROBLEM_STUDENTS)
                 )
                 else -> listOf(
                     MenuItem("Расписание", Routes.TEACHER_HOME),
