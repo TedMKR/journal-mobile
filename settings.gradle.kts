@@ -18,6 +18,7 @@ rootProject.name = "journal-android"
 
 include(
     ":app",
+    ":tests",
     ":core:common",
     ":core:model",
     ":core:network",
