@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -59,6 +60,7 @@ import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppSecondaryText
 import com.journal.core.ui.AppSuccess
 import com.journal.core.ui.AppWarning
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -101,24 +103,53 @@ fun StudentScheduleRoute(
     journalApi: JournalApi,
     onOpenLesson: (disciplineId: String, periodId: String, groupId: String) -> Unit = { _, _, _ -> }
 ) {
+    val today = remember { LocalDate.now() }
+    var weekOffset by remember { mutableIntStateOf(0) }
+
+    val weekMonday = remember(weekOffset) { today.with(DayOfWeek.MONDAY).plusWeeks(weekOffset.toLong()) }
+    val weekSunday  = remember(weekMonday) { weekMonday.plusDays(6) }
+
     var lessons by remember { mutableStateOf<List<StudentLesson>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
+    LaunchedEffect(weekMonday) {
         isLoading = true
         error = null
-        runCatching { journalApi.getStudentLessons(limit = 200).lessons }
+        runCatching {
+            journalApi.getStudentLessons(
+                dateFrom = weekMonday.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                dateTo   = weekSunday.format(DateTimeFormatter.ISO_LOCAL_DATE),
+                limit    = 200
+            ).lessons
+        }
             .onSuccess { lessons = it }
             .onFailure { error = it.message ?: "Не удалось загрузить расписание" }
         isLoading = false
     }
 
-    StudentScaffold(title = "Расписание занятий") {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Background)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        WeekNavBar(
+            weekMonday  = weekMonday,
+            weekSunday  = weekSunday,
+            isToday     = weekOffset == 0,
+            onPrev      = { weekOffset-- },
+            onNext      = { weekOffset++ }
+        )
         when {
-            isLoading -> CenterState { CircularProgressIndicator(color = PrimaryText) }
+            isLoading  -> CenterState { CircularProgressIndicator(color = PrimaryText) }
             error != null -> CenterState { Text(error.orEmpty(), color = Danger) }
-            else -> ScheduleContent(lessons = lessons, onOpenLesson = onOpenLesson)
+            else -> ScheduleContent(
+                lessons     = lessons,
+                weekMonday  = weekMonday,
+                onOpenLesson = onOpenLesson
+            )
         }
     }
 }
@@ -176,21 +207,86 @@ private fun StudentScaffold(
 }
 
 @Composable
+private fun WeekNavBar(
+    weekMonday: LocalDate,
+    weekSunday: LocalDate,
+    isToday: Boolean,
+    onPrev: () -> Unit,
+    onNext: () -> Unit
+) {
+    val fmt = DateTimeFormatter.ofPattern("d MMM", Locale("ru"))
+    val label = "${weekMonday.format(fmt)} – ${weekSunday.format(fmt)}"
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground, RoundedCornerShape(16.dp))
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .background(LightBlue, RoundedCornerShape(12.dp))
+                .clickable(onClick = onPrev),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("‹", color = PrimaryText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = label,
+                color = PrimaryText,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            if (isToday) {
+                Text(
+                    text = "Текущая неделя",
+                    color = MutedText,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .background(LightBlue, RoundedCornerShape(12.dp))
+                .clickable(onClick = onNext),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("›", color = PrimaryText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
 private fun ScheduleContent(
     lessons: List<StudentLesson>,
+    weekMonday: LocalDate,
     onOpenLesson: (disciplineId: String, periodId: String, groupId: String) -> Unit
 ) {
-    val groupedLessons = lessons.groupBy { lessonDayIndex(it.scheduledAt) }
-
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        dayNames.forEachIndexed { dayIndex, dayName ->
-            item {
-                StudentDayScheduleCard(
-                    dayName = dayName,
-                    lessons = groupedLessons[dayIndex].orEmpty()
-                        .sortedWith(compareBy({ it.lessonOrderNumber ?: Int.MAX_VALUE }, { it.scheduledAt })),
-                    onOpenLesson = onOpenLesson
-                )
+    if (lessons.isEmpty()) {
+        CenterState { Text("Нет занятий на этой неделе", color = MutedText) }
+    } else {
+        val groupedByDay = lessons.groupBy { lessonDayIndex(it.scheduledAt) }
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            (0..5).forEach { dayIndex ->
+                val dayLessons = groupedByDay[dayIndex].orEmpty()
+                    .sortedWith(compareBy({ it.lessonOrderNumber ?: Int.MAX_VALUE }, { it.scheduledAt }))
+                if (dayLessons.isNotEmpty()) {
+                    item {
+                        StudentDayScheduleCard(
+                            dayName  = dayNames[dayIndex],
+                            dayDate  = weekMonday.plusDays(dayIndex.toLong()),
+                            lessons  = dayLessons,
+                            onOpenLesson = onOpenLesson
+                        )
+                    }
+                }
             }
         }
     }
@@ -199,6 +295,7 @@ private fun ScheduleContent(
 @Composable
 private fun StudentDayScheduleCard(
     dayName: String,
+    dayDate: LocalDate? = null,
     lessons: List<StudentLesson>,
     onOpenLesson: (disciplineId: String, periodId: String, groupId: String) -> Unit
 ) {
@@ -209,29 +306,34 @@ private fun StudentDayScheduleCard(
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text(
-            text = dayName,
-            color = MutedText,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-
-        if (lessons.isEmpty()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
-                text = "Нет занятий",
-                color = PrimaryText,
-                modifier = Modifier.padding(vertical = 8.dp)
+                text = dayName,
+                color = MutedText,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
             )
-        } else {
-            lessons.forEach { lesson ->
-                StudentLessonCard(
-                    lesson = lesson,
-                    onClick = {
-                        val pid = lesson.periodId
-                        if (pid != null) onOpenLesson(lesson.disciplineId, pid, lesson.groupId)
-                    }
+            dayDate?.let {
+                Text(
+                    text = it.format(DateTimeFormatter.ofPattern("d MMM", Locale("ru"))),
+                    color = MutedText,
+                    style = MaterialTheme.typography.bodySmall
                 )
             }
+        }
+
+        lessons.forEach { lesson ->
+            StudentLessonCard(
+                lesson = lesson,
+                onClick = {
+                    val pid = lesson.periodId
+                    if (pid != null) onOpenLesson(lesson.disciplineId, pid, lesson.groupId)
+                }
+            )
         }
     }
 }
