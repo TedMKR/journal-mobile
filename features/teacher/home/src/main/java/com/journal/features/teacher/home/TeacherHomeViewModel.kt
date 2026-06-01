@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import java.time.DayOfWeek
 import java.time.LocalDate
 import javax.inject.Inject
 
@@ -19,13 +20,18 @@ data class TeacherHomeUiState(
     val lessons: List<TeacherLesson> = emptyList(),
     val error: String? = null,
     /** True if the data is from cache and network is unavailable */
-    val isOffline: Boolean = false
+    val isOffline: Boolean = false,
+    val weekMonday: LocalDate = LocalDate.now().with(DayOfWeek.MONDAY),
+    val isCurrentWeek: Boolean = true
 )
 
 @HiltViewModel
 class TeacherHomeViewModel @Inject constructor(
     private val teacherRepository: TeacherRepository
 ) : ViewModel() {
+
+    private val today: LocalDate = LocalDate.now()
+    private var weekOffset: Int = 0
 
     private val _uiState = MutableStateFlow(TeacherHomeUiState(isLoading = true))
     val uiState: StateFlow<TeacherHomeUiState> = _uiState.asStateFlow()
@@ -34,20 +40,30 @@ class TeacherHomeViewModel @Inject constructor(
         loadLessons()
     }
 
-    fun loadLessons() {
-        val (dateFrom, dateTo) = currentWeekRange()
+    fun navigateWeek(delta: Int) {
+        weekOffset += delta
+        loadLessons()
+    }
 
-        teacherRepository.getLessons(dateFrom = dateFrom, dateTo = dateTo)
+    fun loadLessons() {
+        val monday = today.with(DayOfWeek.MONDAY).plusWeeks(weekOffset.toLong())
+        val sunday = monday.plusDays(6)
+
+        teacherRepository.getLessons(dateFrom = monday.toString(), dateTo = sunday.toString())
             .onEach { resource ->
                 _uiState.value = when (resource) {
-                    is Resource.Loading -> TeacherHomeUiState(
+                    is Resource.Loading -> _uiState.value.copy(
                         isLoading = true,
-                        lessons = resource.data ?: emptyList()
+                        lessons = resource.data ?: emptyList(),
+                        weekMonday = monday,
+                        isCurrentWeek = weekOffset == 0
                     )
                     is Resource.Success -> TeacherHomeUiState(
                         isLoading = false,
                         lessons = resource.data,
-                        isOffline = false
+                        isOffline = false,
+                        weekMonday = monday,
+                        isCurrentWeek = weekOffset == 0
                     )
                     is Resource.Error -> TeacherHomeUiState(
                         isLoading = false,
@@ -56,17 +72,12 @@ class TeacherHomeViewModel @Inject constructor(
                             resource.throwable.message
                                 ?: "Не удалось загрузить расписание. Попробуйте позже."
                         } else null,
-                        isOffline = resource.data?.isNotEmpty() == true
+                        isOffline = resource.data?.isNotEmpty() == true,
+                        weekMonday = monday,
+                        isCurrentWeek = weekOffset == 0
                     )
                 }
             }
             .launchIn(viewModelScope)
-    }
-
-    private fun currentWeekRange(): Pair<String, String> {
-        val today = LocalDate.now()
-        val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
-        val sunday = monday.plusDays(6)
-        return monday.toString() to sunday.toString()
     }
 }

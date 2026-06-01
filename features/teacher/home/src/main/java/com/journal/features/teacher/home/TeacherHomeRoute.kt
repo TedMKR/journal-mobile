@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
@@ -20,6 +21,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -29,8 +31,10 @@ import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppLessonBackground
 import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppSecondaryText
+import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private val BackgroundColor = AppBackground
 private val PrimaryText = AppPrimary
@@ -55,12 +59,24 @@ fun TeacherHomeRoute(
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
+    val weekMonday = uiState.weekMonday
+    val weekSunday = weekMonday.plusDays(6)
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundColor)
-            .padding(horizontal = 10.dp, vertical = 8.dp)
+            .padding(horizontal = 10.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        WeekNavBar(
+            weekMonday   = weekMonday,
+            weekSunday   = weekSunday,
+            isCurrentWeek = uiState.isCurrentWeek,
+            onPrev       = { viewModel.navigateWeek(-1) },
+            onNext       = { viewModel.navigateWeek(+1) }
+        )
+
         when {
             uiState.isLoading -> CircularProgressIndicator(modifier = Modifier.padding(24.dp))
             uiState.error != null -> Text(
@@ -69,29 +85,117 @@ fun TeacherHomeRoute(
                 modifier = Modifier.padding(top = 16.dp)
             )
             else -> WeekSchedule(
-                lessons = uiState.lessons,
+                lessons    = uiState.lessons,
+                weekMonday = weekMonday,
                 onOpenLesson = onOpenLesson
             )
         }
     }
 }
 
+// ── Week navigation bar ──────────────────────────────────────────────────────
+
+@Composable
+private fun WeekNavBar(
+    weekMonday: LocalDate,
+    weekSunday: LocalDate,
+    isCurrentWeek: Boolean,
+    onPrev: () -> Unit,
+    onNext: () -> Unit
+) {
+    val fmt = DateTimeFormatter.ofPattern("d MMM", Locale("ru"))
+    val label = "${weekMonday.format(fmt)} – ${weekSunday.format(fmt)}"
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground, RoundedCornerShape(16.dp))
+            .padding(horizontal = 6.dp, vertical = 4.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .background(BadgeBackground, RoundedCornerShape(12.dp))
+                .clickable(onClick = onPrev),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                "‹",
+                color = PrimaryText,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = label,
+                color = PrimaryText,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold
+            )
+            if (isCurrentWeek) {
+                Text(
+                    text = "Текущая неделя",
+                    color = SecondaryText,
+                    style = MaterialTheme.typography.labelSmall
+                )
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .size(44.dp)
+                .background(BadgeBackground, RoundedCornerShape(12.dp))
+                .clickable(onClick = onNext),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                "›",
+                color = PrimaryText,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        }
+    }
+}
+
+// ── Schedule content ─────────────────────────────────────────────────────────
+
 @Composable
 private fun WeekSchedule(
     lessons: List<TeacherLesson>,
+    weekMonday: LocalDate,
     onOpenLesson: (TeacherLesson) -> Unit
 ) {
-    val groupedLessons = lessons.groupBy { lessonDayIndex(it.scheduledAt) }
-
-    LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        dayNames.forEachIndexed { dayIndex, dayName ->
-            item {
-                DayScheduleCard(
-                    dayName = dayName,
-                    lessons = groupedLessons[dayIndex].orEmpty()
-                        .sortedWith(compareBy({ it.lessonOrderNumber ?: Int.MAX_VALUE }, { it.scheduledAt })),
-                    onOpenLesson = onOpenLesson
-                )
+    if (lessons.isEmpty()) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(CardBackground, RoundedCornerShape(20.dp))
+                .padding(20.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("Нет занятий на этой неделе", color = SecondaryText)
+        }
+    } else {
+        val groupedLessons = lessons.groupBy { lessonDayIndex(it.scheduledAt) }
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            (0..5).forEach { dayIndex ->
+                val dayLessons = groupedLessons[dayIndex].orEmpty()
+                    .sortedWith(compareBy({ it.lessonOrderNumber ?: Int.MAX_VALUE }, { it.scheduledAt }))
+                if (dayLessons.isNotEmpty()) {
+                    item {
+                        DayScheduleCard(
+                            dayName  = dayNames[dayIndex],
+                            dayDate  = weekMonday.plusDays(dayIndex.toLong()),
+                            lessons  = dayLessons,
+                            onOpenLesson = onOpenLesson
+                        )
+                    }
+                }
             }
         }
     }
@@ -100,6 +204,7 @@ private fun WeekSchedule(
 @Composable
 private fun DayScheduleCard(
     dayName: String,
+    dayDate: LocalDate,
     lessons: List<TeacherLesson>,
     onOpenLesson: (TeacherLesson) -> Unit
 ) {
@@ -110,26 +215,26 @@ private fun DayScheduleCard(
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text(
-            text = dayName,
-            color = SecondaryText,
-            style = MaterialTheme.typography.titleMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-
-        if (lessons.isEmpty()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Text(
-                text = "Нет занятий",
-                color = PrimaryText,
-                modifier = Modifier.padding(vertical = 8.dp)
+                text = dayName,
+                color = SecondaryText,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.SemiBold
             )
-        } else {
-            lessons.forEach { lesson ->
-                LessonCard(
-                    lesson = lesson,
-                    onOpenLesson = onOpenLesson
-                )
-            }
+            Text(
+                text = dayDate.format(DateTimeFormatter.ofPattern("d MMM", Locale("ru"))),
+                color = SecondaryText,
+                style = MaterialTheme.typography.bodySmall
+            )
+        }
+
+        lessons.forEach { lesson ->
+            LessonCard(lesson = lesson, onOpenLesson = onOpenLesson)
         }
     }
 }
@@ -158,8 +263,20 @@ private fun LessonCard(
                     Text(orderNumber.toString(), color = PrimaryText, fontWeight = FontWeight.SemiBold)
                 }
             }
-            Text(formatLessonTime(lesson.scheduledAt, lesson.endsAt), color = PrimaryText, style = MaterialTheme.typography.bodyMedium)
-            Text(lesson.disciplineName, color = PrimaryText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
+            Text(
+                formatLessonTime(lesson.scheduledAt, lesson.endsAt),
+                color = PrimaryText,
+                style = MaterialTheme.typography.bodyMedium
+            )
+            Text(
+                lesson.disciplineName,
+                color = PrimaryText,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f)
+            )
         }
 
         Row(
@@ -189,6 +306,8 @@ private fun LessonBadge(text: String, background: Color) {
     }
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
 private fun lessonDayIndex(scheduledAt: String): Int = runCatching {
     OffsetDateTime.parse(scheduledAt).dayOfWeek.value - 1
 }.getOrDefault(-1)
@@ -201,9 +320,9 @@ private fun formatLessonTime(scheduledAt: String, endsAt: String?): String = run
 }.getOrElse { "" }
 
 private fun lessonTypeName(type: String): String = when (type) {
-    "lecture" -> "Лекция"
+    "lecture"  -> "Лекция"
     "practice" -> "Практическое занятие"
-    "lab" -> "Лабораторная работа"
-    "seminar" -> "Семинар"
-    else -> type
+    "lab"      -> "Лабораторная работа"
+    "seminar"  -> "Семинар"
+    else       -> type
 }
