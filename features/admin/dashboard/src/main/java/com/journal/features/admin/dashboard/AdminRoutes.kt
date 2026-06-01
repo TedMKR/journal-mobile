@@ -1410,7 +1410,7 @@ fun AdminJournalsRoute(journalApi: JournalApi) {
     // Action confirmation dialog
     pendingAction?.let { pa ->
         val actionLabel = when (pa.action) {
-            "lock" -> "Заморозит�� журнал"
+            "lock" -> "Заморозить журнал"
             "unlock" -> "Разморозить журнал"
             "archive" -> "Архивировать журнал"
             "restore" -> "Восстановить журнал"
