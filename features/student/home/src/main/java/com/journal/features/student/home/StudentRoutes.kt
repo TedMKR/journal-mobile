@@ -60,6 +60,7 @@ import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppSecondaryText
 import com.journal.core.ui.AppSuccess
 import com.journal.core.ui.AppWarning
+import retrofit2.HttpException
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -611,7 +612,13 @@ fun StudentJournalRoute(
         error = null
         runCatching { journalApi.getStudentSubjectCard(disciplineId, periodId, groupId) }
             .onSuccess { data = it }
-            .onFailure { error = it.message ?: "Не удалось загрузить журнал" }
+            .onFailure { t ->
+                error = if ((t as? HttpException)?.code() == 403) {
+                    "Нет журнала для этого занятия"
+                } else {
+                    t.message ?: "Не удалось загрузить журнал"
+                }
+            }
         isLoading = false
     }
 

@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import javax.inject.Inject
 
 data class JournalUiState(
@@ -84,7 +85,11 @@ class TeacherJournalViewModel @Inject constructor(
                         // Keep showing cached data if we have it
                         journal = resource.data ?: state.journal,
                         error = if ((resource.data ?: state.journal) == null) {
-                            resource.throwable.message ?: "Не удалось загрузить журнал"
+                            if ((resource.throwable as? HttpException)?.code() == 403) {
+                                "Нет журнала для этого занятия"
+                            } else {
+                                resource.throwable.message ?: "Не удалось загрузить журнал"
+                            }
                         } else null,
                         isOffline = (resource.data ?: state.journal) != null
                     )

@@ -2401,7 +2401,7 @@ private fun ProblemStudentCard(student: ProblemStudentEntry, modifier: Modifier 
             )
         }
 
-        // ── Процент + стрелка ───────────���───────────────────────────────────
+        // ── Процент + стрелка ──────────────────────────────────────────────
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
