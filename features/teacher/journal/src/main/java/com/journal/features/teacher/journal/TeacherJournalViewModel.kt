@@ -5,6 +5,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.journal.core.data.repository.JournalRepository
 import com.journal.core.data.util.Resource
+import com.journal.core.model.teacher.BulkAttendanceRecordRequest
+import com.journal.core.model.teacher.BulkMarkAttendanceRequest
 import com.journal.core.model.teacher.CreateAssessmentFormRequest
 import com.journal.core.model.teacher.CreateGradeRequest
 import com.journal.core.model.teacher.JournalGridResponse
@@ -195,6 +197,37 @@ class TeacherJournalViewModel @Inject constructor(
                 lessonType = lessonType
             )
             loadJournal()
+        }
+    }
+
+    fun bulkMarkAttendance(lessonId: String, status: String, target: String) {
+        viewModelScope.launch {
+            try {
+                val journal = _uiState.value.journal ?: return@launch
+                // Determine which students to mark based on the target filter
+                val existingForLesson = journal.attendance.filter { it.lessonId == lessonId }
+                val targetStudents = when (target) {
+                    "unmarked" -> journal.students.filter { student ->
+                        existingForLesson.none { it.studentId == student.studentId }
+                    }
+                    else -> journal.students   // "all"
+                }
+                if (targetStudents.isEmpty()) return@launch
+                val records = targetStudents.map { student ->
+                    BulkAttendanceRecordRequest(studentId = student.studentId, status = status)
+                }
+                journalRepository.bulkMarkAttendance(
+                    lessonId = lessonId,
+                    request = BulkMarkAttendanceRequest(records = records),
+                    groupId = groupId,
+                    disciplineId = disciplineId,
+                    periodId = periodId,
+                    lessonType = lessonType
+                )
+                loadJournal()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.message ?: "Не удалось выполнить массовую отметку") }
+            }
         }
     }
 

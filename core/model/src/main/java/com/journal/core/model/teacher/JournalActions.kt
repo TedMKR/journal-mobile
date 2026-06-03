@@ -26,6 +26,38 @@ data class MarkAttendanceRequest(
 )
 
 @Serializable
+data class BulkAttendanceRecordRequest(
+    @SerialName("student_id") val studentId: String,
+    @SerialName("status") val status: String,
+    @SerialName("comment") val comment: String? = null,
+    @SerialName("is_late_entry") val isLateEntry: Boolean = false,
+    @SerialName("late_entry_reason") val lateEntryReason: String? = null
+)
+
+@Serializable
+data class BulkMarkAttendanceRequest(
+    @SerialName("records") val records: List<BulkAttendanceRecordRequest>
+)
+
+@Serializable
+data class BulkAttendanceRecord(
+    @SerialName("id") val id: String,
+    @SerialName("lesson_id") val lessonId: String,
+    @SerialName("student_id") val studentId: String,
+    @SerialName("status") val status: String,
+    @SerialName("comment") val comment: String? = null,
+    @SerialName("is_late_entry") val isLateEntry: Boolean = false,
+    @SerialName("is_archived") val isArchived: Boolean = false,
+    @SerialName("created_at") val createdAt: String,
+    @SerialName("updated_at") val updatedAt: String
+)
+
+@Serializable
+data class BulkAttendanceResponse(
+    @SerialName("data") val data: List<BulkAttendanceRecord>
+)
+
+@Serializable
 data class CreateGradeRequest(
     @SerialName("student_id") val studentId: String,
     @SerialName("assessment_form_id") val assessmentFormId: String,

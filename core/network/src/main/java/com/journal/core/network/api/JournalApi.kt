@@ -34,6 +34,8 @@ import com.journal.core.model.teacher.JobAccepted
 import com.journal.core.model.teacher.LessonTemplate
 import com.journal.core.model.teacher.LessonTemplateDetail
 import com.journal.core.model.teacher.LessonsResponse
+import com.journal.core.model.teacher.BulkAttendanceResponse
+import com.journal.core.model.teacher.BulkMarkAttendanceRequest
 import com.journal.core.model.teacher.MarkAttendanceRequest
 import com.journal.core.model.teacher.DocumentTask
 import com.journal.core.model.teacher.RequestReportPayload
@@ -154,6 +156,12 @@ interface JournalApi {
         @Path("lesson_id") lessonId: String,
         @Body request: MarkAttendanceRequest
     )
+
+    @POST("lessons/{lesson_id}/attendance/bulk")
+    suspend fun bulkMarkAttendance(
+        @Path("lesson_id") lessonId: String,
+        @Body request: BulkMarkAttendanceRequest
+    ): BulkAttendanceResponse
 
     @POST("grades")
     suspend fun createGrade(

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -29,6 +30,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -44,8 +46,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -56,6 +60,7 @@ import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppDanger
 import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppPrimary
+import com.journal.core.ui.AppSecondaryText
 import com.journal.core.ui.AppSuccess
 import com.journal.core.ui.AppWarning
 import com.journal.core.ui.StyledDatePickerDialog
@@ -141,6 +146,9 @@ fun TeacherJournalRoute(
                     },
                     onUpdateLessonTopic = { lessonId, topic ->
                         viewModel.updateLessonTopic(lessonId, topic)
+                    },
+                    onBulkMarkAttendance = { lessonId, status, target ->
+                        viewModel.bulkMarkAttendance(lessonId, status, target)
                     }
                 )
                 // Offline banner
@@ -168,7 +176,8 @@ private fun JournalContent(
     onCreateAssessmentForm: (title: String, type: String, date: String) -> Unit,
     onUpdateAssessmentForm: (formId: String, title: String, type: String, date: String) -> Unit,
     onDeleteAssessmentForm: (formId: String) -> Unit,
-    onUpdateLessonTopic: (lessonId: String, topic: String) -> Unit
+    onUpdateLessonTopic: (lessonId: String, topic: String) -> Unit,
+    onBulkMarkAttendance: (lessonId: String, status: String, target: String) -> Unit
 ) {
     val context = LocalContext.current
     var currentType by remember(selectedLessonType) { mutableStateOf(selectedLessonType.ifBlank { journal.lessons.firstOrNull()?.lessonType.orEmpty() }) }
@@ -177,9 +186,9 @@ private fun JournalContent(
     var attendanceDialog by remember { mutableStateOf<AttendanceEditState?>(null) }
     var gradeDialog by remember { mutableStateOf<GradeEditState?>(null) }
     var topicDialog by remember { mutableStateOf<TopicEditState?>(null) }
+    var showBulkAttendanceDialog by remember { mutableStateOf(false) }
     val horizontalScroll = rememberScrollState()
 
-    val availableTypes = journal.lessons.map { it.lessonType }.distinct().ifEmpty { listOf(currentType) }.filter { it.isNotBlank() }
     val filteredLessons = journal.lessons
         .filter { it.lessonType == currentType }
         .sortedBy { it.scheduledAt }
@@ -196,10 +205,10 @@ private fun JournalContent(
         verticalArrangement = Arrangement.spacedBy(0.dp)
     ) {
         item { JournalHeader(journal = journal, currentType = currentType) }
-        item { LessonTypeTabs(types = availableTypes, selectedType = currentType, onSelect = { currentType = it }) }
         item {
             JournalActions(
                 canEditAssessments = canEditAssessments,
+                canEditAttendance = canEditAttendance,
                 onExport = {
                     shareJournalXlsx(
                         context = context,
@@ -218,7 +227,8 @@ private fun JournalContent(
                         initialType = "quiz",
                         initialDate = LocalDate.now().toString()
                     )
-                }
+                },
+                onBulkAttendance = { showBulkAttendanceDialog = true }
             )
         }
         item { JournalTableTop() }
@@ -361,6 +371,18 @@ private fun JournalContent(
             }
         )
     }
+
+    if (showBulkAttendanceDialog) {
+        BulkAttendanceDialog(
+            lessons = filteredLessons,
+            onDismiss = { showBulkAttendanceDialog = false },
+            onConfirm = { lessonId, status, target ->
+                onBulkMarkAttendance(lessonId, status, target)
+                showBulkAttendanceDialog = false
+                onRefresh()
+            }
+        )
+    }
 }
 
 @Composable
@@ -408,52 +430,47 @@ private fun JournalHeader(journal: JournalGridResponse, currentType: String) {
 }
 
 @Composable
-private fun LessonTypeTabs(types: List<String>, selectedType: String, onSelect: (String) -> Unit) {
-    Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.horizontalScroll(rememberScrollState())) {
-        types.forEach { type ->
-            val selected = type == selectedType
-            Box(
-                modifier = Modifier
-                    .background(if (selected) AccentBlue else CardBackground, RoundedCornerShape(14.dp))
-                    .clickable { onSelect(type) }
-                    .padding(horizontal = 14.dp, vertical = 8.dp)
-            ) {
-                Text(
-                    text = lessonTypeName(type),
-                    color = if (selected) Color.White else PrimaryText,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
-        }
-    }
-}
-
-@Composable
 private fun JournalActions(
     canEditAssessments: Boolean,
+    canEditAttendance: Boolean,
     onExport: () -> Unit,
-    onAddAssessment: () -> Unit
+    onAddAssessment: () -> Unit,
+    onBulkAttendance: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        JournalActionButton(text = "Экспорт", onClick = onExport)
-        if (canEditAssessments) {
-            JournalActionButton(text = "Добавить контроль", onClick = onAddAssessment)
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            JournalActionButton(text = "Экспорт", onClick = onExport)
+            if (canEditAssessments) {
+                JournalActionButton(text = "Добавить контроль", onClick = onAddAssessment)
+            }
+        }
+        if (canEditAttendance) {
+            JournalActionButton(
+                text = "Быстрая отметка",
+                onClick = onBulkAttendance,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
     }
 }
 
 @Composable
-private fun JournalActionButton(text: String, onClick: () -> Unit) {
+private fun JournalActionButton(
+    text: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Button(
         onClick = onClick,
         shape = RoundedCornerShape(12.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = AccentBlue,
             contentColor = Color.White
-        )
+        ),
+        modifier = modifier
     ) {
         Text(text, fontWeight = FontWeight.SemiBold)
     }
@@ -1295,6 +1312,230 @@ private fun String.xmlEscape(): String = buildString {
                 else -> char.toString()
             }
         )
+    }
+}
+
+// ─── Bulk Attendance Dialog ───────────────────────────────────────────────────
+
+private val ATTENDANCE_STATUSES = listOf(
+    "present" to "Присутствовал",
+    "absent" to "Отсутствовал",
+    "valid_excuse" to "Уважительная причина"
+)
+
+private val BULK_TARGETS = listOf(
+    "unmarked" to "Только без отметки",
+    "all" to "Всех студентов"
+)
+
+@Composable
+private fun BulkDropdown(
+    label: String,
+    selectedLabel: String,
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White, RoundedCornerShape(10.dp))
+                .border(1.dp, Color(0xFFD1D5DB), RoundedCornerShape(10.dp))
+                .clickable(onClick = onToggle)
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = AppSecondaryText
+                )
+                Text(
+                    text = selectedLabel,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = PrimaryText,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
+            Icon(
+                painter = painterResource(R.drawable.arrow_bottom),
+                contentDescription = null,
+                tint = AccentBlue,
+                modifier = Modifier
+                    .size(13.dp, 9.dp)
+                    .rotate(if (expanded) 180f else 0f)
+            )
+        }
+        if (expanded) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
+                    .border(1.dp, Color(0xFFD1D5DB), RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
+                    .padding(vertical = 4.dp)
+            ) {
+                content()
+            }
+        }
+    }
+}
+
+@Composable
+private fun BulkDropdownOption(
+    text: String,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(if (selected) Color(0xFFE8ECF8) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 10.dp)
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = if (selected) AccentBlue else PrimaryText,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+        )
+    }
+}
+
+@Composable
+private fun BulkAttendanceDialog(
+    lessons: List<JournalGridLesson>,
+    onDismiss: () -> Unit,
+    onConfirm: (lessonId: String, status: String, target: String) -> Unit
+) {
+    var selectedLessonId by remember { mutableStateOf(lessons.firstOrNull()?.lessonId.orEmpty()) }
+    var selectedStatus by remember { mutableStateOf("present") }
+    var selectedTarget by remember { mutableStateOf("unmarked") }
+    var expandedDropdown by remember { mutableStateOf<String?>(null) }  // "lesson" | "status" | "target" | null
+
+    val selectedLesson = lessons.find { it.lessonId == selectedLessonId }
+    val selectedStatusLabel = ATTENDANCE_STATUSES.find { it.first == selectedStatus }?.second.orEmpty()
+    val selectedTargetLabel = BULK_TARGETS.find { it.first == selectedTarget }?.second.orEmpty()
+
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(DialogContainerColor, RoundedCornerShape(18.dp))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            // Header
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = "Быстрая отметка",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold,
+                    color = DialogTextColor
+                )
+                Text(
+                    text = "Выберите занятие и статус посещаемости",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = AppSecondaryText
+                )
+            }
+
+            // Dropdown: Занятие
+            BulkDropdown(
+                label = "Занятие",
+                selectedLabel = selectedLesson?.let {
+                    buildString {
+                        append(formatLessonDate(it))
+                        append(" · ")
+                        append(lessonTypeName(it.lessonType))
+                        val topic = it.topic.orEmpty().trim()
+                        if (topic.isNotBlank()) {
+                            append(" · ")
+                            append(topic)
+                        }
+                    }
+                } ?: "Выберите занятие",
+                expanded = expandedDropdown == "lesson",
+                onToggle = { expandedDropdown = if (expandedDropdown == "lesson") null else "lesson" }
+            ) {
+                lessons.forEach { lesson ->
+                    val lessonLabel = buildString {
+                        append(formatLessonDate(lesson))
+                        append(" · ")
+                        append(lessonTypeName(lesson.lessonType))
+                        val topic = lesson.topic.orEmpty().trim()
+                        if (topic.isNotBlank()) {
+                            append(" · ")
+                            append(topic)
+                        }
+                    }
+                    BulkDropdownOption(
+                        text = lessonLabel,
+                        selected = lesson.lessonId == selectedLessonId,
+                        onClick = {
+                            selectedLessonId = lesson.lessonId
+                            expandedDropdown = null
+                        }
+                    )
+                }
+            }
+
+            // Dropdown: Статус
+            BulkDropdown(
+                label = "Статус",
+                selectedLabel = selectedStatusLabel,
+                expanded = expandedDropdown == "status",
+                onToggle = { expandedDropdown = if (expandedDropdown == "status") null else "status" }
+            ) {
+                ATTENDANCE_STATUSES.forEach { (value, label) ->
+                    BulkDropdownOption(
+                        text = label,
+                        selected = value == selectedStatus,
+                        onClick = {
+                            selectedStatus = value
+                            expandedDropdown = null
+                        }
+                    )
+                }
+            }
+
+            // Dropdown: Кому ставить отметку
+            BulkDropdown(
+                label = "Применить к",
+                selectedLabel = selectedTargetLabel,
+                expanded = expandedDropdown == "target",
+                onToggle = { expandedDropdown = if (expandedDropdown == "target") null else "target" }
+            ) {
+                BULK_TARGETS.forEach { (value, label) ->
+                    BulkDropdownOption(
+                        text = label,
+                        selected = value == selectedTarget,
+                        onClick = {
+                            selectedTarget = value
+                            expandedDropdown = null
+                        }
+                    )
+                }
+            }
+
+            // Buttons
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                WebSecondaryButton(text = "Отмена", onClick = onDismiss)
+                Spacer(modifier = Modifier.width(8.dp))
+                WebPrimaryButton(
+                    text = "Отметить",
+                    enabled = selectedLessonId.isNotBlank(),
+                    onClick = { onConfirm(selectedLessonId, selectedStatus, selectedTarget) }
+                )
+            }
+        }
     }
 }
 

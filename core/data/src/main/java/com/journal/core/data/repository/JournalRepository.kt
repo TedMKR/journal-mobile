@@ -7,6 +7,7 @@ import com.journal.core.database.dao.PendingActionDao
 import com.journal.core.database.entity.JournalGridCacheEntity
 import com.journal.core.database.entity.PendingActionEntity
 import com.journal.core.database.entity.PendingActionType
+import com.journal.core.model.teacher.BulkMarkAttendanceRequest
 import com.journal.core.model.teacher.CreateAssessmentFormRequest
 import com.journal.core.model.teacher.CreateGradeRequest
 import com.journal.core.model.teacher.JournalGridResponse
@@ -249,6 +250,23 @@ class JournalRepository @Inject constructor(
                 )
             )
         }
+    }
+
+    /**
+     * Bulk mark attendance — online only.
+     * No offline queue: bulk mutations don't make sense without server context.
+     * Callers should handle exceptions and surface them to the UI.
+     */
+    suspend fun bulkMarkAttendance(
+        lessonId: String,
+        request: BulkMarkAttendanceRequest,
+        groupId: String,
+        disciplineId: String,
+        periodId: String,
+        lessonType: String
+    ) {
+        api.bulkMarkAttendance(lessonId, request)
+        journalGridCacheDao.delete(groupId, disciplineId, periodId, lessonType)
     }
 
     suspend fun updateLessonTopic(
