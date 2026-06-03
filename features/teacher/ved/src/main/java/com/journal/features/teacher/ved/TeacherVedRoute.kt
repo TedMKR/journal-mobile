@@ -70,6 +70,7 @@ import retrofit2.HttpException
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -681,10 +682,10 @@ private fun DateField(label: String, value: String, onValueChange: (String) -> U
             modifier = Modifier.fillMaxWidth()
         ) {
             OutlinedTextField(
-                value = value,
+                value = value.toDisplayDate(),
                 onValueChange = {},
                 readOnly = true,
-                placeholder = { Text("YYYY-MM-DD") },
+                placeholder = { Text("ДД-ММ-ГГГГ") },
                 singleLine = true,
                 textStyle = LocalTextStyle.current.copy(color = Color.Black),
                 colors = appFieldColors(unfocusedLabelColor = AppSecondaryText),
@@ -730,6 +731,10 @@ private fun Long.toIsoLocalDate(): String = Instant.ofEpochMilli(this)
     .atZone(ZoneOffset.UTC)
     .toLocalDate()
     .toString()
+
+private fun String.toDisplayDate(): String = runCatching {
+    LocalDate.parse(take(10)).format(DateTimeFormatter.ofPattern("dd-MM-yyyy"))
+}.getOrElse { this }
 
 private suspend fun requestStatementReport(
     journalApi: JournalApi,

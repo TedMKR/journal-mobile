@@ -840,10 +840,10 @@ private fun AssessmentDialog(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     WebOutlinedTextField(
-                        value = date,
+                        value = date.toDisplayDate(),
                         onValueChange = {},
                         readOnly = true,
-                        placeholder = "YYYY-MM-DD",
+                        placeholder = "ДД-ММ-ГГГГ",
                         modifier = Modifier.weight(1f)
                     )
                     WebSecondaryButton(text = "Выбрать", onClick = { showDatePicker = true })
@@ -1311,6 +1311,10 @@ private fun Long.toIsoLocalDate(): String = Instant.ofEpochMilli(this)
     .atZone(ZoneOffset.UTC)
     .toLocalDate()
     .toString()
+
+private fun String.toDisplayDate(): String = runCatching {
+    LocalDate.parse(take(10)).format(DateTimeFormatter.ofPattern("dd-MM-yyyy"))
+}.getOrElse { this }
 
 private fun formatLessonDate(lesson: JournalGridLesson): String = runCatching {
     LocalDate.parse(lesson.date.take(10)).format(DateTimeFormatter.ofPattern("dd.MM"))
