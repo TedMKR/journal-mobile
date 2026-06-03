@@ -742,7 +742,7 @@ private fun AttendanceDialog(
                 )
             }
         },
-        confirmButton = { DialogPrimaryButton(text = "Сохранить", onClick = { onSave(selectedStatus, comment) }) },
+        confirmButton = { DialogPrimaryButton(text = "Применить", onClick = { onSave(selectedStatus, comment) }) },
         dismissButton = { DialogTextButton(text = "Отмена", onClick = onDismiss) }
     )
 }
@@ -1530,7 +1530,7 @@ private fun BulkAttendanceDialog(
                 WebSecondaryButton(text = "Отмена", onClick = onDismiss)
                 Spacer(modifier = Modifier.width(8.dp))
                 WebPrimaryButton(
-                    text = "Отметить",
+                    text = "Применить",
                     enabled = selectedLessonId.isNotBlank(),
                     onClick = { onConfirm(selectedLessonId, selectedStatus, selectedTarget) }
                 )
