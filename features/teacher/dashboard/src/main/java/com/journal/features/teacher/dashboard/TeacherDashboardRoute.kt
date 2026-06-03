@@ -1,7 +1,6 @@
 package com.journal.features.teacher.dashboard
 
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -12,11 +11,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.border
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -40,9 +34,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.nativeCanvas
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
@@ -53,6 +44,7 @@ import com.journal.core.model.teacher.TeacherProfile
 import com.journal.core.model.teacher.TeacherStats
 import com.journal.core.network.api.JournalApi
 import com.journal.core.ui.AppBackground
+import com.journal.core.ui.AppDropdown
 import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppLessonBackground
 import com.journal.core.ui.AppPrimary
@@ -273,23 +265,25 @@ private fun AnalyticsCard(
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text("Анализ", color = PrimaryText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-        AnalysisSelect(
+        AppDropdown(
             label = "Тип занятий",
-            selectedText = lessonTypeName(selectedType),
+            selected = selectedType,
             options = lessonTypeOptions,
-            onSelect = { selectedType = it }
+            onSelected = { selectedType = it }
         )
-        AnalysisSelect(
+        AppDropdown(
             label = "Предмет",
-            selectedText = state.disciplines.firstOrNull { it.id == selectedDisciplineId }?.name ?: "Выберите предмет",
+            selected = selectedDisciplineId,
             options = state.disciplines.map { it.id to it.name },
-            onSelect = { selectedDisciplineId = it }
+            onSelected = { selectedDisciplineId = it },
+            placeholder = "Выберите предмет"
         )
-        AnalysisSelect(
+        AppDropdown(
             label = "Группа",
-            selectedText = state.groups.firstOrNull { it.id == selectedGroupId }?.name ?: "Выберите группу",
+            selected = selectedGroupId,
             options = state.groups.map { it.id to it.name },
-            onSelect = { selectedGroupId = it }
+            onSelected = { selectedGroupId = it },
+            placeholder = "Выберите группу"
         )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             Button(
@@ -397,60 +391,6 @@ private fun AnalyticsCard(
             target = selectedTarget,
             onDismiss = { showAccessDialog = false }
         )
-    }
-}
-
-@Composable
-private fun AnalysisSelect(
-    label: String,
-    selectedText: String,
-    options: List<Pair<String, String>>,
-    onSelect: (String) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    var fieldWidth by remember { mutableStateOf(0.dp) }
-    val density = LocalDensity.current
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, color = PrimaryText, fontWeight = FontWeight.SemiBold)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .onSizeChanged { fieldWidth = with(density) { it.width.toDp() } }
-                .background(Color.White, RoundedCornerShape(12.dp))
-                .border(1.dp, if (expanded) PrimaryText else Color(0xFFD1D5DB), RoundedCornerShape(12.dp))
-                .clickable { expanded = true }
-                .padding(horizontal = 12.dp, vertical = 11.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(selectedText, color = PrimaryText, modifier = Modifier.weight(1f))
-                Image(
-                    painter = painterResource(id = R.drawable.arrow_bottom),
-                    contentDescription = null,
-                    modifier = Modifier.size(width = 13.dp, height = 9.dp)
-                )
-            }
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier
-                    .width(fieldWidth)
-                    .background(Color.White)
-            ) {
-                options.forEach { (value, title) ->
-                    DropdownMenuItem(
-                        text = { Text(title, color = PrimaryText) },
-                        onClick = {
-                            onSelect(value)
-                            expanded = false
-                        }
-                    )
-                }
-            }
-        }
     }
 }
 

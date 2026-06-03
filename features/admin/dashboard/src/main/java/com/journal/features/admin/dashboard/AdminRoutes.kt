@@ -52,6 +52,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -261,7 +262,9 @@ private fun AdminDropdown(
                     painter = painterResource(R.drawable.arrow_bottom),
                     contentDescription = null,
                     tint = SecondaryText,
-                    modifier = Modifier.size(12.dp)
+                    modifier = Modifier
+                        .size(12.dp)
+                        .rotate(if (expanded) 180f else 0f)
                 )
             }
         }

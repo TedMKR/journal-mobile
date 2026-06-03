@@ -1,7 +1,7 @@
 package com.journal.features.methodist.templates
 
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,16 +14,12 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.border
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -40,12 +36,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriod
@@ -63,7 +56,7 @@ import com.journal.core.model.teacher.UpdateLessonTemplateRequest
 import com.journal.core.network.api.JournalApi
 import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppDanger
-import com.journal.core.ui.AppFieldBorder
+import com.journal.core.ui.AppDropdown
 import com.journal.core.ui.AppFieldPlaceholder
 import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppMutedText
@@ -732,31 +725,31 @@ private fun JournalFilters(
             colors = appFieldColors(),
             modifier = Modifier.fillMaxWidth()
         )
-        CompactOptionFilter(
+        AppDropdown(
             label = "Период",
             options = listOf("" to "Все периоды") + periods.map { it.id to if (it.isActive) "${it.name} · активный" else it.name },
             selected = selectedPeriodId,
             onSelected = onPeriodChange
         )
-        CompactOptionFilter(
+        AppDropdown(
             label = "Дисциплина",
             options = listOf("" to "Все дисциплины") + disciplines.map { it.id to it.name },
             selected = selectedDisciplineId,
             onSelected = onDisciplineChange
         )
-        CompactOptionFilter(
+        AppDropdown(
             label = "Группа",
             options = listOf("" to "Все группы") + groups.map { it.id to it.name },
             selected = selectedGroupId,
             onSelected = onGroupChange
         )
-        CompactOptionFilter(
+        AppDropdown(
             label = "Преподаватель",
             options = listOf("" to "Все преподаватели") + teachers.map { it.id to it.fullName },
             selected = selectedTeacherId,
             onSelected = onTeacherChange
         )
-        CompactOptionFilter(
+        AppDropdown(
             label = "Тип занятия",
             options = listOf(
                 "" to "Все типы",
@@ -768,67 +761,6 @@ private fun JournalFilters(
             selected = selectedType,
             onSelected = onTypeChange
         )
-    }
-}
-
-@Composable
-private fun CompactOptionFilter(
-    label: String,
-    options: List<Pair<String, String>>,
-    selected: String,
-    onSelected: (String) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    var fieldWidth by remember { mutableStateOf(0.dp) }
-    val density = LocalDensity.current
-    val selectedText = options.firstOrNull { it.first == selected }?.second ?: options.firstOrNull()?.second.orEmpty()
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, color = PrimaryText, fontWeight = FontWeight.SemiBold)
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .onSizeChanged { fieldWidth = with(density) { it.width.toDp() } }
-                .background(Color.White, RoundedCornerShape(12.dp))
-                .border(1.dp, if (expanded) PrimaryText else AppFieldBorder, RoundedCornerShape(12.dp))
-                .clickable { expanded = true }
-                .padding(horizontal = 12.dp, vertical = 11.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    selectedText,
-                    color = PrimaryText,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                Image(
-                    painter = painterResource(id = R.drawable.arrow_bottom),
-                    contentDescription = null,
-                    modifier = Modifier.size(width = 13.dp, height = 9.dp)
-                )
-            }
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false },
-                modifier = Modifier
-                    .width(fieldWidth)
-                    .background(Color.White)
-            ) {
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.second, color = PrimaryText, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                        onClick = {
-                            onSelected(option.first)
-                            expanded = false
-                        }
-                    )
-                }
-            }
-        }
     }
 }
 
@@ -865,7 +797,7 @@ private fun TemplateListBlock(
             colors = appFieldColors(),
             modifier = Modifier.fillMaxWidth()
         )
-        CompactOptionFilter(
+        AppDropdown(
             label = "Дисциплина",
             options = listOf("" to "Все дисциплины") + disciplines.map { it.id to it.name },
             selected = selectedDisciplineId,
@@ -1357,7 +1289,7 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
 
 @Composable
 private fun SelectCard(label: String, options: List<Pair<String, String>>, selected: String, onSelected: (String) -> Unit) {
-    CompactOptionFilter(
+    AppDropdown(
         label = label,
         options = options,
         selected = selected,

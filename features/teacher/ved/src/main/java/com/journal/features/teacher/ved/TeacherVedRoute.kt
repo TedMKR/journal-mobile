@@ -40,6 +40,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
@@ -600,7 +601,9 @@ private fun SelectField(
                     Image(
                         painter = painterResource(id = R.drawable.arrow_bottom),
                         contentDescription = null,
-                        modifier = Modifier.size(width = 13.dp, height = 9.dp)
+                        modifier = Modifier
+                            .size(width = 13.dp, height = 9.dp)
+                            .rotate(if (expanded) 180f else 0f)
                     )
                 },
                 modifier = Modifier

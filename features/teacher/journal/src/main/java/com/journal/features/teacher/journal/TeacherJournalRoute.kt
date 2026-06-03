@@ -1324,8 +1324,8 @@ private val ATTENDANCE_STATUSES = listOf(
 )
 
 private val BULK_TARGETS = listOf(
-    "unmarked" to "Только без отметки",
-    "all" to "Всех студентов"
+    "unmarked" to "Без отметки",
+    "all" to "Ко всем"
 )
 
 @Composable
@@ -1434,7 +1434,7 @@ private fun BulkAttendanceDialog(
                     text = "Быстрая отметка",
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = DialogTextColor
+                    color = PrimaryText
                 )
                 Text(
                     text = "Выберите занятие и статус посещаемости",
@@ -1504,7 +1504,7 @@ private fun BulkAttendanceDialog(
 
             // Dropdown: Кому ставить отметку
             BulkDropdown(
-                label = "Применить к",
+                label = "Применить к ученикам",
                 selectedLabel = selectedTargetLabel,
                 expanded = expandedDropdown == "target",
                 onToggle = { expandedDropdown = if (expandedDropdown == "target") null else "target" }
