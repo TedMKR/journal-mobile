@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
+import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.model.teacher.GrantJournalAccessRequest
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.TeacherLesson
@@ -438,7 +439,7 @@ private fun AccessGrantDialog(
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     teachers.take(6).forEach { teacher ->
                         SelectRow(
-                            text = teacher.fullName,
+                            text = PersonNameFormatter.formatFullName(teacher.fullName),
                             selected = selectedTeacher?.id == teacher.id,
                             onClick = { selectedTeacher = teacher }
                         )
@@ -616,14 +617,13 @@ private suspend fun buildDashboardState(
     }.getOrNull()
 
     val uniqueDisciplines = lessons.mapNotNull { lesson -> lesson.disciplineId?.let { it to lesson.disciplineName } }.distinctBy { it.first }
-    // Priority: JWT first name (always correct) → 2nd word of journal full name → fallback
-    val teacherName = jwtName?.takeIf(String::isNotBlank)
-        ?: defaultJournal?.teacher?.fullName?.trim()
-            ?.split("\\s+".toRegex())?.getOrNull(1)?.takeIf(String::isNotBlank)
-        ?: defaultJournal?.teacher?.fullName?.takeIf(String::isNotBlank)
-        ?: lessons.firstNotNullOfOrNull {
-            it.teacherName?.trim()?.split("\\s+".toRegex())?.getOrNull(1)?.takeIf(String::isNotBlank)
-        }
+    val journalTeacherName = PersonNameFormatter.formatFullName(defaultJournal?.teacher?.fullName)
+    val lessonTeacherName = lessons.firstNotNullOfOrNull { lesson ->
+        PersonNameFormatter.formatFullName(lesson.teacherName).takeIf(String::isNotBlank)
+    }
+    val teacherName = journalTeacherName.takeIf(String::isNotBlank)
+        ?: lessonTeacherName
+        ?: PersonNameFormatter.formatFullName(jwtName).takeIf(String::isNotBlank)
         ?: "Преподаватель"
 
     return TeacherDashboardUiState(

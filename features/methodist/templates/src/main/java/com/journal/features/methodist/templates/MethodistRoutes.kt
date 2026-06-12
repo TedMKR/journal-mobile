@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
+import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriod
 import com.journal.core.model.teacher.AssignLessonTemplateRequest
@@ -587,7 +588,8 @@ private fun JournalContext.displayGroupName(): String = groupName ?: group?.name
 
 private fun JournalContext.displayPeriodName(): String = periodName ?: academicPeriod?.name ?: period?.name ?: "Период не указан"
 
-private fun JournalContext.displayTeacherName(): String = teacherName ?: teacher?.fullName ?: "Не указан"
+private fun JournalContext.displayTeacherName(): String =
+    PersonNameFormatter.formatFullName(teacherName ?: teacher?.fullName).ifBlank { "Не указан" }
 
 private fun JournalContext.toTarget(): MethodistJournalTarget = MethodistJournalTarget(
     groupId = groupId ?: group?.id.orEmpty(),

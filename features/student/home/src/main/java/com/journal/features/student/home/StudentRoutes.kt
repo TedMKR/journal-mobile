@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.model.teacher.StudentJournalGrade
 import com.journal.core.model.teacher.StudentJournalLesson
 import com.journal.core.model.teacher.StudentLesson
@@ -382,7 +383,9 @@ private fun StudentLessonCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             InfoChip(lessonTypeName(lesson.lessonType))
-            lesson.teacherName?.takeIf { it.isNotBlank() }?.let { InfoChip(it) }
+            lesson.teacherName?.takeIf { it.isNotBlank() }?.let {
+                InfoChip(PersonNameFormatter.formatFullName(it))
+            }
         }
         lesson.location?.takeIf { it.isNotBlank() }?.let { InfoChip(it) }
         lesson.myAttendanceStatus?.let { AttendanceChip(status = it) }
@@ -413,10 +416,10 @@ private fun ProfileSummaryCard(
     val avgGrade = subjects.mapNotNull { it.avgGrade }.takeIf { it.isNotEmpty() }?.average()
     val attendance = subjects.takeIf { it.isNotEmpty() }?.map { it.attendancePct }?.average() ?: 0.0
 
-    // Display name priority: JWT first name → 2nd word of API full name → full name → fallback
+    val profileName = PersonNameFormatter.formatFullName(profile?.fullName)
     val displayName = jwtFirstName?.takeIf(String::isNotBlank)
-        ?: profile?.fullName?.trim()?.split("\\s+".toRegex())?.getOrNull(1)?.takeIf(String::isNotBlank)
-        ?: profile?.fullName
+        ?: PersonNameFormatter.firstNameFromFullName(profileName)
+        ?: profileName.takeIf(String::isNotBlank)
         ?: "Профиль студента"
 
     Column(
@@ -471,7 +474,13 @@ private fun SubjectRow(subject: StudentSubjectSummary) {
             AttendanceRing(percent = subject.attendancePct.toInt())
             Column(modifier = Modifier.weight(1f)) {
                 Text(subject.disciplineName, color = PrimaryText, fontWeight = FontWeight.Bold)
-                subject.teacherName?.takeIf { it.isNotBlank() }?.let { Text(it, color = MutedText, style = MaterialTheme.typography.bodySmall) }
+                subject.teacherName?.takeIf { it.isNotBlank() }?.let {
+                    Text(
+                        PersonNameFormatter.formatFullName(it),
+                        color = MutedText,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
                 Text(
                     "${subject.lessonsAttended}/${subject.lessonsTotal} занятий",
                     color = MutedText,

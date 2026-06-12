@@ -49,6 +49,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppLessonBackground
 import com.journal.core.ui.AppPrimary
@@ -539,7 +540,7 @@ private fun StudentsPreview(prefill: CurrentAttestationPrefill) {
         prefill.students.take(8).forEach { student ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
                 Text(student.number.toString(), color = PrimaryText, modifier = Modifier.width(28.dp))
-                Text(student.fullName, color = PrimaryText, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(PersonNameFormatter.formatFullName(student.fullName), color = PrimaryText, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(student.studentCode ?: "—", color = SecondaryText)
             }
         }

@@ -27,6 +27,7 @@ android {
 
 dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.06.00"))
+    implementation(project(":core:common"))
     implementation(project(":core:ui"))
     implementation(project(":core:model"))
     implementation(project(":core:network"))

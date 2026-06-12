@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
+import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriod
 import com.journal.core.model.teacher.AssignLessonTemplateRequest
@@ -148,7 +149,11 @@ fun MethodistJournalCreateRoute(
                     loadTemplates()
                 }
                 SelectCard("Тип занятия", listOf("lecture" to "Лекция", "practice" to "Практика"), lessonType) { lessonType = it }
-                SelectCard("Преподаватель", teachers.map { it.id to it.fullName }, teacherId) { teacherId = it }
+                SelectCard(
+                    "Преподаватель",
+                    teachers.map { it.id to PersonNameFormatter.formatFullName(it.fullName) },
+                    teacherId
+                ) { teacherId = it }
                 SelectCard("Группа", groups.map { it.id to it.name }, groupId) { groupId = it }
             }
 
@@ -438,7 +443,8 @@ private fun JournalContext.displayGroupName(): String = groupName ?: group?.name
 
 private fun JournalContext.displayPeriodName(): String = periodName ?: academicPeriod?.name ?: period?.name ?: "Период не указан"
 
-private fun JournalContext.displayTeacherName(): String = teacherName ?: teacher?.fullName ?: "Не указан"
+private fun JournalContext.displayTeacherName(): String =
+    PersonNameFormatter.formatFullName(teacherName ?: teacher?.fullName).ifBlank { "Не указан" }
 
 private fun JournalContext.toTarget(): MethodistJournalTarget = MethodistJournalTarget(
     groupId = groupId ?: group?.id.orEmpty(),

@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.model.teacher.AdminAccessBinding
 import com.journal.core.model.teacher.AdminActionRequest
 import com.journal.core.model.teacher.AdminJournalContext
@@ -451,7 +452,10 @@ private fun JournalAdminRow(
                     if (!journal.lessonType.isNullOrBlank()) MetaChip(lessonTypeLabel(journal.lessonType))
                     if (journal.lessonCount > 0) MetaChip("${journal.lessonCount} занятий")
                     journal.periodName?.let { if (it.isNotBlank()) MetaChip(it) }
-                    journal.teacherName?.let { if (it.isNotBlank()) MetaChip(it) }
+                    journal.teacherName?.let {
+                        val teacherName = PersonNameFormatter.formatFullName(it)
+                        if (teacherName.isNotBlank()) MetaChip(teacherName)
+                    }
                 }
 
                 Spacer(Modifier.height(10.dp))

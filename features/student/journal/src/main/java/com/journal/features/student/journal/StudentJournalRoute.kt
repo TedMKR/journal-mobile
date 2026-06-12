@@ -44,6 +44,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.model.teacher.StudentJournalGrade
 import com.journal.core.model.teacher.StudentJournalLesson
 import com.journal.core.model.teacher.StudentLesson
@@ -141,7 +142,7 @@ fun StudentJournalRoute(
 @Composable
 private fun StudentJournalContent(card: StudentSubjectCard) {
     val hScroll = rememberScrollState()
-    val studentName = card.student?.fullName ?: ""
+    val studentName = PersonNameFormatter.formatFullName(card.student?.fullName)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -164,7 +165,7 @@ private fun StudentJournalContent(card: StudentSubjectCard) {
                         fontWeight = FontWeight.Bold
                     )
                     card.teacherName?.takeIf { it.isNotBlank() }?.let {
-                        JournalTag(it)
+                        JournalTag(PersonNameFormatter.formatFullName(it))
                     }
                     JournalTag(card.groupName)
                 }

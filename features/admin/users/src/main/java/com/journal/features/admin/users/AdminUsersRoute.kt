@@ -68,6 +68,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.journal.core.common.config.PersonNameFormatter
+import com.journal.core.common.config.PersonNameParts
 import com.journal.core.model.teacher.AdminAccessBinding
 import com.journal.core.model.teacher.AdminActionRequest
 import com.journal.core.model.teacher.AdminJournalContext
@@ -466,7 +468,7 @@ fun AdminUsersRoute(journalApi: JournalApi) {
                         user = user,
                         onEdit = {
                             editingUser = user
-                            editFullName = user.fullName ?: ""
+                            editFullName = user.displayName().takeIf { it != user.username && it != user.email } ?: (user.fullName ?: "")
                             editEmail = user.email ?: ""
                             editUsername = user.username ?: ""
                             editFirstName = user.firstName ?: ""
@@ -539,7 +541,7 @@ private fun UserRow(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = user.fullName ?: user.username ?: user.email ?: "Без имени",
+                    text = user.displayName(),
                     fontWeight = FontWeight.Bold,
                     color = PrimaryBlue,
                     fontSize = 15.sp,
@@ -612,6 +614,17 @@ private fun EditField(label: String, value: String, onChange: (String) -> Unit) 
         )
     )
 }
+
+private fun AdminUser.displayName(): String =
+    PersonNameFormatter.format(
+        PersonNameParts(
+            fullName = fullName,
+            firstName = firstName,
+            lastName = lastName,
+            middleName = patronymic,
+            username = username ?: email
+        )
+    ).ifBlank { email ?: "Без имени" }
 
 // ─── 3. Admin Audit ───────────────────────────────────────────────────────────
 

@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
+import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriod
 import com.journal.core.model.teacher.AssignLessonTemplateRequest
@@ -137,7 +138,8 @@ fun MethodistDashboardRoute(
     }
     val filteredTeachers = remember(teachers, query) {
         teachers.filter { teacher ->
-            query.isBlank() || listOf(teacher.fullName, teacher.email.orEmpty()).any { it.lowercase().contains(query) }
+            val teacherName = PersonNameFormatter.formatFullName(teacher.fullName)
+            query.isBlank() || listOf(teacherName, teacher.email.orEmpty()).any { it.lowercase().contains(query) }
         }
     }
     val filteredGroups = remember(groups, query) {
@@ -341,7 +343,9 @@ private fun DirectoryPanel(
         DirectoryBlock(
             title = "Преподаватели",
             count = teachers.size,
-            rows = teachers.take(DashboardVisibleRows).map { DirectoryRow(it.fullName, it.email ?: "Email не указан") },
+            rows = teachers.take(DashboardVisibleRows).map {
+                DirectoryRow(PersonNameFormatter.formatFullName(it.fullName), it.email ?: "Email не указан")
+            },
             hiddenCount = (teachers.size - DashboardVisibleRows).coerceAtLeast(0),
             emptyText = "Нет преподавателей"
         )
@@ -481,7 +485,8 @@ private fun JournalContext.displayGroupName(): String = groupName ?: group?.name
 
 private fun JournalContext.displayPeriodName(): String = periodName ?: academicPeriod?.name ?: period?.name ?: "Период не указан"
 
-private fun JournalContext.displayTeacherName(): String = teacherName ?: teacher?.fullName ?: "Не указан"
+private fun JournalContext.displayTeacherName(): String =
+    PersonNameFormatter.formatFullName(teacherName ?: teacher?.fullName).ifBlank { "Не указан" }
 
 private fun JournalContext.toTarget(): MethodistJournalTarget = MethodistJournalTarget(
     groupId = groupId ?: group?.id.orEmpty(),

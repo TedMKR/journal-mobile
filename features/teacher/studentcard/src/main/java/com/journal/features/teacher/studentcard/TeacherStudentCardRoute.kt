@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.JournalGridStudent
 import com.journal.core.network.api.JournalApi
@@ -117,7 +118,7 @@ private fun StudentCardContent(card: StudentCardUiState) {
                 verticalAlignment = Alignment.Top
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
-                    Text(card.student.fullName, color = PrimaryText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
+                    Text(PersonNameFormatter.formatFullName(card.student.fullName), color = PrimaryText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
                     Tag(card.groupName)
                     card.student.externalId?.takeIf { it.isNotBlank() }?.let { Tag(it) }
                 }

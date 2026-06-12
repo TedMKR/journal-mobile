@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.model.teacher.AdminAccessBinding
 import com.journal.core.model.teacher.AdminActionRequest
 import com.journal.core.model.teacher.AdminJournalContext
@@ -543,7 +544,7 @@ private fun ProblemStudentCard(student: ProblemStudentEntry, modifier: Modifier 
     ) {
         // ── Имя ─────────────────────────────────────────────────────────────
         Text(
-            text = student.studentName ?: "—",
+            text = PersonNameFormatter.formatFullName(student.studentName).ifBlank { "—" },
             fontWeight = FontWeight.Bold,
             color = PrimaryBlue,
             fontSize = 18.sp,

@@ -57,6 +57,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppDanger
 import com.journal.core.ui.AppHeaderBackground
@@ -632,7 +633,7 @@ private fun JournalStudentRow(
     Row {
         TableCell(index.toString(), 42)
         TableCell(
-            text = student.fullName,
+            text = PersonNameFormatter.formatFullName(student.fullName),
             width = 190,
             textAlign = TextAlign.Start,
             clickable = true,
@@ -733,7 +734,7 @@ private fun AttendanceDialog(
         title = { Text("Посещаемость") },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(state.student.fullName, color = DialogTextColor)
+                Text(PersonNameFormatter.formatFullName(state.student.fullName), color = DialogTextColor)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     listOf("present", "absent", "valid_excuse").forEach { status ->
                         StatusChip(
@@ -774,7 +775,7 @@ private fun GradeDialog(
         title = { Text(state.form.title) },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(state.student.fullName, color = DialogTextColor)
+                Text(PersonNameFormatter.formatFullName(state.student.fullName), color = DialogTextColor)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     (2..5).forEach { value ->
                         StatusChip(
@@ -1173,7 +1174,7 @@ private fun buildJournalExportRows(
     rows += header
 
     journal.students.forEachIndexed { index, student ->
-        val row = mutableListOf((index + 1).toString(), student.fullName)
+        val row = mutableListOf((index + 1).toString(), PersonNameFormatter.formatFullName(student.fullName))
         lessons.forEach { lesson ->
             val record = attendance.firstOrNull { it.studentId == student.studentId && it.lessonId == lesson.lessonId }
             row += attendanceExportText(record?.status)
