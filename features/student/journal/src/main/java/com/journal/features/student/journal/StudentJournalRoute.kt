@@ -76,9 +76,9 @@ private val MutedText = AppSecondaryText
 private val BadgeBackground = AppHeaderBackground
 private val LightBlue = AppHeaderBackground
 private val BarBackground = AppBarBackground
-private val Accent = Color(0xFF3B82F6)
-private val Danger = Color(0xFFDC2626)
-private val Success = Color(0xFF16A34A)
+private val Accent = AppPrimary
+private val Danger = AppDanger
+private val Success = AppSuccess
 
 // Journal table colours
 private val JournalHeaderBg    = AppHeaderBackground
@@ -154,7 +154,7 @@ private fun StudentJournalContent(card: StudentSubjectCard) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(CardBackground, RoundedCornerShape(22.dp))
+                    .background(CardBackground, RoundedCornerShape(16.dp))
                     .padding(18.dp)
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -255,7 +255,7 @@ private fun StudentStatsCard(card: StudentSubjectCard) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(CardBackground, RoundedCornerShape(22.dp))
+                .background(CardBackground, RoundedCornerShape(16.dp))
                 .padding(14.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -301,7 +301,7 @@ private fun JournalAttendanceChartCard(months: List<JournalAttendanceMonth>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(LightBlue, RoundedCornerShape(18.dp))
+            .background(LightBlue, RoundedCornerShape(16.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -392,7 +392,7 @@ private fun JournalProgressCard(title: String, done: Int, total: Int) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(LightBlue, RoundedCornerShape(18.dp))
+            .background(LightBlue, RoundedCornerShape(16.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {

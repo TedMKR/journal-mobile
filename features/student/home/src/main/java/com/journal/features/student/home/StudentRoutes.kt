@@ -78,9 +78,9 @@ private val MutedText = AppSecondaryText
 private val BadgeBackground = AppHeaderBackground
 private val LightBlue = AppHeaderBackground
 private val BarBackground = AppBarBackground
-private val Accent = Color(0xFF3B82F6)
-private val Danger = Color(0xFFDC2626)
-private val Success = Color(0xFF16A34A)
+private val Accent = AppPrimary
+private val Danger = AppDanger
+private val Success = AppSuccess
 
 // Journal table colours
 private val JournalHeaderBg    = AppHeaderBackground
@@ -306,7 +306,7 @@ private fun StudentDayScheduleCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(20.dp))
+            .background(CardBackground, RoundedCornerShape(16.dp))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -351,7 +351,7 @@ private fun StudentLessonCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(LessonBackground, RoundedCornerShape(15.dp))
+            .background(LessonBackground, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -379,19 +379,33 @@ private fun StudentLessonCard(
         }
 
         Row(
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            InfoChip(lessonTypeName(lesson.lessonType))
-            lesson.teacherName?.takeIf { it.isNotBlank() }?.let {
-                InfoChip(PersonNameFormatter.formatFullName(it))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                LessonBadge(text = lessonTypeName(lesson.lessonType), background = BadgeBackground)
+                LessonBadge(text = lesson.groupName, background = BadgeBackground)
             }
         }
-        lesson.location?.takeIf { it.isNotBlank() }?.let { InfoChip(it) }
+        lesson.location?.takeIf { it.isNotBlank() }?.let { location ->
+            LessonBadge(text = location, background = BadgeBackground)
+        }
         lesson.myAttendanceStatus?.let { AttendanceChip(status = it) }
         lesson.topic?.takeIf { it.isNotBlank() }?.let {
             Text("Тема: $it", color = MutedText, style = MaterialTheme.typography.bodySmall)
         }
+    }
+}
+
+@Composable
+private fun LessonBadge(text: String, background: Color) {
+    Box(
+        modifier = Modifier
+            .background(background, RoundedCornerShape(10.dp))
+            .padding(horizontal = 12.dp, vertical = 3.dp)
+    ) {
+        Text(text, color = PrimaryText, style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -454,7 +468,7 @@ private fun SubjectsCard(subjects: List<StudentSubjectSummary>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(20.dp))
+            .background(CardBackground, RoundedCornerShape(16.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {

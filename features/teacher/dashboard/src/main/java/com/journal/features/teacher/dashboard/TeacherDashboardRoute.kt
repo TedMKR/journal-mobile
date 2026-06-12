@@ -320,7 +320,7 @@ private fun AnalyticsCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(LessonBackground, RoundedCornerShape(14.dp))
+                        .background(LessonBackground, RoundedCornerShape(12.dp))
                         .padding(vertical = 28.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -339,7 +339,7 @@ private fun AnalyticsCard(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(LessonBackground, RoundedCornerShape(14.dp))
+                        .background(LessonBackground, RoundedCornerShape(12.dp))
                         .padding(vertical = 20.dp, horizontal = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -353,7 +353,7 @@ private fun AnalyticsCard(
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(LessonBackground, RoundedCornerShape(14.dp))
+                            .background(LessonBackground, RoundedCornerShape(12.dp))
                             .padding(vertical = 16.dp),
                         contentAlignment = Alignment.Center
                     ) {
@@ -385,7 +385,7 @@ private fun AnalyticsCard(
 private fun ActionTile(title: String, value: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
     Column(
         modifier = modifier
-            .background(AccentBackground, RoundedCornerShape(14.dp))
+            .background(AccentBackground, RoundedCornerShape(12.dp))
             .clickable(onClick = onClick)
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
@@ -425,7 +425,7 @@ private fun AccessGrantDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White, RoundedCornerShape(18.dp))
+                .background(Color.White, RoundedCornerShape(16.dp))
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {

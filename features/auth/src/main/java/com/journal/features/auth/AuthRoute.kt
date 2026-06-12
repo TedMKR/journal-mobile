@@ -135,7 +135,7 @@ private fun DebugAuthContent(onContinue: (String) -> Unit) {
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             label = { Text("Логин") },
-            textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            textStyle = LocalTextStyle.current.copy(color = PrimaryText),
             colors = appFieldColors(),
             singleLine = true
         )
@@ -146,7 +146,7 @@ private fun DebugAuthContent(onContinue: (String) -> Unit) {
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(12.dp),
             label = { Text("Пароль") },
-            textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            textStyle = LocalTextStyle.current.copy(color = PrimaryText),
             visualTransformation = PasswordVisualTransformation(),
             colors = appFieldColors(),
             singleLine = true
@@ -194,7 +194,7 @@ private fun AuthBackgroundCard(content: @Composable ColumnScope.() -> Unit) {
             modifier = Modifier
                 .align(Alignment.Center)
                 .fillMaxWidth(0.78f),
-            shape = RoundedCornerShape(20.dp),
+            shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White)
         ) {
             Column(

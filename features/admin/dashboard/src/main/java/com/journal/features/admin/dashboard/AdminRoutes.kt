@@ -87,6 +87,7 @@ import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppInputText
 import com.journal.core.ui.AppMutedText
 import com.journal.core.ui.AppPrimary
+import com.journal.core.ui.AppSuccess
 import com.journal.core.ui.AppSuccessLight
 import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
@@ -113,9 +114,9 @@ private val FieldBorder = AppFieldBorder
 private val InputTextColor = AppInputText
 private val DangerColor = AppDanger
 private val DangerLight = AppDangerLight
-private val GreenColor = Color(0xFF16A34A)
+private val GreenColor = AppSuccess
 private val GreenLight = AppSuccessLight
-private val AccentBadge = Color(0xFFEFF6FF)
+private val AccentBadge = AppHeaderBackground
 private val BarBackground = AppBarBackground
 private val WarningLight = Color(0xFFFEF3C7)
 
@@ -159,7 +160,7 @@ private fun ReasonDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White, RoundedCornerShape(20.dp))
+                .background(Color.White, RoundedCornerShape(16.dp))
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -263,7 +264,7 @@ fun AdminDashboardRoute(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
+                .clip(RoundedCornerShape(16.dp))
                 .background(PrimaryBlue)
                 .padding(20.dp)
         ) {

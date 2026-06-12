@@ -19,7 +19,7 @@ val AppSecondaryText = Color(0xFF7E8E99)
 val AppMutedText = Color(0xFF6D7885)
 
 /** Тёмный цвет текста в полях ввода */
-val AppInputText = Color(0xFF1F2937)
+val AppInputText = AppPrimary
 
 // ── Поля ввода ────────────────────────────────────────────────────────────────
 

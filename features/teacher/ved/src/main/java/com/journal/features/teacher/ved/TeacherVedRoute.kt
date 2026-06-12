@@ -51,9 +51,11 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.ui.AppBackground
+import com.journal.core.ui.AppDanger
 import com.journal.core.ui.AppLessonBackground
 import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppSecondaryText
+import com.journal.core.ui.AppSuccess
 import com.journal.core.ui.StyledDatePickerDialog
 import com.journal.core.ui.appFieldColors
 import com.journal.core.model.teacher.AcademicGroup
@@ -82,8 +84,8 @@ private val PrimaryText = AppPrimary
 private val SecondaryText = AppSecondaryText
 private val CardBackground = Color.White
 private val LightBlue = AppLessonBackground
-private val Danger = Color(0xFFB42318)
-private val Success = Color(0xFF027A48)
+private val Danger = AppDanger
+private val Success = AppSuccess
 
 @Composable
 fun TeacherVedRoute(journalApi: JournalApi) {
@@ -348,7 +350,7 @@ fun TeacherVedRoute(journalApi: JournalApi) {
 @Composable
 private fun TemplateCard() {
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = CardBackground),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -400,7 +402,7 @@ private fun StatementFormCard(
     onGenerate: () -> Unit
 ) {
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = CardBackground),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -554,7 +556,7 @@ private fun ReadyStatementsCard(
     onDownload: (ReadyStatement) -> Unit
 ) {
     Card(
-        shape = RoundedCornerShape(20.dp),
+        shape = RoundedCornerShape(16.dp),
         colors = CardDefaults.cardColors(containerColor = CardBackground),
         modifier = Modifier.fillMaxWidth()
     ) {
@@ -571,7 +573,7 @@ private fun ReadyStatementsCard(
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .background(LightBlue, RoundedCornerShape(14.dp))
+                            .background(LightBlue, RoundedCornerShape(12.dp))
                             .padding(12.dp),
                         verticalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
@@ -612,7 +614,7 @@ private fun SelectField(
                 onValueChange = {},
                 readOnly = true,
                 placeholder = { Text(placeholder) },
-                textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                textStyle = LocalTextStyle.current.copy(color = PrimaryText),
                 colors = appFieldColors(unfocusedLabelColor = AppSecondaryText),
                 trailingIcon = {
                     Image(
@@ -666,7 +668,7 @@ private fun InputField(label: String, value: String, onValueChange: (String) -> 
             onValueChange = onValueChange,
             placeholder = { Text(placeholder) },
             singleLine = true,
-            textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            textStyle = LocalTextStyle.current.copy(color = PrimaryText),
             colors = appFieldColors(unfocusedLabelColor = AppSecondaryText),
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(10.dp)
@@ -707,7 +709,7 @@ private fun DateField(label: String, value: String, onValueChange: (String) -> U
                 readOnly = true,
                 placeholder = { Text("ДД-ММ-ГГГГ") },
                 singleLine = true,
-                textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                textStyle = LocalTextStyle.current.copy(color = PrimaryText),
                 colors = appFieldColors(unfocusedLabelColor = AppSecondaryText),
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(10.dp)
@@ -716,7 +718,7 @@ private fun DateField(label: String, value: String, onValueChange: (String) -> U
                 onClick = { showDatePicker = true },
                 colors = ButtonDefaults.buttonColors(
                     containerColor = Color(0xFFE5E7EB),
-                    contentColor = Color(0xFF374151)
+                    contentColor = PrimaryText
                 ),
                 shape = RoundedCornerShape(8.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)

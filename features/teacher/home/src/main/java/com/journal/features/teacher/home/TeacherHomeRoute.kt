@@ -174,7 +174,7 @@ private fun WeekSchedule(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(CardBackground, RoundedCornerShape(20.dp))
+                .background(CardBackground, RoundedCornerShape(16.dp))
                 .padding(20.dp),
             contentAlignment = Alignment.Center
         ) {
@@ -211,7 +211,7 @@ private fun DayScheduleCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(20.dp))
+            .background(CardBackground, RoundedCornerShape(16.dp))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -248,7 +248,7 @@ private fun LessonCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(LessonBackground, RoundedCornerShape(15.dp))
+            .background(LessonBackground, RoundedCornerShape(12.dp))
             .clickable { onOpenLesson(lesson) }
             .padding(10.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)

@@ -16,9 +16,9 @@ import androidx.compose.ui.graphics.Color
 fun appFieldColors(
     unfocusedLabelColor: Color = AppPrimary,
 ): TextFieldColors = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = Color.Black,
-    unfocusedTextColor = Color.Black,
-    disabledTextColor = Color.Black,
+    focusedTextColor = AppPrimary,
+    unfocusedTextColor = AppPrimary,
+    disabledTextColor = AppPrimary,
     focusedContainerColor = Color.White,
     unfocusedContainerColor = Color.White,
     disabledContainerColor = Color.White,

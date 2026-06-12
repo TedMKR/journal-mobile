@@ -205,7 +205,7 @@ private fun MethodologistScaffold(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(CardBackground, RoundedCornerShape(20.dp))
+                    .background(CardBackground, RoundedCornerShape(16.dp))
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 content = content
@@ -233,7 +233,7 @@ private fun DashboardSummaryGrid(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(PrimaryText, RoundedCornerShape(18.dp))
+            .background(PrimaryText, RoundedCornerShape(16.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -313,7 +313,7 @@ private fun DirectoryPanel(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(20.dp))
+            .background(CardBackground, RoundedCornerShape(16.dp))
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -328,9 +328,9 @@ private fun DirectoryPanel(
             value = search,
             onValueChange = onSearchChange,
             placeholder = { Text("Поиск по дисциплинам, преподавателям и группам", color = AppFieldPlaceholder) },
-            textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            textStyle = LocalTextStyle.current.copy(color = PrimaryText),
             colors = appFieldColors(),
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(12.dp),
             modifier = Modifier.fillMaxWidth()
         )
         DirectoryBlock(
@@ -417,8 +417,8 @@ private fun JournalContextCard(context: JournalContext, onOpen: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFF7F8FB), RoundedCornerShape(18.dp))
-            .border(1.dp, LightBlue, RoundedCornerShape(18.dp))
+            .background(Color(0xFFF7F8FB), RoundedCornerShape(16.dp))
+            .border(1.dp, LightBlue, RoundedCornerShape(16.dp))
             .clickable(onClick = onOpen)
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)

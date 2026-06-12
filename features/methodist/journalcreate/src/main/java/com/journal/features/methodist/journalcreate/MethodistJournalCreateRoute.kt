@@ -230,7 +230,7 @@ private fun CreateJournalSectionCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(20.dp))
+            .background(CardBackground, RoundedCornerShape(16.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -296,7 +296,7 @@ private fun CreateJournalSubmitCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(20.dp))
+            .background(CardBackground, RoundedCornerShape(16.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -362,7 +362,7 @@ private fun MethodologistScaffold(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(CardBackground, RoundedCornerShape(20.dp))
+                    .background(CardBackground, RoundedCornerShape(16.dp))
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 content = content
@@ -387,7 +387,7 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(BackgroundColor, RoundedCornerShape(14.dp))
+                    .background(BackgroundColor, RoundedCornerShape(12.dp))
                     .padding(10.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -396,7 +396,7 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
                     value = topic.name,
                     onValueChange = { onTopicsChange(topics.replaceAt(index, topic.copy(name = it))) },
                     label = { Text("Название темы") },
-                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                    textStyle = LocalTextStyle.current.copy(color = PrimaryText),
             colors = appFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -405,7 +405,7 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
                         value = topic.lessonCount.toString(),
                         onValueChange = { value -> onTopicsChange(topics.replaceAt(index, topic.copy(lessonCount = value.toIntOrNull()?.coerceAtLeast(1) ?: 1))) },
                         label = { Text("Занятий") },
-                        textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                        textStyle = LocalTextStyle.current.copy(color = PrimaryText),
             colors = appFieldColors(),
                         modifier = Modifier.weight(1f)
                     )
@@ -415,7 +415,7 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
                     value = topic.description,
                     onValueChange = { onTopicsChange(topics.replaceAt(index, topic.copy(description = it))) },
                     label = { Text("Описание") },
-                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                    textStyle = LocalTextStyle.current.copy(color = PrimaryText),
             colors = appFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )

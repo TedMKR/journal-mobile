@@ -285,7 +285,7 @@ private fun MethodologistScaffold(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(CardBackground, RoundedCornerShape(20.dp))
+                    .background(CardBackground, RoundedCornerShape(16.dp))
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 content = content
@@ -318,7 +318,7 @@ private fun TemplateListBlock(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(20.dp))
+            .background(CardBackground, RoundedCornerShape(16.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -328,7 +328,7 @@ private fun TemplateListBlock(
             value = search,
             onValueChange = onSearchChange,
             label = { Text("Поиск: название, дисциплина, описание") },
-            textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            textStyle = LocalTextStyle.current.copy(color = PrimaryText),
             colors = appFieldColors(),
             modifier = Modifier.fillMaxWidth()
         )
@@ -389,7 +389,7 @@ private fun TemplateEditorCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(20.dp))
+            .background(CardBackground, RoundedCornerShape(16.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -398,7 +398,7 @@ private fun TemplateEditorCard(
             value = name,
             onValueChange = { name = it },
             label = { Text("Название") },
-            textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            textStyle = LocalTextStyle.current.copy(color = PrimaryText),
             colors = appFieldColors(),
             modifier = Modifier.fillMaxWidth()
         )
@@ -406,7 +406,7 @@ private fun TemplateEditorCard(
             value = description,
             onValueChange = { description = it },
             label = { Text("Описание") },
-            textStyle = LocalTextStyle.current.copy(color = Color.Black),
+            textStyle = LocalTextStyle.current.copy(color = PrimaryText),
             colors = appFieldColors(),
             modifier = Modifier.fillMaxWidth()
         )
@@ -438,7 +438,7 @@ private fun TemplateCreateDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White, RoundedCornerShape(20.dp))
+                .background(Color.White, RoundedCornerShape(16.dp))
                 .padding(20.dp)
                 .verticalScroll(rememberScrollState()),  // ← Только скролл, без fillMaxHeight
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -468,7 +468,7 @@ private fun TemplateCreateDialog(
                     value = name,
                     onValueChange = { name = it },
                     placeholder = { Text("КТП по дисциплине") },
-                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                    textStyle = LocalTextStyle.current.copy(color = PrimaryText),
             colors = appFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -479,7 +479,7 @@ private fun TemplateCreateDialog(
                     onValueChange = { description = it },
                     placeholder = { Text("Семестр, поток, комментарии") },
                     minLines = 3,
-                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                    textStyle = LocalTextStyle.current.copy(color = PrimaryText),
             colors = appFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -532,7 +532,7 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(BackgroundColor, RoundedCornerShape(14.dp))
+                    .background(BackgroundColor, RoundedCornerShape(12.dp))
                     .padding(10.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp)
             ) {
@@ -541,7 +541,7 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
                     value = topic.name,
                     onValueChange = { onTopicsChange(topics.replaceAt(index, topic.copy(name = it))) },
                     label = { Text("Название темы") },
-                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                    textStyle = LocalTextStyle.current.copy(color = PrimaryText),
             colors = appFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -550,7 +550,7 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
                         value = topic.lessonCount.toString(),
                         onValueChange = { value -> onTopicsChange(topics.replaceAt(index, topic.copy(lessonCount = value.toIntOrNull()?.coerceAtLeast(1) ?: 1))) },
                         label = { Text("Занятий") },
-                        textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                        textStyle = LocalTextStyle.current.copy(color = PrimaryText),
             colors = appFieldColors(),
                         modifier = Modifier.weight(1f)
                     )
@@ -560,7 +560,7 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
                     value = topic.description,
                     onValueChange = { onTopicsChange(topics.replaceAt(index, topic.copy(description = it))) },
                     label = { Text("Описание") },
-                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                    textStyle = LocalTextStyle.current.copy(color = PrimaryText),
             colors = appFieldColors(),
                     modifier = Modifier.fillMaxWidth()
                 )

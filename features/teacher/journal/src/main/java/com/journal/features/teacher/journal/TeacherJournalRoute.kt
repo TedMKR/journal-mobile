@@ -27,8 +27,6 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -62,8 +60,11 @@ import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppDanger
 import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppPrimary
+import com.journal.core.ui.AppPrimaryButton
 import com.journal.core.ui.AppSecondaryText
+import com.journal.core.ui.AppSecondaryButton
 import com.journal.core.ui.AppSuccess
+import com.journal.core.ui.AppTextActionButton
 import com.journal.core.ui.AppWarning
 import com.journal.core.ui.StyledDatePickerDialog
 import com.journal.core.ui.appFieldColors
@@ -95,7 +96,7 @@ private val AbsentColor = AppDanger
 private val ExcuseColor = AppWarning
 private val DangerColor = AppDanger
 private val DialogContainerColor = Color.White
-private val DialogTextColor = Color.Black
+private val DialogTextColor = PrimaryText
 
 private const val ATTENDANCE_COLUMN_WIDTH = 82
 private const val GRADE_COLUMN_WIDTH = 112
@@ -417,7 +418,7 @@ private fun JournalHeader(journal: JournalGridResponse, currentType: String) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(18.dp))
+            .background(CardBackground, RoundedCornerShape(16.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -467,24 +468,7 @@ private fun JournalActionButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Button(
-        onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = AccentBlue,
-            contentColor = Color.White
-        ),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
-        modifier = modifier
-    ) {
-        Text(
-            text = text,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Clip
-        )
-    }
+    AppPrimaryButton(text = text, onClick = onClick, modifier = modifier, containerColor = AccentBlue)
 }
 
 @Composable
@@ -748,7 +732,7 @@ private fun AttendanceDialog(
                     value = comment,
                     onValueChange = { comment = it },
                     label = { Text("Комментарий") },
-                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                    textStyle = LocalTextStyle.current.copy(color = PrimaryText),
                     colors = appFieldColors()
                 )
             }
@@ -789,7 +773,7 @@ private fun GradeDialog(
                     value = comment,
                     onValueChange = { comment = it },
                     label = { Text("Комментарий") },
-                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                    textStyle = LocalTextStyle.current.copy(color = PrimaryText),
                     colors = appFieldColors()
                 )
             }
@@ -913,7 +897,7 @@ private fun WebOutlinedTextField(
         readOnly = readOnly,
         singleLine = true,
         placeholder = { Text(placeholder, color = Color(0xFF9CA3AF)) },
-        textStyle = LocalTextStyle.current.copy(color = Color.Black),
+        textStyle = LocalTextStyle.current.copy(color = PrimaryText),
         colors = appFieldColors(),
         modifier = modifier.fillMaxWidth()
     )
@@ -948,36 +932,18 @@ private fun WebPrimaryButton(
     enabled: Boolean = true,
     onClick: () -> Unit
 ) {
-    Button(
+    AppPrimaryButton(
+        text = text,
         onClick = onClick,
         enabled = enabled,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = AccentBlue,
-            contentColor = Color.White,
-            disabledContainerColor = Color(0xFFCBD5E1),
-            disabledContentColor = Color.White
-        ),
-        shape = RoundedCornerShape(8.dp),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+        containerColor = AccentBlue,
         modifier = Modifier.padding(start = 8.dp)
-    ) {
-        Text(text, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
-    }
+    )
 }
 
 @Composable
 private fun WebSecondaryButton(text: String, onClick: () -> Unit) {
-    Button(
-        onClick = onClick,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color(0xFFE5E7EB),
-            contentColor = Color(0xFF374151)
-        ),
-        shape = RoundedCornerShape(8.dp),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-    ) {
-        Text(text, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
-    }
+    AppSecondaryButton(text = text, onClick = onClick)
 }
 
 @Composable
@@ -1031,7 +997,7 @@ private fun TopicDialog(
                     onValueChange = { topic = it },
                     label = { Text("Тема / комментарий к занятию") },
                     minLines = 3,
-                    textStyle = LocalTextStyle.current.copy(color = Color.Black),
+                    textStyle = LocalTextStyle.current.copy(color = PrimaryText),
                     colors = appFieldColors()
                 )
             }
@@ -1054,40 +1020,17 @@ private fun DialogPrimaryButton(
     containerColor: Color = AccentBlue,
     onClick: () -> Unit
 ) {
-    Button(
+    AppPrimaryButton(
+        text = text,
         onClick = onClick,
         enabled = enabled,
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = containerColor,
-            contentColor = Color.White,
-            disabledContainerColor = HeaderBackground,
-            disabledContentColor = PrimaryText.copy(alpha = 0.45f)
-        ),
-        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-    ) {
-        Text(
-            text = text,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Clip
-        )
-    }
+        containerColor = containerColor
+    )
 }
 
 @Composable
 private fun DialogTextButton(text: String, onClick: () -> Unit) {
-    TextButton(onClick = onClick) {
-        Text(
-            text = text,
-            color = AccentBlue,
-            fontWeight = FontWeight.SemiBold,
-            maxLines = 1,
-            softWrap = false,
-            overflow = TextOverflow.Clip
-        )
-    }
+    AppTextActionButton(text = text, onClick = onClick, color = AccentBlue)
 }
 
 private data class AttendanceEditState(
@@ -1422,7 +1365,7 @@ private fun BulkAttendanceDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(DialogContainerColor, RoundedCornerShape(18.dp))
+                .background(DialogContainerColor, RoundedCornerShape(16.dp))
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
