@@ -285,7 +285,11 @@ fun AdminPeriodsRoute(journalApi: JournalApi) {
             ) {
                 Text("Периоды не найдены", color = SecondaryText, fontWeight = FontWeight.SemiBold)
             }
-            else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 items(periods) { period ->
                     PeriodAdminRow(
                         period = period,
@@ -305,8 +309,10 @@ private fun PeriodAdminRow(period: AdminPeriod, onToggle: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
             .background(CardBackground)
-            .padding(horizontal = 16.dp, vertical = 14.dp)
+            .border(1.dp, LightBlue, RoundedCornerShape(16.dp))
+            .padding(16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -349,7 +355,6 @@ private fun PeriodAdminRow(period: AdminPeriod, onToggle: () -> Unit) {
             DangerButton("Закрыть", onClick = onToggle)
         }
     }
-    Box(Modifier.fillMaxWidth().height(1.dp).background(BackgroundColor))
 }
 
 // ─── 6. Admin Access Bindings ─────────────────────────────────────────────────

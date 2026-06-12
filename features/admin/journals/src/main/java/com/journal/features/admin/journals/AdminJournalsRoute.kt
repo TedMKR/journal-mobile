@@ -520,8 +520,8 @@ private fun JournalStatusBadge(status: String?) {
     Text(
         text = journalStatusLabel(status),
         modifier = Modifier
-            .border(1.dp, LightBlue, RoundedCornerShape(999.dp))
             .background(Color.White, RoundedCornerShape(999.dp))
+            .border(1.dp, LightBlue, RoundedCornerShape(999.dp))
             .padding(horizontal = 12.dp, vertical = 5.dp),
         color = textColor,
         fontWeight = FontWeight.Bold,
@@ -537,6 +537,7 @@ private fun MetaChip(text: String) {
         modifier = Modifier
             .clip(RoundedCornerShape(8.dp))
             .background(BackgroundColor)
+            .border(1.dp, LightBlue, RoundedCornerShape(8.dp))
             .padding(horizontal = 11.dp, vertical = 5.dp),
         color = PrimaryBlue,
         fontSize = 13.sp,

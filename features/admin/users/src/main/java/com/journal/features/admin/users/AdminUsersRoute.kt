@@ -458,7 +458,8 @@ fun AdminUsersRoute(journalApi: JournalApi) {
 
             else -> LazyColumn(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(users) { user ->
                     UserRow(
@@ -483,8 +484,10 @@ fun AdminUsersRoute(journalApi: JournalApi) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
                                 .background(CardBackground)
-                                .padding(12.dp),
+                                .border(1.dp, LightBlue, RoundedCornerShape(16.dp))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -524,8 +527,10 @@ private fun UserRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
             .background(CardBackground)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .border(1.dp, LightBlue, RoundedCornerShape(16.dp))
+            .padding(16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -572,24 +577,22 @@ private fun UserRow(
             }
         }
         Spacer(modifier = Modifier.height(10.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             SecondaryButton(
                 text = "Редактировать",
-                onClick = onEdit
+                onClick = onEdit,
+                modifier = Modifier.weight(1f)
             )
             if (isBlocked) {
-                PrimaryButton("Разблокировать", onToggleBlock)
+                PrimaryButton("Разблокировать", onToggleBlock, modifier = Modifier.weight(1f))
             } else {
-                DangerButton("Заблокировать", onToggleBlock)
+                DangerButton("Заблокировать", onToggleBlock, modifier = Modifier.weight(1f))
             }
         }
     }
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(BackgroundColor)
-    )
 }
 
 @Composable

@@ -44,6 +44,7 @@ import androidx.compose.ui.unit.sp
 fun AppSectionCard(
     modifier: Modifier = Modifier,
     backgroundColor: Color = Color.White,
+    borderColor: Color = AppHeaderBackground,
     cornerRadius: Int = 16,
     content: @Composable () -> Unit
 ) {
@@ -52,6 +53,7 @@ fun AppSectionCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(cornerRadius.dp))
             .background(backgroundColor)
+            .border(1.dp, borderColor, RoundedCornerShape(cornerRadius.dp))
             .padding(18.dp)
     ) {
         content()
@@ -139,17 +141,21 @@ fun AppAdminBadge(
     text: String,
     color: Color,
     background: Color,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    borderColor: Color = background
 ) {
     Text(
         text = text,
         modifier = modifier
             .clip(RoundedCornerShape(999.dp))
             .background(background)
+            .border(1.dp, borderColor, RoundedCornerShape(999.dp))
             .padding(horizontal = 10.dp, vertical = 4.dp),
         color = color,
         fontSize = 12.sp,
-        fontWeight = FontWeight.Bold
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis
     )
 }
 
@@ -186,7 +192,7 @@ fun AppSecondaryButton(
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier,
+        modifier = modifier.border(1.dp, AppHeaderBackground, RoundedCornerShape(cornerRadius.dp)),
         shape = RoundedCornerShape(cornerRadius.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,
@@ -204,12 +210,17 @@ fun AppDangerButton(
     modifier: Modifier = Modifier,
     containerColor: Color = AppDanger
 ) {
-    AppPrimaryButton(
-        text = text,
+    Button(
         onClick = onClick,
-        modifier = modifier,
-        containerColor = containerColor
-    )
+        modifier = modifier.border(1.dp, containerColor, RoundedCornerShape(12.dp)),
+        shape = RoundedCornerShape(12.dp),
+        colors = ButtonDefaults.buttonColors(
+            containerColor = AppDangerLight,
+            contentColor = containerColor
+        )
+    ) {
+        Text(text, color = containerColor, fontWeight = FontWeight.SemiBold)
+    }
 }
 
 @Composable
@@ -344,6 +355,7 @@ fun AppLoadingCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(cornerRadius.dp))
             .background(backgroundColor)
+            .border(1.dp, AppHeaderBackground, RoundedCornerShape(cornerRadius.dp))
             .padding(18.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -481,7 +493,10 @@ fun AppPaginationRow(
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White)
+            .border(1.dp, AppHeaderBackground, RoundedCornerShape(16.dp))
+            .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {

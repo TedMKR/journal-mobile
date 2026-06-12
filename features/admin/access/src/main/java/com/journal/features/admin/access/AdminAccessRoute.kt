@@ -331,7 +331,11 @@ fun AdminAccessRoute(journalApi: JournalApi) {
             ) {
                 Text("Доступы не найдены", color = SecondaryText, fontWeight = FontWeight.SemiBold)
             }
-            else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+            else -> LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 items(bindings) { binding ->
                     AccessBindingRow(
                         binding = binding,
@@ -354,8 +358,10 @@ private fun AccessBindingRow(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
             .background(CardBackground)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .border(1.dp, LightBlue, RoundedCornerShape(16.dp))
+            .padding(16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -409,7 +415,6 @@ private fun AccessBindingRow(
             DangerButton("Отозвать", onClick = onRevoke)
         }
     }
-    Box(Modifier.fillMaxWidth().height(1.dp).background(BackgroundColor))
 }
 
 // ─── Shared pagination row ────────────────────────────────────────────────────

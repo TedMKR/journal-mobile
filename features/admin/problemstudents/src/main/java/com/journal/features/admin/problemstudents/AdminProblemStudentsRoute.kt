@@ -503,7 +503,9 @@ private fun ProblemStudentCard(student: ProblemStudentEntry, modifier: Modifier 
     Column(
         modifier = modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
             .background(CardBackground, RoundedCornerShape(16.dp))
+            .border(1.dp, LightBlue, RoundedCornerShape(16.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -600,6 +602,7 @@ private fun ProblemTag(
     Box(
         modifier = modifier
             .background(bg, RoundedCornerShape(10.dp))
+            .border(1.dp, if (warning) Color(0xFFFCD34D) else LightBlue, RoundedCornerShape(10.dp))
             .padding(horizontal = 10.dp, vertical = 5.dp)
     ) {
         Text(

@@ -325,7 +325,8 @@ fun AdminAuditRoute(journalApi: JournalApi) {
 
             else -> LazyColumn(
                 modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(0.dp)
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(events) { event ->
                     AuditEventRow(event)
@@ -337,8 +338,10 @@ fun AdminAuditRoute(journalApi: JournalApi) {
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
+                                .clip(RoundedCornerShape(16.dp))
                                 .background(CardBackground)
-                                .padding(12.dp),
+                                .border(1.dp, LightBlue, RoundedCornerShape(16.dp))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
                             horizontalArrangement = Arrangement.Center,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
@@ -373,8 +376,10 @@ private fun AuditEventRow(event: AuditEvent) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
             .background(CardBackground)
-            .padding(horizontal = 16.dp, vertical = 12.dp)
+            .border(1.dp, LightBlue, RoundedCornerShape(16.dp))
+            .padding(16.dp)
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -424,12 +429,6 @@ private fun AuditEventRow(event: AuditEvent) {
             }
         }
     }
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .height(1.dp)
-            .background(BackgroundColor)
-    )
 }
 
 private fun shortenId(id: String): String =
