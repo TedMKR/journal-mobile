@@ -79,6 +79,8 @@ import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
+import com.journal.core.ui.AppFormField as WebFormField
+import com.journal.core.ui.AppStatusChip as StatusChip
 
 private val BackgroundColor = AppBackground
 private val PrimaryText = AppPrimary
@@ -889,22 +891,6 @@ private fun AssessmentDialog(
 }
 
 @Composable
-private fun WebFormField(
-    label: String,
-    content: @Composable () -> Unit
-) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = label,
-            color = PrimaryText,
-            style = MaterialTheme.typography.bodyMedium,
-            fontWeight = FontWeight.SemiBold
-        )
-        content()
-    }
-}
-
-@Composable
 private fun WebOutlinedTextField(
     value: String,
     onValueChange: (String) -> Unit,
@@ -1076,19 +1062,6 @@ private fun DialogPrimaryButton(
 private fun DialogTextButton(text: String, onClick: () -> Unit) {
     TextButton(onClick = onClick) {
         Text(text, color = AccentBlue, fontWeight = FontWeight.SemiBold)
-    }
-}
-
-@Composable
-private fun StatusChip(text: String, selected: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .size(42.dp)
-            .background(if (selected) AccentBlue else HeaderBackground, RoundedCornerShape(12.dp))
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(text, color = if (selected) Color.White else PrimaryText, fontWeight = FontWeight.Bold)
     }
 }
 

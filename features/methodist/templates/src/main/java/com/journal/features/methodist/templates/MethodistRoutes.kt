@@ -65,6 +65,15 @@ import com.journal.core.ui.appFieldColors
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
+import com.journal.core.ui.AppFormField as WebFormField
+import com.journal.core.ui.AppSelectCard as SelectCard
+import com.journal.core.ui.AppMessageCards as MessageCards
+import com.journal.core.ui.AppLoadingCard as LoadingCard
+import com.journal.core.ui.AppStateCard as StateCard
+import com.journal.core.ui.AppPrimaryButton as PrimaryButton
+import com.journal.core.ui.AppTextActionButton as SecondaryButton
+import com.journal.core.ui.AppFilterChip as FilterChip
+import com.journal.core.ui.AppBadge as Badge
 
 private val BackgroundColor = AppBackground
 private val CardBackground = Color.White
@@ -512,14 +521,6 @@ private fun TemplateCreateDialog(
 }
 
 @Composable
-private fun WebFormField(label: String, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(label, color = PrimaryText, fontWeight = FontWeight.SemiBold)
-        content()
-    }
-}
-
-@Composable
 private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDraft>) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -565,85 +566,6 @@ private fun TopicsEditor(topics: List<TopicDraft>, onTopicsChange: (List<TopicDr
             }
         }
     }
-}
-
-@Composable
-private fun SelectCard(label: String, options: List<Pair<String, String>>, selected: String, onSelected: (String) -> Unit) {
-    AppDropdown(
-        label = label,
-        options = options,
-        selected = selected,
-        onSelected = onSelected
-    )
-}
-
-@Composable
-private fun MessageCards(error: String?, success: String?) {
-    error?.let { StateCard(text = it, isError = true) }
-    success?.let { StateCard(text = it) }
-}
-
-@Composable
-private fun LoadingCard(text: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth().background(BackgroundColor, RoundedCornerShape(16.dp)).padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        CircularProgressIndicator(modifier = Modifier.width(22.dp), color = AccentBlue)
-        Text(text, color = PrimaryText)
-    }
-}
-
-@Composable
-private fun StateCard(text: String, isError: Boolean = false) {
-    Text(
-        text = text,
-        color = if (isError) DangerColor else PrimaryText,
-        modifier = Modifier.fillMaxWidth().background(BackgroundColor, RoundedCornerShape(16.dp)).padding(16.dp),
-        fontWeight = FontWeight.SemiBold
-    )
-}
-
-@Composable
-private fun PrimaryButton(
-    text: String,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    onClick: () -> Unit
-) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = AccentBlue, contentColor = Color.White)
-    ) { Text(text) }
-}
-
-@Composable
-private fun SecondaryButton(text: String, onClick: () -> Unit, color: Color = AccentBlue) {
-    TextButton(onClick = onClick) { Text(text, color = color, fontWeight = FontWeight.SemiBold) }
-}
-
-@Composable
-private fun FilterChip(text: String, selected: Boolean, onClick: () -> Unit) {
-    Box(
-        modifier = Modifier
-            .background(if (selected) AccentBlue else LightBlue, RoundedCornerShape(999.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 12.dp, vertical = 8.dp)
-    ) { Text(text, color = if (selected) Color.White else PrimaryText) }
-}
-
-@Composable
-private fun Badge(text: String) {
-    Text(
-        text = text,
-        color = PrimaryText,
-        modifier = Modifier.background(LightBlue, RoundedCornerShape(999.dp)).padding(horizontal = 10.dp, vertical = 6.dp),
-        fontWeight = FontWeight.SemiBold
-    )
 }
 
 private val ShortDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")

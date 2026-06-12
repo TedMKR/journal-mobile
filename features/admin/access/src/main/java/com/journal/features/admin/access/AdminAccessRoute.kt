@@ -91,6 +91,16 @@ import com.journal.core.ui.AppSuccessLight
 import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
+import com.journal.core.ui.AppSectionCard as SectionCard
+import com.journal.core.ui.AppStatCard as StatCard
+import com.journal.core.ui.AppAdminBadge as AdminBadge
+import com.journal.core.ui.AppPrimaryButton as PrimaryButton
+import com.journal.core.ui.AppSecondaryButton as SecondaryButton
+import com.journal.core.ui.AppDangerButton as DangerButton
+import com.journal.core.ui.AppMenuDropdown as AdminDropdown
+import com.journal.core.ui.AppErrorCard as ErrorCard
+import com.journal.core.ui.AppLoadingCard as LoadingCard
+import com.journal.core.ui.AppPaginationRow as AdminPaginationRow
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
 
@@ -137,156 +147,6 @@ private fun adminActionLabel(action: String?): String = when (action) {
 }
 
 // ─── Shared UI components ─────────────────────────────────────────────────────
-
-@Composable
-private fun SectionCard(
-    modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
-) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(16.dp))
-            .background(CardBackground)
-            .padding(18.dp)
-    ) {
-        content()
-    }
-}
-
-@Composable
-private fun StatCard(label: String, value: String) {
-    Column(
-        modifier = Modifier
-            .clip(RoundedCornerShape(14.dp))
-            .background(BackgroundColor)
-            .padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(value, fontWeight = FontWeight.Bold, fontSize = 28.sp, color = PrimaryBlue)
-        Text(label, fontSize = 14.sp, color = SecondaryText)
-    }
-}
-
-@Composable
-private fun AdminBadge(text: String, color: Color, background: Color) {
-    Text(
-        text = text,
-        modifier = Modifier
-            .clip(RoundedCornerShape(999.dp))
-            .background(background)
-            .padding(horizontal = 10.dp, vertical = 4.dp),
-        color = color,
-        fontSize = 12.sp,
-        fontWeight = FontWeight.Bold
-    )
-}
-
-@Composable
-private fun PrimaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Button(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = PrimaryBlue)
-    ) {
-        Text(text, color = Color.White, fontWeight = FontWeight.SemiBold)
-    }
-}
-
-@Composable
-private fun SecondaryButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Button(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(
-            containerColor = CardBackground,
-            contentColor = PrimaryBlue
-        )
-    ) {
-        Text(text, fontWeight = FontWeight.SemiBold)
-    }
-}
-
-@Composable
-private fun DangerButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Button(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = DangerColor)
-    ) {
-        Text(text, color = Color.White, fontWeight = FontWeight.SemiBold)
-    }
-}
-
-@Composable
-private fun AdminDropdown(
-    label: String,
-    selected: String,
-    options: List<Pair<String, String>>,
-    onSelected: (String) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val displayLabel = options.firstOrNull { it.second == selected }?.first ?: label
-    var fieldWidth by remember { mutableStateOf(0.dp) }
-    val density = LocalDensity.current
-
-    Box(modifier = modifier) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .onSizeChanged { fieldWidth = with(density) { it.width.toDp() } }
-                .background(Color.White, RoundedCornerShape(12.dp))
-                .border(1.dp, if (expanded) PrimaryBlue else FieldBorder, RoundedCornerShape(12.dp))
-                .clickable { expanded = true }
-                .padding(horizontal = 12.dp, vertical = 11.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = displayLabel,
-                    color = PrimaryBlue,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 14.sp,
-                    modifier = Modifier.weight(1f),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-                Icon(
-                    painter = painterResource(R.drawable.arrow_bottom),
-                    contentDescription = null,
-                    tint = SecondaryText,
-                    modifier = Modifier
-                        .size(12.dp)
-                        .rotate(if (expanded) 180f else 0f)
-                )
-            }
-        }
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-            modifier = Modifier
-                .width(fieldWidth)
-                .background(Color.White)
-        ) {
-            options.forEach { (optLabel, optValue) ->
-                DropdownMenuItem(
-                    text = { Text(optLabel, color = PrimaryBlue) },
-                    onClick = {
-                        onSelected(optValue)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun ReasonDialog(
@@ -350,36 +210,6 @@ private fun ReasonDialog(
                 )
             }
         }
-    }
-}
-
-@Composable
-private fun ErrorCard(message: String) {
-    Text(
-        text = message,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(DangerLight)
-            .padding(14.dp),
-        color = DangerColor,
-        fontWeight = FontWeight.SemiBold
-    )
-}
-
-@Composable
-private fun LoadingCard(text: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .background(BackgroundColor)
-            .padding(18.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        CircularProgressIndicator(color = PrimaryBlue, modifier = Modifier.width(20.dp).height(20.dp))
-        Text(text, color = SecondaryText, fontWeight = FontWeight.SemiBold)
     }
 }
 
@@ -583,31 +413,6 @@ private fun AccessBindingRow(
 }
 
 // ─── Shared pagination row ────────────────────────────────────────────────────
-
-@Composable
-private fun AdminPaginationRow(page: Int, totalPages: Int, onPrev: () -> Unit, onNext: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(CardBackground)
-            .padding(12.dp),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        TextButton(onClick = { if (page > 1) onPrev() }, enabled = page > 1) {
-            Text("← Назад", color = if (page > 1) PrimaryBlue else SecondaryText)
-        }
-        Text(
-            "$page / $totalPages",
-            modifier = Modifier.padding(horizontal = 16.dp),
-            color = PrimaryBlue,
-            fontWeight = FontWeight.Bold
-        )
-        TextButton(onClick = { if (page < totalPages) onNext() }, enabled = page < totalPages) {
-            Text("Вперёд →", color = if (page < totalPages) PrimaryBlue else SecondaryText)
-        }
-    }
-}
 
 // ─── 7. Admin Problem Students ────────────────────────────────────────────────
 

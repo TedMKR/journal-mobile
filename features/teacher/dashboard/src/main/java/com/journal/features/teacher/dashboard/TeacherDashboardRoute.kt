@@ -55,6 +55,7 @@ import java.time.OffsetDateTime
 import kotlin.math.roundToInt
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import com.journal.core.ui.AppStatTile as StatTile
 
 private val BackgroundColor = AppBackground
 private val PrimaryText = AppPrimary
@@ -156,25 +157,6 @@ private fun ProfileSummary(state: TeacherDashboardUiState) {
             StatTile("Часов\nв расписании", state.hoursInSchedule, Modifier.weight(1f))
             StatTile("Средняя\nуспеваемость", state.avgGrade, Modifier.weight(1f))
         }
-    }
-}
-
-@Composable
-private fun StatTile(title: String, value: String, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .background(Color.White, RoundedCornerShape(12.dp))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(5.dp)
-                .background(PrimaryText, RoundedCornerShape(4.dp))
-        )
-        Text(title, color = PrimaryText, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
-        Text(value, color = PrimaryText, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
     }
 }
 

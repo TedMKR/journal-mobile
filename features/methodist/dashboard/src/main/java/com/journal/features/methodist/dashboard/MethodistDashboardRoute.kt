@@ -65,6 +65,15 @@ import com.journal.core.ui.appFieldColors
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
+import com.journal.core.ui.AppFormField as WebFormField
+import com.journal.core.ui.AppSelectCard as SelectCard
+import com.journal.core.ui.AppMessageCards as MessageCards
+import com.journal.core.ui.AppLoadingCard as LoadingCard
+import com.journal.core.ui.AppStateCard as StateCard
+import com.journal.core.ui.AppPrimaryButton as PrimaryButton
+import com.journal.core.ui.AppTextActionButton as SecondaryButton
+import com.journal.core.ui.AppFilterChip as FilterChip
+import com.journal.core.ui.AppBadge as Badge
 
 private val BackgroundColor = AppBackground
 private val CardBackground = Color.White
@@ -451,54 +460,6 @@ private fun JournalMetaTile(label: String, value: String) {
             modifier = Modifier.weight(1.2f)
         )
     }
-}
-
-@Composable
-private fun LoadingCard(text: String) {
-    Row(
-        modifier = Modifier.fillMaxWidth().background(BackgroundColor, RoundedCornerShape(16.dp)).padding(16.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        CircularProgressIndicator(modifier = Modifier.width(22.dp), color = AccentBlue)
-        Text(text, color = PrimaryText)
-    }
-}
-
-@Composable
-private fun StateCard(text: String, isError: Boolean = false) {
-    Text(
-        text = text,
-        color = if (isError) DangerColor else PrimaryText,
-        modifier = Modifier.fillMaxWidth().background(BackgroundColor, RoundedCornerShape(16.dp)).padding(16.dp),
-        fontWeight = FontWeight.SemiBold
-    )
-}
-
-@Composable
-private fun PrimaryButton(
-    text: String,
-    modifier: Modifier = Modifier,
-    enabled: Boolean = true,
-    onClick: () -> Unit
-) {
-    Button(
-        onClick = onClick,
-        enabled = enabled,
-        modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
-        colors = ButtonDefaults.buttonColors(containerColor = AccentBlue, contentColor = Color.White)
-    ) { Text(text) }
-}
-
-@Composable
-private fun Badge(text: String) {
-    Text(
-        text = text,
-        color = PrimaryText,
-        modifier = Modifier.background(LightBlue, RoundedCornerShape(999.dp)).padding(horizontal = 10.dp, vertical = 6.dp),
-        fontWeight = FontWeight.SemiBold
-    )
 }
 
 private val ShortDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd.MM.yyyy")
