@@ -100,10 +100,6 @@ fun JournalNavHost(
     val jwtFullName: String? = remember(accessToken) {
         accessToken?.let { JwtUtils.extractFullName(it) }
     }
-    val jwtFirstName: String? = remember(accessToken) {
-        accessToken?.let { JwtUtils.extractFirstName(it) }
-    }
-
     val startDestination = if (initialRole != null) roleStartRoute(initialRole) else Routes.AUTH
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -224,10 +220,10 @@ fun JournalNavHost(
                 )
             }
             composable(Routes.STUDENT_DASHBOARD) {
-                StudentDashboardRoute(journalApi = journalApi, jwtFirstName = jwtFirstName)
+                StudentDashboardRoute(journalApi = journalApi, jwtName = jwtFullName)
             }
             composable(Routes.METHODIST_DASHBOARD) {
-                MethodistDashboardRoute(journalApi = journalApi, jwtFirstName = jwtFirstName)
+                MethodistDashboardRoute(journalApi = journalApi, jwtName = jwtFullName)
             }
             composable(Routes.METHODIST_JOURNALS) {
                 MethodistJournalsRoute(

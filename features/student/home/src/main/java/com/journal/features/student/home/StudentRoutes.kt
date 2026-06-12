@@ -161,8 +161,8 @@ fun StudentScheduleRoute(
 @Composable
 fun StudentDashboardRoute(
     journalApi: JournalApi,
-    /** First name extracted from JWT — shown in the profile header. */
-    jwtFirstName: String? = null
+    /** Full name extracted from JWT; used when the profile payload has no name. */
+    jwtName: String? = null
 ) {
     var profile by remember { mutableStateOf<StudentProfile?>(null) }
     var subjects by remember { mutableStateOf<List<StudentSubjectSummary>>(emptyList()) }
@@ -189,7 +189,7 @@ fun StudentDashboardRoute(
         when {
             isLoading -> CenterState { CircularProgressIndicator(color = PrimaryText) }
             error != null -> CenterState { Text(error.orEmpty(), color = Danger) }
-            else -> StudentDashboardContent(profile = profile, subjects = subjects, jwtFirstName = jwtFirstName)
+            else -> StudentDashboardContent(profile = profile, subjects = subjects, jwtName = jwtName)
         }
     }
 }
@@ -413,10 +413,10 @@ private fun LessonBadge(text: String, background: Color) {
 private fun StudentDashboardContent(
     profile: StudentProfile?,
     subjects: List<StudentSubjectSummary>,
-    jwtFirstName: String? = null
+    jwtName: String? = null
 ) {
     LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        item { ProfileSummaryCard(profile = profile, subjects = subjects, jwtFirstName = jwtFirstName) }
+        item { ProfileSummaryCard(profile = profile, subjects = subjects, jwtName = jwtName) }
         item { SubjectsCard(subjects) }
     }
 }
@@ -425,15 +425,15 @@ private fun StudentDashboardContent(
 private fun ProfileSummaryCard(
     profile: StudentProfile?,
     subjects: List<StudentSubjectSummary>,
-    jwtFirstName: String? = null
+    jwtName: String? = null
 ) {
     val avgGrade = subjects.mapNotNull { it.avgGrade }.takeIf { it.isNotEmpty() }?.average()
     val attendance = subjects.takeIf { it.isNotEmpty() }?.map { it.attendancePct }?.average() ?: 0.0
 
     val profileName = PersonNameFormatter.formatFullName(profile?.fullName)
-    val displayName = jwtFirstName?.takeIf(String::isNotBlank)
-        ?: PersonNameFormatter.firstNameFromFullName(profileName)
-        ?: profileName.takeIf(String::isNotBlank)
+    val jwtDisplayName = PersonNameFormatter.formatFullName(jwtName)
+    val displayName = profileName.takeIf(String::isNotBlank)
+        ?: jwtDisplayName.takeIf(String::isNotBlank)
         ?: "Профиль студента"
 
     Column(

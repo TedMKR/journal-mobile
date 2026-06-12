@@ -88,8 +88,8 @@ private const val DashboardVisibleRows = 8
 @Composable
 fun MethodistDashboardRoute(
     journalApi: JournalApi,
-    /** First name extracted from JWT — shown in the profile header. */
-    jwtFirstName: String? = null
+    /** Full name extracted from JWT and normalized for the profile header. */
+    jwtName: String? = null
 ) {
     var isLoading by remember { mutableStateOf(true) }
     var errors by remember { mutableStateOf<List<DashboardLoadError>>(emptyList()) }
@@ -159,7 +159,7 @@ fun MethodistDashboardRoute(
                     teachersCount = teachers.size,
                     groupsCount = groups.size,
                     journalsCount = journals.size,
-                    jwtFirstName = jwtFirstName
+                    jwtName = jwtName
                 )
                 PeriodStrip(activePeriodName)
                 if (errors.isNotEmpty()) {
@@ -225,10 +225,9 @@ private fun DashboardSummaryGrid(
     teachersCount: Int,
     groupsCount: Int,
     journalsCount: Int,
-    jwtFirstName: String? = null
+    jwtName: String? = null
 ) {
-    // Priority: JWT first name → fallback title
-    val displayName = jwtFirstName?.takeIf(String::isNotBlank) ?: "Методист"
+    val displayName = PersonNameFormatter.formatFullName(jwtName).takeIf(String::isNotBlank) ?: "Методист"
 
     Column(
         modifier = Modifier
