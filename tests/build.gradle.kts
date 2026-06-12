@@ -48,6 +48,7 @@ dependencies {
 
     // Retrofit annotations referenced by JournalApi interface at compile time
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
     // Room runtime – needed so JournalDatabase's RoomDatabase supertype resolves.
     // At test runtime we only mock JournalDatabase, so no real Room/SQLite runs.

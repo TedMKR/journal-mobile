@@ -40,8 +40,6 @@ android {
         buildConfigField("String", "KEYCLOAK_BASE_URL", "\"${env.getProperty("KEYCLOAK_BASE_URL", "http://153.80.240.154:8180")}\"")
         buildConfigField("String", "KEYCLOAK_REALM", "\"${env.getProperty("KEYCLOAK_REALM", "university-journal")}\"")
         buildConfigField("String", "KEYCLOAK_CLIENT_ID", "\"${env.getProperty("KEYCLOAK_CLIENT_ID", "journal-android")}\"")
-        buildConfigField("boolean", "USE_DEBUG_ROLE", env.getProperty("USE_DEBUG_ROLE", "true"))
-        buildConfigField("String", "DEBUG_ROLE", "\"${env.getProperty("DEBUG_ROLE", "teacher")}\"")
     }
 
     buildTypes {

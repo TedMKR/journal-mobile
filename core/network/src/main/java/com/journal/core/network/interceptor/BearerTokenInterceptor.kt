@@ -5,12 +5,11 @@ import okhttp3.Interceptor
 import okhttp3.Response
 
 class BearerTokenInterceptor(
-    private val tokenSession: TokenSession,
-    private val enabled: Boolean
+    private val tokenSession: TokenSession
 ) : Interceptor {
     override fun intercept(chain: Interceptor.Chain): Response {
         val token = tokenSession.accessToken.value
-        val request = if (enabled && !token.isNullOrBlank()) {
+        val request = if (!token.isNullOrBlank()) {
             chain.request().newBuilder()
                 .header("Authorization", "Bearer $token")
                 .build()
