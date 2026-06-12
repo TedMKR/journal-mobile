@@ -63,6 +63,7 @@ import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -328,9 +329,9 @@ fun AdminProblemStudentsRoute(journalApi: JournalApi) {
                     modifier = Modifier.fillMaxWidth()
                 )
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     ProblemNumberField(
-                        label = "Мин. оценок",
+                        label = "Минимум оценок",
                         value = minGrades,
                         onChange = { minGrades = it },
                         modifier = Modifier.weight(1f)
@@ -342,7 +343,7 @@ fun AdminProblemStudentsRoute(journalApi: JournalApi) {
                         modifier = Modifier.weight(1f)
                     )
                     ProblemNumberField(
-                        label = "Двоек, %",
+                        label = "Процент двоек",
                         value = failingPercentThreshold,
                         onChange = { failingPercentThreshold = it },
                         modifier = Modifier.weight(1f)
@@ -380,7 +381,7 @@ fun AdminProblemStudentsRoute(journalApi: JournalApi) {
                 SummaryStatCard(
                     label = "Серия",
                     value = (meta?.minFailingGrades ?: minFailingGrades.toIntOrNull() ?: 3).toString(),
-                    sub = "двоек подряд",
+                    sub = "подряд",
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -458,17 +459,33 @@ private fun SummaryStatCard(
         modifier = modifier
             .clip(RoundedCornerShape(14.dp))
             .background(CardBackground)
+            .height(98.dp)
             .padding(horizontal = 12.dp, vertical = 14.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center
     ) {
-        Text(label, fontSize = 12.sp, color = SecondaryText)
+        Text(
+            label,
+            fontSize = 12.sp,
+            color = SecondaryText,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip
+        )
         Text(
             value,
             fontWeight = FontWeight.Bold,
             fontSize = 22.sp,
             color = PrimaryBlue
         )
-        Text(sub, fontSize = 11.sp, color = SecondaryText)
+        Text(
+            sub,
+            fontSize = 11.sp,
+            color = SecondaryText,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip
+        )
     }
 }
 
@@ -479,21 +496,36 @@ private fun ProblemNumberField(
     onChange: (String) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = { new -> if (new.all { it.isDigit() }) onChange(new) },
-        label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+    Column(
         modifier = modifier,
-        singleLine = true,
-        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedTextColor = InputTextColor,
-            unfocusedTextColor = InputTextColor,
-            focusedBorderColor = PrimaryBlue,
-            unfocusedBorderColor = LightBlue,
-            focusedLabelColor = PrimaryBlue
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.fillMaxWidth(),
+            color = SecondaryText,
+            fontSize = 11.sp,
+            lineHeight = 13.sp,
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip
         )
-    )
+        OutlinedTextField(
+            value = value,
+            onValueChange = { new -> if (new.all { it.isDigit() }) onChange(new) },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedTextColor = InputTextColor,
+                unfocusedTextColor = InputTextColor,
+                focusedBorderColor = PrimaryBlue,
+                unfocusedBorderColor = LightBlue,
+                focusedLabelColor = PrimaryBlue
+            )
+        )
+    }
 }
 
 @Composable

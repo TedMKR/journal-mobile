@@ -12,6 +12,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -472,9 +473,16 @@ private fun JournalActionButton(
             containerColor = AccentBlue,
             contentColor = Color.White
         ),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         modifier = modifier
     ) {
-        Text(text, fontWeight = FontWeight.SemiBold)
+        Text(
+            text = text,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip
+        )
     }
 }
 
@@ -949,9 +957,10 @@ private fun WebPrimaryButton(
             disabledContentColor = Color.White
         ),
         shape = RoundedCornerShape(8.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         modifier = Modifier.padding(start = 8.dp)
     ) {
-        Text(text)
+        Text(text, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
     }
 }
 
@@ -963,9 +972,10 @@ private fun WebSecondaryButton(text: String, onClick: () -> Unit) {
             containerColor = Color(0xFFE5E7EB),
             contentColor = Color(0xFF374151)
         ),
-        shape = RoundedCornerShape(8.dp)
+        shape = RoundedCornerShape(8.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        Text(text)
+        Text(text, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
     }
 }
 
@@ -1052,16 +1062,30 @@ private fun DialogPrimaryButton(
             contentColor = Color.White,
             disabledContainerColor = HeaderBackground,
             disabledContentColor = PrimaryText.copy(alpha = 0.45f)
-        )
+        ),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        Text(text, fontWeight = FontWeight.SemiBold)
+        Text(
+            text = text,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip
+        )
     }
 }
 
 @Composable
 private fun DialogTextButton(text: String, onClick: () -> Unit) {
     TextButton(onClick = onClick) {
-        Text(text, color = AccentBlue, fontWeight = FontWeight.SemiBold)
+        Text(
+            text = text,
+            color = AccentBlue,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip
+        )
     }
 }
 

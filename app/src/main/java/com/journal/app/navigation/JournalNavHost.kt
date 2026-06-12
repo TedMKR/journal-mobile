@@ -577,6 +577,7 @@ private fun screenTitle(route: String): String = when {
     route == Routes.ADMIN_JOURNALS -> "Журналы"
     route == Routes.ADMIN_PERIODS -> "Учебные периоды"
     route == Routes.ADMIN_ACCESS -> "Доступы"
+    route == Routes.ADMIN_PROBLEM_STUDENTS -> "Проблемные студенты"
     else -> "Электронный журнал"
 }
 

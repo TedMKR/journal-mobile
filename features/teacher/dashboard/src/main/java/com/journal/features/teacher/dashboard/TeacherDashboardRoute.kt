@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import com.journal.core.model.teacher.GrantJournalAccessRequest
@@ -294,18 +296,20 @@ private fun AnalyticsCard(
                     disabledContentColor = Color.White
                 ),
                 shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Применить")
+                Text("Применить", maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
             }
             Button(
                 onClick = { showAccessDialog = true },
                 enabled = selectedTarget != null,
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
                 shape = RoundedCornerShape(12.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 modifier = Modifier.weight(1f)
             ) {
-                Text("Открыть доступ")
+                Text("Открыть доступ", maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
             }
         }
 
@@ -499,9 +503,15 @@ private fun AccessGrantDialog(
                     },
                     enabled = !isSaving && !isLoading,
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
-                    shape = RoundedCornerShape(12.dp)
+                    shape = RoundedCornerShape(12.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                 ) {
-                    Text(if (isSaving) "Сохранение..." else "Сохранить")
+                    Text(
+                        if (isSaving) "Сохранение..." else "Сохранить",
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Clip
+                    )
                 }
             }
         }

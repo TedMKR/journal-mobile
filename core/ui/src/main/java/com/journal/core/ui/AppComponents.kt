@@ -1,11 +1,13 @@
 package com.journal.core.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -175,9 +177,18 @@ fun AppPrimaryButton(
         enabled = enabled,
         modifier = modifier,
         shape = RoundedCornerShape(cornerRadius.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         colors = ButtonDefaults.buttonColors(containerColor = containerColor, contentColor = textColor)
     ) {
-        Text(text, color = textColor, fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal)
+        Text(
+            text = text,
+            color = textColor,
+            fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
+            fontSize = 14.sp,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip
+        )
     }
 }
 
@@ -194,12 +205,20 @@ fun AppSecondaryButton(
         onClick = onClick,
         modifier = modifier.border(1.dp, AppHeaderBackground, RoundedCornerShape(cornerRadius.dp)),
         shape = RoundedCornerShape(cornerRadius.dp),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,
             contentColor = contentColor
         )
     ) {
-        Text(text, fontWeight = FontWeight.SemiBold)
+        Text(
+            text = text,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip
+        )
     }
 }
 
@@ -210,16 +229,27 @@ fun AppDangerButton(
     modifier: Modifier = Modifier,
     containerColor: Color = AppDanger
 ) {
+    val shape = RoundedCornerShape(12.dp)
     Button(
         onClick = onClick,
-        modifier = modifier.border(1.dp, containerColor, RoundedCornerShape(12.dp)),
-        shape = RoundedCornerShape(12.dp),
+        modifier = modifier,
+        shape = shape,
+        border = BorderStroke(1.dp, containerColor),
+        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = AppDangerLight,
             contentColor = containerColor
         )
     ) {
-        Text(text, color = containerColor, fontWeight = FontWeight.SemiBold)
+        Text(
+            text = text,
+            color = containerColor,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip
+        )
     }
 }
 
@@ -230,7 +260,14 @@ fun AppTextActionButton(
     color: Color = AppPrimary
 ) {
     TextButton(onClick = onClick) {
-        Text(text, color = color, fontWeight = FontWeight.SemiBold)
+        Text(
+            text = text,
+            color = color,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip
+        )
     }
 }
 
@@ -361,7 +398,14 @@ fun AppLoadingCard(
         verticalAlignment = Alignment.CenterVertically
     ) {
         CircularProgressIndicator(color = contentColor, modifier = Modifier.size(indicatorSize.dp))
-        Text(text, color = textColor, fontWeight = FontWeight.SemiBold)
+        Text(
+            text = text,
+            color = textColor,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip
+        )
     }
 }
 
@@ -432,7 +476,13 @@ fun AppFilterChip(
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 8.dp)
     ) {
-        Text(text, color = if (selected) selectedTextColor else unselectedTextColor)
+        Text(
+            text = text,
+            color = if (selected) selectedTextColor else unselectedTextColor,
+            maxLines = 1,
+            softWrap = false,
+            overflow = TextOverflow.Clip
+        )
     }
 }
 

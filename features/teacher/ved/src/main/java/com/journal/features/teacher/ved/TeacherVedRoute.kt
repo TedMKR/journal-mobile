@@ -6,6 +6,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -286,7 +287,7 @@ fun TeacherVedRoute(journalApi: JournalApi) {
                             if (throwable.isIdempotencyConflict()) {
                                 // Key was already used with different data — reset so next click starts fresh.
                                 pendingIdempotencyKey = null
-                                error = "Ключ идемпотентности уже использован �� другими данными. Пожалуйста, попробуйте ещё раз."
+                                error = "Ключ идемпотентности уже использован с другими данными. Пожалуйста, попробуйте ещё раз."
                             } else if (throwable is IOException) {
                                 // Network error — preserve pendingIdempotencyKey so the next click retries safely.
                                 error = "Ошибка сети. Нажмите «Сформировать» ещё раз — запрос будет повторён безопасно."
@@ -441,9 +442,15 @@ private fun StatementFormCard(
                 onClick = onLoadPrefill,
                 enabled = selectedDisciplineId.isNotBlank() && selectedGroupId.isNotBlank() && selectedPeriodId.isNotBlank() && !isLoadingPrefill,
                 colors = ButtonDefaults.buttonColors(containerColor = LightBlue, contentColor = PrimaryText),
-                shape = RoundedCornerShape(10.dp)
+                shape = RoundedCornerShape(10.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
             ) {
-                Text(if (isLoadingPrefill) "Загружаю..." else "Заполнить данные")
+                Text(
+                    if (isLoadingPrefill) "Загружаю..." else "Заполнить данные",
+                    maxLines = 1,
+                    softWrap = false,
+                    overflow = TextOverflow.Clip
+                )
             }
             prefill?.let { data ->
                 StatementDetails(
@@ -464,9 +471,15 @@ private fun StatementFormCard(
                     enabled = !isGenerating,
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
                     shape = RoundedCornerShape(10.dp),
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     modifier = Modifier.align(Alignment.End)
                 ) {
-                    Text(if (isGenerating) "Формирую..." else "Сформировать")
+                    Text(
+                        if (isGenerating) "Формирую..." else "Сформировать",
+                        maxLines = 1,
+                        softWrap = false,
+                        overflow = TextOverflow.Clip
+                    )
                 }
             }
         }
@@ -567,8 +580,11 @@ private fun ReadyStatementsCard(
                             onClick = { onDownload(statement) },
                             enabled = statement.status == "done",
                             colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
-                            shape = RoundedCornerShape(10.dp)
-                        ) { Text("Скачать") }
+                            shape = RoundedCornerShape(10.dp),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                        ) {
+                            Text("Скачать", maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
+                        }
                     }
                 }
             }
@@ -701,9 +717,10 @@ private fun DateField(label: String, value: String, onValueChange: (String) -> U
                     containerColor = Color(0xFFE5E7EB),
                     contentColor = Color(0xFF374151)
                 ),
-                shape = RoundedCornerShape(8.dp)
+                shape = RoundedCornerShape(8.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
             ) {
-                Text("Выбрать")
+                Text("Выбрать", maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
             }
         }
     }
