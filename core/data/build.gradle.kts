@@ -24,11 +24,13 @@ android {
 }
 
 dependencies {
+    implementation(project(":core:common"))
     implementation(project(":core:model"))
     implementation(project(":core:network"))
     implementation(project(":core:database"))
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
+    implementation("com.squareup.retrofit2:retrofit:2.11.0")
 
     // Needed for JournalDatabase (RoomDatabase) and clearAllTables()
     implementation("androidx.room:room-runtime:2.6.1")

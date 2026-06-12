@@ -23,6 +23,16 @@ data class SessionEntity(
     @ColumnInfo(name = "full_name")
     val fullName: String? = null,
 
+    @ColumnInfo(name = "last_online_at")
+    val lastOnlineAt: Long = System.currentTimeMillis(),
+
+    @ColumnInfo(name = "offline_allowed_until")
+    val offlineAllowedUntil: Long = System.currentTimeMillis() + DEFAULT_OFFLINE_TTL_MS,
+
     @ColumnInfo(name = "updated_at")
     val updatedAt: Long = System.currentTimeMillis()
-)
+) {
+    companion object {
+        const val DEFAULT_OFFLINE_TTL_MS = 30L * 24 * 60 * 60 * 1000
+    }
+}

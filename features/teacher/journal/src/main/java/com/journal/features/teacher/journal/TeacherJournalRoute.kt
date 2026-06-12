@@ -68,6 +68,7 @@ import com.journal.core.ui.AppTextActionButton
 import com.journal.core.ui.AppWarning
 import com.journal.core.ui.StyledDatePickerDialog
 import com.journal.core.ui.appFieldColors
+import com.journal.core.data.repository.PendingJournalAction
 import com.journal.core.model.teacher.JournalGridAssessmentForm
 import com.journal.core.model.teacher.JournalGridAttendance
 import com.journal.core.model.teacher.JournalGridGrade
@@ -129,6 +130,7 @@ fun TeacherJournalRoute(
                 JournalContent(
                     journal = uiState.journal!!,
                     selectedLessonType = viewModel.lessonType,
+                    pendingActions = uiState.pendingActions,
                     onOpenStudentCard = onOpenStudentCard,
                     onRefresh = { viewModel.loadJournal() },
                     onMarkAttendance = { lessonId, studentId, status, comment ->
@@ -157,7 +159,7 @@ fun TeacherJournalRoute(
                     }
                 )
                 // Offline banner
-                if (uiState.isOffline) {
+                if (uiState.isOffline || uiState.pendingCount > 0) {
                     OfflineBanner(
                         pendingCount = uiState.pendingCount,
                         modifier = Modifier.align(Alignment.TopCenter)
@@ -173,6 +175,7 @@ fun TeacherJournalRoute(
 private fun JournalContent(
     journal: JournalGridResponse,
     selectedLessonType: String,
+    pendingActions: List<PendingJournalAction>,
     onOpenStudentCard: (String) -> Unit,
     onRefresh: () -> Unit,
     onMarkAttendance: (lessonId: String, studentId: String, status: String, comment: String?) -> Unit,
@@ -243,6 +246,7 @@ private fun JournalContent(
                 lessons = filteredLessons,
                 assessmentForms = visibleForms,
                 canEditGrades = canEditGrades,
+                pendingActions = pendingActions,
                 onLessonClick = { lesson -> topicDialog = TopicEditState(lesson) },
                 onEditAssessment = { form ->
                     assessmentDialog = AssessmentEditState(
@@ -267,6 +271,7 @@ private fun JournalContent(
                 grades = studentGrades,
                 canEditAttendance = canEditAttendance,
                 canEditGrades = canEditGrades,
+                pendingActions = pendingActions,
                 onOpenStudentCard = onOpenStudentCard,
                 onAttendanceClick = { lesson, record ->
                     if (canEditAttendance) attendanceDialog = AttendanceEditState(student, lesson, record)
@@ -508,6 +513,7 @@ private fun JournalStickyTableHeader(
     lessons: List<JournalGridLesson>,
     assessmentForms: List<JournalGridAssessmentForm>,
     canEditGrades: Boolean,
+    pendingActions: List<PendingJournalAction>,
     onLessonClick: (JournalGridLesson) -> Unit,
     onEditAssessment: (JournalGridAssessmentForm) -> Unit
 ) {
@@ -522,6 +528,7 @@ private fun JournalStickyTableHeader(
                 lessons = lessons,
                 assessmentForms = assessmentForms,
                 canEditGrades = canEditGrades,
+                pendingActions = pendingActions,
                 onLessonClick = onLessonClick,
                 onEditAssessment = onEditAssessment
             )
@@ -540,6 +547,7 @@ private fun JournalTableStudentItem(
     grades: List<JournalGridGrade>,
     canEditAttendance: Boolean,
     canEditGrades: Boolean,
+    pendingActions: List<PendingJournalAction>,
     onOpenStudentCard: (String) -> Unit,
     onAttendanceClick: (JournalGridLesson, JournalGridAttendance?) -> Unit,
     onGradeClick: (JournalGridAssessmentForm, JournalGridGrade?) -> Unit
@@ -560,6 +568,7 @@ private fun JournalTableStudentItem(
                 grades = grades,
                 canEditAttendance = canEditAttendance,
                 canEditGrades = canEditGrades,
+                pendingActions = pendingActions,
                 onOpenStudentCard = onOpenStudentCard,
                 onAttendanceClick = onAttendanceClick,
                 onGradeClick = onGradeClick
@@ -573,6 +582,7 @@ private fun JournalTableHeader(
     lessons: List<JournalGridLesson>,
     assessmentForms: List<JournalGridAssessmentForm>,
     canEditGrades: Boolean,
+    pendingActions: List<PendingJournalAction>,
     onLessonClick: (JournalGridLesson) -> Unit,
     onEditAssessment: (JournalGridAssessmentForm) -> Unit
 ) {
@@ -584,6 +594,7 @@ private fun JournalTableHeader(
                 text = lessonHeaderText(lesson),
                 width = ATTENDANCE_COLUMN_WIDTH,
                 isHeader = true,
+                pending = pendingActions.any { it.actionKey == lessonTopicActionKey(lesson.lessonId) },
                 clickable = true,
                 onClick = { onLessonClick(lesson) }
             )
@@ -593,6 +604,11 @@ private fun JournalTableHeader(
                 text = assessmentHeaderText(form),
                 width = GRADE_COLUMN_WIDTH,
                 isHeader = true,
+                pending = pendingActions.any {
+                    it.actionKey == assessmentActionKey(form.assessmentFormId) ||
+                        it.entityId == form.assessmentFormId ||
+                        it.localId == form.assessmentFormId
+                },
                 clickable = canEditGrades,
                 onClick = { onEditAssessment(form) }
             )
@@ -610,6 +626,7 @@ private fun JournalStudentRow(
     grades: List<JournalGridGrade>,
     canEditAttendance: Boolean,
     canEditGrades: Boolean,
+    pendingActions: List<PendingJournalAction>,
     onOpenStudentCard: (String) -> Unit,
     onAttendanceClick: (JournalGridLesson, JournalGridAttendance?) -> Unit,
     onGradeClick: (JournalGridAssessmentForm, JournalGridGrade?) -> Unit
@@ -629,6 +646,9 @@ private fun JournalStudentRow(
                 text = attendanceSymbol(record?.status),
                 width = ATTENDANCE_COLUMN_WIDTH,
                 color = attendanceColor(record?.status),
+                pending = pendingActions.any {
+                    it.actionKey == attendanceActionKey(lesson.lessonId, student.studentId)
+                },
                 clickable = canEditAttendance,
                 onClick = { onAttendanceClick(lesson, record) }
             )
@@ -639,6 +659,11 @@ private fun JournalStudentRow(
                 text = grade?.value.orEmpty(),
                 width = GRADE_COLUMN_WIDTH,
                 color = PrimaryText,
+                pending = pendingActions.any {
+                    it.actionKey == createGradeActionKey(student.studentId, form.assessmentFormId) ||
+                        (grade != null && it.actionKey == gradeActionKey(grade.gradeId)) ||
+                        it.localId == grade?.gradeId
+                },
                 clickable = canEditGrades,
                 onClick = { onGradeClick(form, grade) }
             )
@@ -654,6 +679,7 @@ private fun TableCell(
     isHeader: Boolean = false,
     color: Color = PrimaryText,
     textAlign: TextAlign = TextAlign.Center,
+    pending: Boolean = false,
     clickable: Boolean = false,
     onClick: () -> Unit = {},
     onLongClick: () -> Unit = {}
@@ -687,6 +713,15 @@ private fun TableCell(
             overflow = TextOverflow.Ellipsis,
             modifier = Modifier.fillMaxWidth()
         )
+        if (pending) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 5.dp, end = 1.dp)
+                    .size(7.dp)
+                    .background(AppWarning, RoundedCornerShape(50))
+            )
+        }
     }
 }
 
@@ -1510,6 +1545,21 @@ private fun lessonHeaderText(lesson: JournalGridLesson): String {
         .filterNotNull()
         .joinToString("\n")
 }
+
+private fun attendanceActionKey(lessonId: String, studentId: String): String =
+    "attendance|$lessonId|$studentId"
+
+private fun createGradeActionKey(studentId: String, assessmentFormId: String): String =
+    "grade_create|$studentId|$assessmentFormId"
+
+private fun gradeActionKey(gradeId: String): String =
+    "grade|$gradeId"
+
+private fun assessmentActionKey(assessmentFormId: String): String =
+    "assessment_form|$assessmentFormId"
+
+private fun lessonTopicActionKey(lessonId: String): String =
+    "lesson_topic|$lessonId"
 
 private fun assessmentHeaderText(form: JournalGridAssessmentForm): String = buildString {
     append(form.title)

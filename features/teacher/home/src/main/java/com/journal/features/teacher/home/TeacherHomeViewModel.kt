@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.journal.core.data.repository.TeacherRepository
 import com.journal.core.data.util.Resource
+import com.journal.core.data.util.userMessage
 import com.journal.core.model.teacher.TeacherLesson
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -69,8 +70,7 @@ class TeacherHomeViewModel @Inject constructor(
                         isLoading = false,
                         lessons = resource.data ?: emptyList(),
                         error = if (resource.data.isNullOrEmpty()) {
-                            resource.throwable.message
-                                ?: "Не удалось загрузить расписание. Попробуйте позже."
+                            resource.throwable.userMessage("Не удалось загрузить расписание. Попробуйте позже.")
                         } else null,
                         isOffline = resource.data?.isNotEmpty() == true,
                         weekMonday = monday,

@@ -3,7 +3,6 @@ package com.journal.features.auth
 import android.app.Application
 import android.content.Intent
 import android.net.Uri
-import android.util.Base64
 import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -11,6 +10,8 @@ import com.journal.core.common.config.AppConfig
 import com.journal.core.common.config.RoleSession
 import com.journal.core.common.config.TokenSession
 import com.journal.core.common.config.TokenStore
+import com.journal.core.data.repository.AuthRepository
+import com.journal.core.data.repository.SessionRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +27,6 @@ import net.openid.appauth.AuthorizationServiceConfiguration
 import net.openid.appauth.ResponseTypeValues
 import net.openid.appauth.connectivity.ConnectionBuilder
 import net.openid.appauth.connectivity.DefaultConnectionBuilder
-import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
@@ -42,7 +42,9 @@ class AuthViewModel @Inject constructor(
     private val appConfig: AppConfig,
     private val roleSession: RoleSession,
     private val tokenSession: TokenSession,
-    private val tokenStore: TokenStore
+    private val tokenStore: TokenStore,
+    private val authRepository: AuthRepository,
+    private val sessionRepository: SessionRepository
 ) : AndroidViewModel(application) {
 
     val isDebugRoleEnabled: Boolean = appConfig.useDebugRole
@@ -106,7 +108,8 @@ class AuthViewModel @Inject constructor(
             }
 
             viewModelScope.launch(Dispatchers.Default) {
-                val role = extractRole(accessToken)
+                val role = authRepository.extractRole(accessToken)
+                val profile = authRepository.profileFromToken(accessToken)
                 val expiresAtMs = tokenResponse.accessTokenExpirationTime
                     ?: (System.currentTimeMillis() + 300_000L)
                 tokenSession.setTokens(
@@ -121,6 +124,11 @@ class AuthViewModel @Inject constructor(
                     expiresAtMs = expiresAtMs,
                     role = role
                 )
+                sessionRepository.saveSession(
+                    role = role,
+                    userId = profile.userId,
+                    fullName = profile.fullName
+                )
                 roleSession.setRole(role)
                 _state.value = AuthUiState.Authenticated(role)
                 launch(Dispatchers.Main) {
@@ -132,6 +140,9 @@ class AuthViewModel @Inject constructor(
 
     fun setDebugRole(role: String) {
         roleSession.setRole(role)
+        viewModelScope.launch(Dispatchers.IO) {
+            sessionRepository.saveSession(role = role)
+        }
     }
 
     override fun onCleared() {
@@ -139,31 +150,8 @@ class AuthViewModel @Inject constructor(
         super.onCleared()
     }
 
-    private fun extractRole(accessToken: String): String {
-        val payload = accessToken.split(".").getOrNull(1) ?: return "teacher"
-        val decodedPayload = runCatching {
-            val decoded = Base64.decode(payload, Base64.URL_SAFE or Base64.NO_WRAP or Base64.NO_PADDING)
-            String(decoded, Charsets.UTF_8)
-        }.getOrNull() ?: return "teacher"
-
-        val roles = runCatching {
-            JSONObject(decodedPayload)
-                .optJSONObject("resource_access")
-                ?.optJSONObject("journal-backend")
-                ?.optJSONArray("roles")
-        }.getOrNull()
-
-        for (index in 0 until (roles?.length() ?: 0)) {
-            val role = roles?.optString(index).orEmpty()
-            if (role in supportedRoles) return role
-        }
-
-        return "teacher"
-    }
-
     companion object {
         private const val TAG = "AuthViewModel"
-        private val supportedRoles = setOf("teacher", "student", "methodologist", "dean", "admin")
     }
 }
 

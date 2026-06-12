@@ -1,12 +1,17 @@
 package com.journal.core.data.repository
 
 import com.journal.core.data.util.Resource
+import com.journal.core.data.util.NetworkError
 import com.journal.core.data.util.networkBoundResource
+import com.journal.core.data.util.toNetworkError
+import com.journal.core.database.JournalDatabase
 import com.journal.core.database.dao.JournalGridCacheDao
 import com.journal.core.database.dao.PendingActionDao
 import com.journal.core.database.entity.JournalGridCacheEntity
 import com.journal.core.database.entity.PendingActionEntity
+import com.journal.core.database.entity.PendingActionStatus
 import com.journal.core.database.entity.PendingActionType
+import com.journal.core.data.sync.PendingSyncScheduler
 import com.journal.core.model.teacher.BulkMarkAttendanceRequest
 import com.journal.core.model.teacher.CreateAssessmentFormRequest
 import com.journal.core.model.teacher.CreateGradeRequest
@@ -20,14 +25,25 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import androidx.room.withTransaction
+import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
+
+data class PendingJournalAction(
+    val actionKey: String?,
+    val localId: String?,
+    val entityId: String
+)
 
 @Singleton
 class JournalRepository @Inject constructor(
     private val api: JournalApi,
+    private val db: JournalDatabase,
     private val journalGridCacheDao: JournalGridCacheDao,
     private val pendingActionDao: PendingActionDao,
+    private val mutationApplier: LocalJournalMutationApplier,
+    private val syncScheduler: PendingSyncScheduler,
     private val json: Json
 ) {
 
@@ -85,8 +101,17 @@ class JournalRepository @Inject constructor(
         groupId: String,
         disciplineId: String,
         periodId: String
-    ): Flow<List<PendingActionEntity>> =
+    ): Flow<List<PendingJournalAction>> =
         pendingActionDao.observeForJournal(groupId, disciplineId, periodId)
+            .map { actions ->
+                actions.map { action ->
+                    PendingJournalAction(
+                        actionKey = action.actionKey,
+                        localId = action.localId,
+                        entityId = action.entityId
+                    )
+                }
+            }
 
     // ─── Write (offline-first) ───────────────────────────────────────────────
 
@@ -107,9 +132,9 @@ class JournalRepository @Inject constructor(
             api.markAttendance(lessonId, request)
             // Invalidate cache so next read re-fetches
             journalGridCacheDao.delete(groupId, disciplineId, periodId, lessonType)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
             // Offline — enqueue
-            pendingActionDao.insert(
+            enqueueOfflineOrThrow(
                 PendingActionEntity(
                     actionType = PendingActionType.MARK_ATTENDANCE,
                     entityId = lessonId,
@@ -117,8 +142,12 @@ class JournalRepository @Inject constructor(
                     groupId = groupId,
                     disciplineId = disciplineId,
                     periodId = periodId,
-                    lessonType = lessonType
-                )
+                    lessonType = lessonType,
+                    localId = "local_attendance_${UUID.randomUUID()}",
+                    entityType = "attendance",
+                    actionKey = attendanceActionKey(lessonId, request.studentId)
+                ),
+                e
             )
         }
     }
@@ -133,17 +162,22 @@ class JournalRepository @Inject constructor(
         try {
             api.createGrade(request)
             journalGridCacheDao.delete(groupId, disciplineId, periodId, lessonType)
-        } catch (_: Exception) {
-            pendingActionDao.insert(
+        } catch (e: Exception) {
+            val localId = "local_grade_${UUID.randomUUID()}"
+            enqueueOfflineOrThrow(
                 PendingActionEntity(
                     actionType = PendingActionType.CREATE_GRADE,
-                    entityId = "",
+                    entityId = localId,
                     payloadJson = json.encodeToString(request),
                     groupId = groupId,
                     disciplineId = disciplineId,
                     periodId = periodId,
-                    lessonType = lessonType
-                )
+                    lessonType = lessonType,
+                    localId = localId,
+                    entityType = "grade",
+                    actionKey = createGradeActionKey(request.studentId, request.assessmentFormId)
+                ),
+                e
             )
         }
     }
@@ -159,8 +193,8 @@ class JournalRepository @Inject constructor(
         try {
             api.updateGrade(gradeId, request)
             journalGridCacheDao.delete(groupId, disciplineId, periodId, lessonType)
-        } catch (_: Exception) {
-            pendingActionDao.insert(
+        } catch (e: Exception) {
+            enqueueOfflineOrThrow(
                 PendingActionEntity(
                     actionType = PendingActionType.UPDATE_GRADE,
                     entityId = gradeId,
@@ -168,8 +202,11 @@ class JournalRepository @Inject constructor(
                     groupId = groupId,
                     disciplineId = disciplineId,
                     periodId = periodId,
-                    lessonType = lessonType
-                )
+                    lessonType = lessonType,
+                    entityType = "grade",
+                    actionKey = gradeActionKey(gradeId)
+                ),
+                e
             )
         }
     }
@@ -186,17 +223,27 @@ class JournalRepository @Inject constructor(
                 request.periodId ?: "",
                 lessonType
             )
-        } catch (_: Exception) {
-            pendingActionDao.insert(
+        } catch (e: Exception) {
+            val localId = "local_form_${UUID.randomUUID()}"
+            enqueueOfflineOrThrow(
                 PendingActionEntity(
                     actionType = PendingActionType.CREATE_ASSESSMENT_FORM,
-                    entityId = "",
+                    entityId = localId,
                     payloadJson = json.encodeToString(request),
                     groupId = request.groupId,
                     disciplineId = request.disciplineId,
                     periodId = request.periodId ?: "",
-                    lessonType = lessonType
-                )
+                    lessonType = lessonType,
+                    localId = localId,
+                    entityType = "assessment_form",
+                    actionKey = assessmentCreateActionKey(
+                        request.groupId,
+                        request.disciplineId,
+                        request.date,
+                        request.title
+                    )
+                ),
+                e
             )
         }
     }
@@ -212,8 +259,8 @@ class JournalRepository @Inject constructor(
         try {
             api.updateAssessmentForm(assessmentFormId, request)
             journalGridCacheDao.delete(groupId, disciplineId, periodId, lessonType)
-        } catch (_: Exception) {
-            pendingActionDao.insert(
+        } catch (e: Exception) {
+            enqueueOfflineOrThrow(
                 PendingActionEntity(
                     actionType = PendingActionType.UPDATE_ASSESSMENT_FORM,
                     entityId = assessmentFormId,
@@ -221,8 +268,11 @@ class JournalRepository @Inject constructor(
                     groupId = groupId,
                     disciplineId = disciplineId,
                     periodId = periodId,
-                    lessonType = lessonType
-                )
+                    lessonType = lessonType,
+                    entityType = "assessment_form",
+                    actionKey = assessmentActionKey(assessmentFormId)
+                ),
+                e
             )
         }
     }
@@ -237,8 +287,8 @@ class JournalRepository @Inject constructor(
         try {
             api.deleteAssessmentForm(assessmentFormId)
             journalGridCacheDao.delete(groupId, disciplineId, periodId, lessonType)
-        } catch (_: Exception) {
-            pendingActionDao.insert(
+        } catch (e: Exception) {
+            enqueueOfflineOrThrow(
                 PendingActionEntity(
                     actionType = PendingActionType.DELETE_ASSESSMENT_FORM,
                     entityId = assessmentFormId,
@@ -246,8 +296,11 @@ class JournalRepository @Inject constructor(
                     groupId = groupId,
                     disciplineId = disciplineId,
                     periodId = periodId,
-                    lessonType = lessonType
-                )
+                    lessonType = lessonType,
+                    entityType = "assessment_form",
+                    actionKey = assessmentActionKey(assessmentFormId)
+                ),
+                e
             )
         }
     }
@@ -280,8 +333,8 @@ class JournalRepository @Inject constructor(
         try {
             api.updateLessonTopicDetails(lessonId, request)
             journalGridCacheDao.delete(groupId, disciplineId, periodId, lessonType)
-        } catch (_: Exception) {
-            pendingActionDao.insert(
+        } catch (e: Exception) {
+            enqueueOfflineOrThrow(
                 PendingActionEntity(
                     actionType = PendingActionType.UPDATE_LESSON_TOPIC,
                     entityId = lessonId,
@@ -289,8 +342,11 @@ class JournalRepository @Inject constructor(
                     groupId = groupId,
                     disciplineId = disciplineId,
                     periodId = periodId,
-                    lessonType = lessonType
-                )
+                    lessonType = lessonType,
+                    entityType = "lesson",
+                    actionKey = lessonTopicActionKey(lessonId)
+                ),
+                e
             )
         }
     }
@@ -306,6 +362,73 @@ class JournalRepository @Inject constructor(
     ) {
         journalGridCacheDao.delete(groupId, disciplineId, periodId, lessonType)
     }
+
+    private suspend fun enqueueOfflineOrThrow(action: PendingActionEntity, throwable: Throwable) {
+        when (val error = throwable.toNetworkError()) {
+            is NetworkError.NetworkUnavailable,
+            is NetworkError.ServerError -> {
+                applyAndEnqueue(action)
+                syncScheduler.enqueue()
+            }
+
+            is NetworkError.AuthError,
+            is NetworkError.ValidationError,
+            is NetworkError.ConflictError,
+            is NetworkError.Unknown -> throw error
+        }
+    }
+
+    private suspend fun applyAndEnqueue(action: PendingActionEntity) {
+        db.withTransaction {
+            action.actionKey?.let { pendingActionDao.deleteConflicting(it) }
+
+            val cached = journalGridCacheDao.get(
+                action.groupId,
+                action.disciplineId,
+                action.periodId,
+                action.lessonType
+            )
+            val grid = cached?.toResponse()
+            if (cached != null && grid != null) {
+                journalGridCacheDao.upsert(
+                    cached.copy(
+                        jsonData = json.encodeToString(mutationApplier.apply(grid, action)),
+                        cachedAt = System.currentTimeMillis()
+                    )
+                )
+            }
+
+            pendingActionDao.insert(
+                action.copy(
+                    status = PendingActionStatus.PENDING,
+                    errorMessage = null
+                )
+            )
+        }
+    }
+
+    private fun attendanceActionKey(lessonId: String, studentId: String): String =
+        "attendance|$lessonId|$studentId"
+
+    private fun createGradeActionKey(studentId: String, assessmentFormId: String): String =
+        "grade_create|$studentId|$assessmentFormId"
+
+    private fun gradeActionKey(gradeId: String): String =
+        "grade|$gradeId"
+
+    private fun assessmentActionKey(assessmentFormId: String): String =
+        "assessment_form|$assessmentFormId"
+
+    private fun assessmentCreateActionKey(
+        groupId: String,
+        disciplineId: String,
+        date: String,
+        title: String
+    ): String =
+        "assessment_form_create|$groupId|$disciplineId|$date|$title"
+
+    private fun lessonTopicActionKey(lessonId: String): String =
+        "lesson_topic|$lessonId"
 
     companion object {
         /** 3 minutes */

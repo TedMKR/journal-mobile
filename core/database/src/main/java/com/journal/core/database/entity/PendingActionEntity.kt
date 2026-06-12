@@ -45,6 +45,24 @@ data class PendingActionEntity(
     @ColumnInfo(name = "lesson_type")
     val lessonType: String = "",
 
+    @ColumnInfo(name = "status")
+    val status: String = PendingActionStatus.PENDING,
+
+    @ColumnInfo(name = "local_id")
+    val localId: String? = null,
+
+    @ColumnInfo(name = "server_id")
+    val serverId: String? = null,
+
+    @ColumnInfo(name = "next_attempt_at")
+    val nextAttemptAt: Long = 0,
+
+    @ColumnInfo(name = "entity_type")
+    val entityType: String? = null,
+
+    @ColumnInfo(name = "action_key")
+    val actionKey: String? = null,
+
     @ColumnInfo(name = "created_at")
     val createdAt: Long = System.currentTimeMillis(),
 
@@ -70,4 +88,11 @@ object PendingActionType {
     const val DELETE_ASSESSMENT_FORM = "DELETE_ASSESSMENT_FORM"
     const val UPDATE_LESSON_TOPIC = "UPDATE_LESSON_TOPIC"
     const val BULK_MARK_ATTENDANCE = "BULK_MARK_ATTENDANCE"
+}
+
+object PendingActionStatus {
+    const val PENDING = "PENDING"
+    const val SYNCING = "SYNCING"
+    const val FAILED = "FAILED"
+    const val CONFLICT = "CONFLICT"
 }

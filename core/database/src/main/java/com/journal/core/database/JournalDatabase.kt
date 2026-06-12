@@ -23,7 +23,7 @@ import com.journal.core.database.entity.TeacherLessonEntity
         JournalGridCacheEntity::class,
         PendingActionEntity::class
     ],
-    version = 2,
+    version = 4,
     exportSchema = false
 )
 abstract class JournalDatabase : RoomDatabase() {
@@ -38,6 +38,24 @@ abstract class JournalDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE teacher_lessons ADD COLUMN lesson_order_number INTEGER")
                 db.execSQL("ALTER TABLE student_lessons ADD COLUMN lesson_order_number INTEGER")
+            }
+        }
+
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE session ADD COLUMN last_online_at INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE session ADD COLUMN offline_allowed_until INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE pending_actions ADD COLUMN status TEXT NOT NULL DEFAULT 'PENDING'")
+                db.execSQL("ALTER TABLE pending_actions ADD COLUMN local_id TEXT")
+                db.execSQL("ALTER TABLE pending_actions ADD COLUMN server_id TEXT")
+                db.execSQL("ALTER TABLE pending_actions ADD COLUMN next_attempt_at INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE pending_actions ADD COLUMN entity_type TEXT")
+                db.execSQL("ALTER TABLE pending_actions ADD COLUMN action_key TEXT")
             }
         }
     }

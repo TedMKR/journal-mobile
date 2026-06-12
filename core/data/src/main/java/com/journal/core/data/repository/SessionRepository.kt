@@ -21,12 +21,20 @@ class SessionRepository @Inject constructor(
 
     suspend fun getSession(): SessionEntity? = sessionDao.get()
 
-    suspend fun saveSession(role: String, userId: String? = null, fullName: String? = null) {
+    suspend fun saveSession(
+        role: String,
+        userId: String? = null,
+        fullName: String? = null,
+        lastOnlineAt: Long = System.currentTimeMillis()
+    ) {
+        val existing = sessionDao.get()
         sessionDao.upsert(
             SessionEntity(
                 role = role,
-                userId = userId,
-                fullName = fullName
+                userId = userId ?: existing?.userId,
+                fullName = fullName ?: existing?.fullName,
+                lastOnlineAt = lastOnlineAt,
+                offlineAllowedUntil = lastOnlineAt + SessionEntity.DEFAULT_OFFLINE_TTL_MS
             )
         )
     }

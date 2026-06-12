@@ -31,6 +31,7 @@ class SessionRepositoryTest {
     fun setUp() {
         sessionDao = mockk(relaxed = true)
         db = mockk(relaxed = true)
+        coEvery { sessionDao.get() } returns null
         repository = SessionRepository(sessionDao, db)
     }
 

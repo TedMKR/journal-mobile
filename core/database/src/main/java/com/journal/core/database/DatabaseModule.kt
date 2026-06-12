@@ -27,6 +27,8 @@ object DatabaseModule {
             "journal.db"
         )
             .addMigrations(JournalDatabase.MIGRATION_1_2)
+            .addMigrations(JournalDatabase.MIGRATION_2_3)
+            .addMigrations(JournalDatabase.MIGRATION_3_4)
             .build()
 
     @Provides

@@ -2,7 +2,10 @@ package com.journal.tests.data
 
 import app.cash.turbine.test
 import com.journal.core.data.repository.JournalRepository
+import com.journal.core.data.repository.LocalJournalMutationApplier
+import com.journal.core.data.sync.PendingSyncScheduler
 import com.journal.core.data.util.Resource
+import com.journal.core.database.JournalDatabase
 import com.journal.core.database.dao.JournalGridCacheDao
 import com.journal.core.database.dao.PendingActionDao
 import com.journal.core.database.entity.JournalGridCacheEntity
@@ -18,9 +21,11 @@ import com.journal.core.model.teacher.JournalGridTeacher
 import com.journal.core.model.teacher.MarkAttendanceRequest
 import com.journal.core.model.teacher.UpdateGradeRequest
 import com.journal.core.network.api.JournalApi
+import io.mockk.Runs
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
+import io.mockk.just
 import io.mockk.mockk
 import io.mockk.slot
 import kotlinx.coroutines.flow.flowOf
@@ -30,6 +35,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
+import java.io.IOException
+import java.util.concurrent.Executor
 
 /**
  * Unit tests for [JournalRepository].
@@ -41,8 +48,11 @@ import org.junit.Test
 class JournalRepositoryTest {
 
     private lateinit var api: JournalApi
+    private lateinit var db: JournalDatabase
     private lateinit var journalGridCacheDao: JournalGridCacheDao
     private lateinit var pendingActionDao: PendingActionDao
+    private lateinit var mutationApplier: LocalJournalMutationApplier
+    private lateinit var syncScheduler: PendingSyncScheduler
     private val json = Json { ignoreUnknownKeys = true; explicitNulls = false }
 
     private lateinit var repository: JournalRepository
@@ -94,9 +104,24 @@ class JournalRepositoryTest {
     @Before
     fun setUp() {
         api = mockk(relaxed = true)
+        db = mockk(relaxed = true)
+        every { db.transactionExecutor } returns Executor { command -> command.run() }
+        every { db.beginTransaction() } just Runs
+        every { db.setTransactionSuccessful() } just Runs
+        every { db.endTransaction() } just Runs
         journalGridCacheDao = mockk(relaxed = true)
         pendingActionDao = mockk(relaxed = true)
-        repository = JournalRepository(api, journalGridCacheDao, pendingActionDao, json)
+        mutationApplier = LocalJournalMutationApplier(json)
+        syncScheduler = mockk(relaxed = true)
+        repository = JournalRepository(
+            api = api,
+            db = db,
+            journalGridCacheDao = journalGridCacheDao,
+            pendingActionDao = pendingActionDao,
+            mutationApplier = mutationApplier,
+            syncScheduler = syncScheduler,
+            json = json
+        )
     }
 
     // ─── getJournalGrid ───────────────────────────────────────────────────────
@@ -198,7 +223,7 @@ class JournalRepositoryTest {
     @Test
     fun `markAttendance enqueues pending action when API throws`() = runTest {
         val request = MarkAttendanceRequest(studentId = "s1", status = "absent", comment = null)
-        coEvery { api.markAttendance(any(), any()) } throws RuntimeException("offline")
+        coEvery { api.markAttendance(any(), any()) } throws IOException("offline")
 
         val slot = slot<PendingActionEntity>()
         coEvery { pendingActionDao.insert(capture(slot)) } returns 1L
@@ -217,7 +242,7 @@ class JournalRepositoryTest {
     @Test
     fun `markAttendance does NOT delete cache when API throws`() = runTest {
         val request = MarkAttendanceRequest(studentId = "s1", status = "present", comment = null)
-        coEvery { api.markAttendance(any(), any()) } throws RuntimeException("offline")
+        coEvery { api.markAttendance(any(), any()) } throws IOException("offline")
         coEvery { pendingActionDao.insert(any()) } returns 1L
 
         repository.markAttendance("lesson-1", request, groupId, disciplineId, periodId, lessonType)
@@ -251,7 +276,7 @@ class JournalRepositoryTest {
             value = 4,
             comment = null
         )
-        coEvery { api.createGrade(any()) } throws RuntimeException("offline")
+        coEvery { api.createGrade(any()) } throws IOException("offline")
 
         val slot = slot<PendingActionEntity>()
         coEvery { pendingActionDao.insert(capture(slot)) } returns 1L
@@ -276,7 +301,7 @@ class JournalRepositoryTest {
     @Test
     fun `updateGrade enqueues pending action with correct entityId when offline`() = runTest {
         val request = UpdateGradeRequest(value = 3, comment = null)
-        coEvery { api.updateGrade(any(), any()) } throws RuntimeException("offline")
+        coEvery { api.updateGrade(any(), any()) } throws IOException("offline")
 
         val slot = slot<PendingActionEntity>()
         coEvery { pendingActionDao.insert(capture(slot)) } returns 1L

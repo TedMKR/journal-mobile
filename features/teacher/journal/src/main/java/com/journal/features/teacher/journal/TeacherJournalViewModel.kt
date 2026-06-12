@@ -4,7 +4,9 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.journal.core.data.repository.JournalRepository
+import com.journal.core.data.repository.PendingJournalAction
 import com.journal.core.data.util.Resource
+import com.journal.core.data.util.userMessage
 import com.journal.core.model.teacher.BulkAttendanceRecordRequest
 import com.journal.core.model.teacher.BulkMarkAttendanceRequest
 import com.journal.core.model.teacher.CreateAssessmentFormRequest
@@ -32,7 +34,8 @@ data class JournalUiState(
     /** True when showing cached data because the network is unavailable */
     val isOffline: Boolean = false,
     /** Number of actions waiting to sync */
-    val pendingCount: Int = 0
+    val pendingCount: Int = 0,
+    val pendingActions: List<PendingJournalAction> = emptyList()
 )
 
 @HiltViewModel
@@ -57,7 +60,14 @@ class TeacherJournalViewModel @Inject constructor(
 
     private fun observePending() {
         journalRepository.observePendingForJournal(groupId, disciplineId, periodId)
-            .onEach { actions -> _uiState.update { it.copy(pendingCount = actions.size) } }
+            .onEach { actions ->
+                _uiState.update {
+                    it.copy(
+                        pendingCount = actions.size,
+                        pendingActions = actions
+                    )
+                }
+            }
             .launchIn(viewModelScope)
     }
 
@@ -90,7 +100,7 @@ class TeacherJournalViewModel @Inject constructor(
                             if ((resource.throwable as? HttpException)?.code() == 403) {
                                 "Нет журнала для этого занятия"
                             } else {
-                                resource.throwable.message ?: "Не удалось загрузить журнал"
+                                resource.throwable.userMessage("Не удалось загрузить журнал")
                             }
                         } else null,
                         isOffline = (resource.data ?: state.journal) != null
@@ -103,8 +113,19 @@ class TeacherJournalViewModel @Inject constructor(
     // ─── Write operations ─────────────────────────────────────────────────────
     // Each call is non-blocking: online → sends directly; offline → queues to Room
 
-    fun markAttendance(lessonId: String, studentId: String, status: String, comment: String?) {
+    private fun launchWrite(defaultError: String, block: suspend () -> Unit) {
         viewModelScope.launch {
+            try {
+                block()
+                loadJournal()
+            } catch (e: Exception) {
+                _uiState.update { it.copy(error = e.userMessage(defaultError)) }
+            }
+        }
+    }
+
+    fun markAttendance(lessonId: String, studentId: String, status: String, comment: String?) {
+        launchWrite("Не удалось сохранить посещаемость") {
             journalRepository.markAttendance(
                 lessonId = lessonId,
                 request = MarkAttendanceRequest(
@@ -117,12 +138,11 @@ class TeacherJournalViewModel @Inject constructor(
                 periodId = periodId,
                 lessonType = lessonType
             )
-            loadJournal()
         }
     }
 
     fun createGrade(studentId: String, assessmentFormId: String, value: Int, comment: String?) {
-        viewModelScope.launch {
+        launchWrite("Не удалось создать оценку") {
             journalRepository.createGrade(
                 request = CreateGradeRequest(
                     studentId = studentId,
@@ -135,12 +155,11 @@ class TeacherJournalViewModel @Inject constructor(
                 periodId = periodId,
                 lessonType = lessonType
             )
-            loadJournal()
         }
     }
 
     fun updateGrade(gradeId: String, value: Int, comment: String?) {
-        viewModelScope.launch {
+        launchWrite("Не удалось обновить оценку") {
             journalRepository.updateGrade(
                 gradeId = gradeId,
                 request = UpdateGradeRequest(
@@ -152,12 +171,11 @@ class TeacherJournalViewModel @Inject constructor(
                 periodId = periodId,
                 lessonType = lessonType
             )
-            loadJournal()
         }
     }
 
     fun createAssessmentForm(title: String, type: String, date: String) {
-        viewModelScope.launch {
+        launchWrite("Не удалось создать форму контроля") {
             journalRepository.createAssessmentForm(
                 request = CreateAssessmentFormRequest(
                     title = title,
@@ -169,12 +187,11 @@ class TeacherJournalViewModel @Inject constructor(
                 ),
                 lessonType = lessonType
             )
-            loadJournal()
         }
     }
 
     fun updateAssessmentForm(assessmentFormId: String, title: String, type: String, date: String) {
-        viewModelScope.launch {
+        launchWrite("Не удалось обновить форму контроля") {
             journalRepository.updateAssessmentForm(
                 assessmentFormId = assessmentFormId,
                 request = UpdateAssessmentFormRequest(title = title, formType = type, date = date),
@@ -183,12 +200,11 @@ class TeacherJournalViewModel @Inject constructor(
                 periodId = periodId,
                 lessonType = lessonType
             )
-            loadJournal()
         }
     }
 
     fun deleteAssessmentForm(assessmentFormId: String) {
-        viewModelScope.launch {
+        launchWrite("Не удалось удалить форму контроля") {
             journalRepository.deleteAssessmentForm(
                 assessmentFormId = assessmentFormId,
                 groupId = groupId,
@@ -196,7 +212,6 @@ class TeacherJournalViewModel @Inject constructor(
                 periodId = periodId,
                 lessonType = lessonType
             )
-            loadJournal()
         }
     }
 
@@ -226,13 +241,15 @@ class TeacherJournalViewModel @Inject constructor(
                 )
                 loadJournal()
             } catch (e: Exception) {
-                _uiState.update { it.copy(error = e.message ?: "Не удалось выполнить массовую отметку") }
+                _uiState.update {
+                    it.copy(error = e.userMessage("Не удалось выполнить массовую отметку"))
+                }
             }
         }
     }
 
     fun updateLessonTopic(lessonId: String, topic: String) {
-        viewModelScope.launch {
+        launchWrite("Не удалось обновить тему занятия") {
             journalRepository.updateLessonTopic(
                 lessonId = lessonId,
                 request = UpdateLessonTopicDetailsRequest(topicCustomDetails = topic),
@@ -241,7 +258,6 @@ class TeacherJournalViewModel @Inject constructor(
                 periodId = periodId,
                 lessonType = lessonType
             )
-            loadJournal()
         }
     }
 }

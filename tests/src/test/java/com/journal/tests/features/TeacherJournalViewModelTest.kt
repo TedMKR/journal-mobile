@@ -3,9 +3,8 @@ package com.journal.tests.features
 import androidx.lifecycle.SavedStateHandle
 import app.cash.turbine.test
 import com.journal.core.data.repository.JournalRepository
+import com.journal.core.data.repository.PendingJournalAction
 import com.journal.core.data.util.Resource
-import com.journal.core.database.entity.PendingActionEntity
-import com.journal.core.database.entity.PendingActionType
 import com.journal.core.model.teacher.JournalGridAcademicPeriod
 import com.journal.core.model.teacher.JournalGridMeta
 import com.journal.core.model.teacher.JournalGridPermissions
@@ -180,7 +179,7 @@ class TeacherJournalViewModelTest {
         with(vm.uiState.value) {
             assertFalse(isLoading)
             assertNull(journal)
-            assertEquals("connection refused", error)
+            assertEquals("Не удалось загрузить журнал", error)
         }
     }
 
@@ -206,13 +205,10 @@ class TeacherJournalViewModelTest {
 
     @Test
     fun `pendingCount updates when observePendingForJournal emits`() = runTest {
-        val pendingAction = PendingActionEntity(
-            actionType = PendingActionType.MARK_ATTENDANCE,
-            entityId = "l1",
-            payloadJson = "{}",
-            groupId = groupId,
-            disciplineId = disciplineId,
-            periodId = periodId
+        val pendingAction = PendingJournalAction(
+            actionKey = "attendance|l1|s1",
+            localId = null,
+            entityId = "l1"
         )
         every {
             repository.observePendingForJournal(groupId, disciplineId, periodId)

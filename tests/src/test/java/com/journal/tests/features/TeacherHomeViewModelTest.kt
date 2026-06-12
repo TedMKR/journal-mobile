@@ -131,7 +131,7 @@ class TeacherHomeViewModelTest {
         with(vm.uiState.value) {
             assertFalse(isLoading)
             assertTrue(lessons.isEmpty())
-            assertEquals("no network", error)
+            assertEquals("Не удалось загрузить расписание. Попробуйте позже.", error)
         }
     }
 
