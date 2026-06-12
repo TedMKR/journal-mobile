@@ -133,7 +133,7 @@ fun JournalNavHost(
             }
             composable(Routes.ADMIN_DASHBOARD) {
                 AdminDashboardRoute(
-                    journalApi = journalApi,
+                    userId = jwtUserId,
                     onOpenUsers = { navController.navigate(Routes.ADMIN_USERS) },
                     onOpenAudit = { navController.navigate(Routes.ADMIN_AUDIT) },
                     onOpenJournals = { navController.navigate(Routes.ADMIN_JOURNALS) },

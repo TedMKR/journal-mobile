@@ -43,7 +43,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -68,7 +67,8 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
-import com.journal.core.common.config.userFacingMessage
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journal.core.model.teacher.AdminAccessBinding
 import com.journal.core.model.teacher.AdminActionRequest
 import com.journal.core.model.teacher.AdminJournalContext
@@ -78,7 +78,6 @@ import com.journal.core.model.teacher.AdminUser
 import com.journal.core.model.teacher.AuditEvent
 import com.journal.core.model.teacher.ProblemStudentEntry
 import com.journal.core.model.teacher.ProblemStudentsMeta
-import com.journal.core.network.api.JournalApi
 import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppBarBackground
 import com.journal.core.ui.AppDanger
@@ -215,11 +214,30 @@ private fun ReasonDialog(
     }
 }
 
+@Composable
+private fun AdminOfflineBanner(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF59E0B), RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Офлайн - данные из кеша",
+            color = Color.White,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
 // ─── 1. Admin Dashboard ───────────────────────────────────────────────────────
 
 @Composable
 fun AdminDashboardRoute(
-    journalApi: JournalApi,
+    userId: String? = null,
+    viewModel: AdminDashboardViewModel = hiltViewModel(),
     onOpenUsers: () -> Unit,
     onOpenAudit: () -> Unit,
     onOpenJournals: () -> Unit,
@@ -227,30 +245,15 @@ fun AdminDashboardRoute(
     onOpenAccess: () -> Unit,
     onOpenProblemStudents: () -> Unit
 ) {
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var journalsCount by remember { mutableIntStateOf(0) }
-    var usersCount by remember { mutableIntStateOf(0) }
-    var periodsCount by remember { mutableIntStateOf(0) }
-    var documentsCount by remember { mutableIntStateOf(0) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val dashboard = uiState.dashboard
+    val journalsCount = dashboard?.journalsCount ?: 0
+    val usersCount = dashboard?.usersCount ?: 0
+    val periodsCount = dashboard?.periodsCount ?: 0
+    val documentsCount = dashboard?.documentsCount ?: 0
 
-    LaunchedEffect(Unit) {
-        isLoading = true
-        error = null
-        runCatching {
-            val journals = journalApi.getAdminJournals(pageSize = 1)
-            journalsCount = journals.meta?.total ?: journals.data.size
-
-            val users = journalApi.getAdminUsers(pageSize = 1)
-            usersCount = users.meta?.total ?: users.data.size
-
-            val periods = journalApi.getAdminPeriods(includeClosed = true)
-            periodsCount = periods.data.size
-
-            val docs = journalApi.getAdminDocuments(pageSize = 1)
-            documentsCount = docs.meta?.total ?: docs.data.size
-        }.onFailure { error = it.userFacingMessage("Не удалось загрузить данные") }
-        isLoading = false
+    LaunchedEffect(userId) {
+        viewModel.load(userId)
     }
 
     Column(
@@ -277,7 +280,7 @@ fun AdminDashboardRoute(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
-            if (isLoading) {
+            if (uiState.isLoading && dashboard == null) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
@@ -368,7 +371,10 @@ fun AdminDashboardRoute(
             }
         }
 
-        error?.let { ErrorCard(it) }
+        if (uiState.isOffline) {
+            AdminOfflineBanner()
+        }
+        uiState.error?.let { ErrorCard(it) }
 
         // Navigation cards
         Text("Разделы", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = PrimaryBlue)
