@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.journal.core.common.config.PersonNameFormatter
+import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.StudentJournalGrade
 import com.journal.core.model.teacher.StudentJournalLesson
 import com.journal.core.model.teacher.StudentLesson
@@ -128,7 +129,7 @@ fun StudentScheduleRoute(
             ).lessons
         }
             .onSuccess { lessons = it }
-            .onFailure { error = it.message ?: "Не удалось загрузить расписание" }
+            .onFailure { error = it.userFacingMessage("Не удалось загрузить расписание") }
         isLoading = false
     }
 
@@ -180,7 +181,7 @@ fun StudentDashboardRoute(
             profile = loadedProfile
             subjects = loadedSubjects
         }.onFailure {
-            error = it.message ?: "Не удалось загрузить личный кабинет"
+            error = it.userFacingMessage("Не удалось загрузить личный кабинет")
         }
         isLoading = false
     }

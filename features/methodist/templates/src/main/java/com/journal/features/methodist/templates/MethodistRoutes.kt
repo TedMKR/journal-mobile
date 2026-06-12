@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import com.journal.core.common.config.PersonNameFormatter
+import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriod
 import com.journal.core.model.teacher.AssignLessonTemplateRequest
@@ -111,7 +112,7 @@ fun MethodistTemplatesRoute(
                     disciplineId = selectedDisciplineId.ifBlank { null },
                     includeDeleted = includeArchived
                 ).data
-            }.onFailure { error = it.message ?: "Не удалось загрузить КТП" }
+            }.onFailure { error = it.userFacingMessage("Не удалось загрузить КТП") }
             isLoading = false
         }
     }
@@ -119,7 +120,7 @@ fun MethodistTemplatesRoute(
     LaunchedEffect(Unit) {
         runCatching {
             disciplines = journalApi.getDisciplines().data
-        }.onFailure { error = it.message ?: "Не удалось загрузить дисциплины" }
+        }.onFailure { error = it.userFacingMessage("Не удалось загрузить дисциплины") }
         loadTemplates()
     }
 
@@ -162,7 +163,7 @@ fun MethodistTemplatesRoute(
                     scope.launch {
                         runCatching { journalApi.getLessonTemplate(template.id) }
                             .onSuccess { selectedTemplate = it }
-                            .onFailure { error = it.message ?: "Не удалось открыть КТП" }
+                            .onFailure { error = it.userFacingMessage("Не удалось открыть КТП") }
                     }
                 }
             )
@@ -181,7 +182,7 @@ fun MethodistTemplatesRoute(
                                 selectedTemplate = journalApi.getLessonTemplate(detail.id)
                                 loadTemplates()
                             }.onSuccess { success = "Изменения сохранены" }
-                                .onFailure { error = it.message ?: "Не удалось сохранить КТП" }
+                                .onFailure { error = it.userFacingMessage("Не удалось сохранить КТП") }
                             saving = false
                         }
                     },
@@ -193,7 +194,7 @@ fun MethodistTemplatesRoute(
                                     success = "КТП удалён или перенесён в архив"
                                     loadTemplates()
                                 }
-                                .onFailure { error = it.message ?: "Не удалось удалить КТП" }
+                                .onFailure { error = it.userFacingMessage("Не удалось удалить КТП") }
                         }
                     }
                 )
@@ -225,7 +226,7 @@ fun MethodistTemplatesRoute(
                     }.onSuccess {
                         success = "КТП создан"
                         showCreateDialog = false
-                    }.onFailure { error = it.message ?: "Не удалось создать КТП" }
+                    }.onFailure { error = it.userFacingMessage("Не удалось создать КТП") }
                     saving = false
                 }
             }

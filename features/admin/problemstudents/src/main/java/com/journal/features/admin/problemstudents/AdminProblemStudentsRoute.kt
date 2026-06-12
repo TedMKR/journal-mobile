@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.journal.core.common.config.PersonNameFormatter
+import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.AdminAccessBinding
 import com.journal.core.model.teacher.AdminActionRequest
 import com.journal.core.model.teacher.AdminJournalContext
@@ -264,7 +265,7 @@ fun AdminProblemStudentsRoute(journalApi: JournalApi) {
                 students = resp.data
                 meta = resp.meta
                 total = resp.meta.total
-            }.onFailure { error = it.message ?: "Не удалось загрузить данные" }
+            }.onFailure { error = it.userFacingMessage("Не удалось загрузить данные") }
             isLoading = false
         }
     }

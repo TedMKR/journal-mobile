@@ -50,6 +50,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.journal.core.common.config.PersonNameFormatter
+import com.journal.core.common.config.userFacingMessage
 import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppDanger
 import com.journal.core.ui.AppLessonBackground
@@ -149,7 +150,7 @@ fun TeacherVedRoute(journalApi: JournalApi) {
             periods = loadedPeriods
             selectedPeriodId = loadedPeriods.firstOrNull { it.isActive }?.id ?: loadedPeriods.firstOrNull()?.id.orEmpty()
         }.onFailure { throwable ->
-            error = throwable.message ?: "Не удалось загрузить периоды"
+            error = throwable.userFacingMessage("Не удалось загрузить периоды")
         }
     }
 
@@ -169,8 +170,7 @@ fun TeacherVedRoute(journalApi: JournalApi) {
             teacherLessons = emptyList()
             disciplines = emptyList()
             groups = emptyList()
-            error = throwable.message?.takeIf { it.isNotBlank() }
-                ?: "Не удалось загрузить группы и предметы преподавателя"
+            error = throwable.userFacingMessage("Не удалось загрузить группы и предметы преподавателя")
         }
         isLoading = false
     }
@@ -243,7 +243,7 @@ fun TeacherVedRoute(journalApi: JournalApi) {
                             options = loaded.defaults.options
                             message = "Данные ведомости заполнены"
                         }.onFailure { throwable ->
-                            error = throwable.message ?: "Не удалось загрузить данные для ведомости"
+                            error = throwable.userFacingMessage("Не удалось загрузить данные для ведомости")
                         }
                         isLoadingPrefill = false
                     }
@@ -338,7 +338,7 @@ fun TeacherVedRoute(journalApi: JournalApi) {
                         }.onSuccess {
                             message = "Файл ведомости открыт"
                         }.onFailure { throwable ->
-                            error = throwable.message ?: "Не удалось скачать ведомость"
+                            error = throwable.userFacingMessage("Не удалось скачать ведомость")
                         }
                     }
                 }

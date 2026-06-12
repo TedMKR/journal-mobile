@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.AdminAccessBinding
 import com.journal.core.model.teacher.AdminActionRequest
 import com.journal.core.model.teacher.AdminJournalContext
@@ -243,7 +244,7 @@ fun AdminAuditRoute(journalApi: JournalApi) {
                 )
                 events = resp.data
                 total = resp.meta?.total ?: resp.data.size
-            }.onFailure { error = it.message ?: "Не удалось загрузить аудит" }
+            }.onFailure { error = it.userFacingMessage("Не удалось загрузить аудит") }
             isLoading = false
         }
     }

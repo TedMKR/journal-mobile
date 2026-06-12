@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.AdminAccessBinding
 import com.journal.core.model.teacher.AdminActionRequest
 import com.journal.core.model.teacher.AdminJournalContext
@@ -234,7 +235,7 @@ fun AdminAccessRoute(journalApi: JournalApi) {
             error = null
             runCatching {
                 bindings = journalApi.getAdminAccessBindings(activeOnly = !showRevoked).data
-            }.onFailure { error = it.message ?: "Не удалось загрузить доступы" }
+            }.onFailure { error = it.userFacingMessage("Не удалось загрузить доступы") }
             isLoading = false
         }
     }
@@ -286,7 +287,7 @@ fun AdminAccessRoute(journalApi: JournalApi) {
                             scope.launch {
                                 runCatching {
                                     journalApi.revokeAdminAccessBinding(id)
-                                }.onFailure { error = it.message }
+                                }.onFailure { error = it.userFacingMessage("Не удалось отозвать доступ") }
                                 revokingId = null
                                 loadBindings()
                             }

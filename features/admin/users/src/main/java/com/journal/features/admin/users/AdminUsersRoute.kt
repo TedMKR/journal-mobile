@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.common.config.PersonNameParts
+import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.AdminAccessBinding
 import com.journal.core.model.teacher.AdminActionRequest
 import com.journal.core.model.teacher.AdminJournalContext
@@ -260,7 +261,7 @@ fun AdminUsersRoute(journalApi: JournalApi) {
                 )
                 users = resp.data
                 total = resp.meta?.total ?: resp.data.size
-            }.onFailure { error = it.message ?: "Не удалось загрузить пользователей" }
+            }.onFailure { error = it.userFacingMessage("Не удалось загрузить пользователей") }
             isLoading = false
         }
     }
@@ -282,7 +283,7 @@ fun AdminUsersRoute(journalApi: JournalApi) {
                         } else {
                             journalApi.unblockAdminUser(user.id, AdminActionRequest(reason))
                         }
-                    }.onFailure { error = it.message }
+                    }.onFailure { error = it.userFacingMessage("Не удалось изменить пользователя") }
                     blockingUser = null
                     loadUsers()
                 }
@@ -371,7 +372,7 @@ fun AdminUsersRoute(journalApi: JournalApi) {
                                                 profileSyncLocked = editSyncLocked
                                             )
                                         )
-                                    }.onFailure { error = it.message }
+                                    }.onFailure { error = it.userFacingMessage("Не удалось сохранить пользователя") }
                                     editingUser = null
                                     loadUsers()
                                 }

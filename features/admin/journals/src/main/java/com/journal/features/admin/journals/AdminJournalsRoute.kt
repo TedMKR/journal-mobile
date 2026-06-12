@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.journal.core.common.config.PersonNameFormatter
+import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.AdminAccessBinding
 import com.journal.core.model.teacher.AdminActionRequest
 import com.journal.core.model.teacher.AdminJournalContext
@@ -278,7 +279,7 @@ fun AdminJournalsRoute(journalApi: JournalApi) {
                 )
                 journals = resp.data
                 total = resp.meta?.total ?: resp.data.size
-            }.onFailure { error = it.message ?: "Не удалось загрузить журналы" }
+            }.onFailure { error = it.userFacingMessage("Не удалось загрузить журналы") }
             isLoading = false
         }
     }
@@ -297,7 +298,7 @@ fun AdminJournalsRoute(journalApi: JournalApi) {
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
                 context.startActivity(Intent.createChooser(intent, "Экспорт журнала"))
-            }.onFailure { error = it.message ?: "Ошибка экспорта" }
+            }.onFailure { error = it.userFacingMessage("Ошибка экспорта") }
         }
     }
 
@@ -320,7 +321,7 @@ fun AdminJournalsRoute(journalApi: JournalApi) {
                 scope.launch {
                     runCatching {
                         journalApi.adminJournalAction(pa.journal.id, pa.action, AdminActionRequest(reason))
-                    }.onFailure { error = it.message }
+                    }.onFailure { error = it.userFacingMessage("Не удалось выполнить действие с журналом") }
                     pendingAction = null
                     loadJournals()
                 }

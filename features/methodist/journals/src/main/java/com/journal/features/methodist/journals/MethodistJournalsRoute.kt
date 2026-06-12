@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import com.journal.core.common.config.PersonNameFormatter
+import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriod
 import com.journal.core.model.teacher.AssignLessonTemplateRequest
@@ -123,7 +124,7 @@ fun MethodistJournalsRoute(
             journals = loadedJournals
         }.onFailure { throwable ->
             journals = emptyList()
-            error = throwable.message ?: "Не удалось загрузить журналы"
+            error = throwable.userFacingMessage("Не удалось загрузить журналы")
         }
         isLoading = false
     }

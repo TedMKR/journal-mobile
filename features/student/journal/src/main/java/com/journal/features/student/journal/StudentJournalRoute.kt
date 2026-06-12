@@ -45,6 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.journal.core.common.config.PersonNameFormatter
+import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.StudentJournalGrade
 import com.journal.core.model.teacher.StudentJournalLesson
 import com.journal.core.model.teacher.StudentLesson
@@ -120,7 +121,7 @@ fun StudentJournalRoute(
                 error = if ((t as? HttpException)?.code() == 403) {
                     "Нет журнала для этого занятия"
                 } else {
-                    t.message ?: "Не удалось загрузить журнал"
+                    t.userFacingMessage("Не удалось загрузить журнал")
                 }
             }
         isLoading = false

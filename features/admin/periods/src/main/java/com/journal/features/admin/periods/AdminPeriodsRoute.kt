@@ -68,6 +68,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.AdminAccessBinding
 import com.journal.core.model.teacher.AdminActionRequest
 import com.journal.core.model.teacher.AdminJournalContext
@@ -243,7 +244,7 @@ fun AdminPeriodsRoute(journalApi: JournalApi) {
             error = null
             runCatching {
                 periods = journalApi.getAdminPeriods(includeClosed = true).data
-            }.onFailure { error = it.message ?: "Не удалось загрузить периоды" }
+            }.onFailure { error = it.userFacingMessage("Не удалось загрузить периоды") }
             isLoading = false
         }
     }
@@ -261,7 +262,7 @@ fun AdminPeriodsRoute(journalApi: JournalApi) {
                         } else {
                             journalApi.reopenAdminPeriod(pt.period.id, AdminActionRequest(reason))
                         }
-                    }.onFailure { error = it.message }
+                    }.onFailure { error = it.userFacingMessage("Не удалось изменить период") }
                     pendingToggle = null
                     loadPeriods()
                 }

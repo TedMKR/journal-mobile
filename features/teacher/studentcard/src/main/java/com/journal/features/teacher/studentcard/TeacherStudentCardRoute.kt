@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.journal.core.common.config.PersonNameFormatter
+import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.JournalGridStudent
 import com.journal.core.network.api.JournalApi
@@ -79,7 +80,7 @@ fun TeacherStudentCardRoute(
             card = state
             isLoading = false
         }.onFailure { throwable ->
-            error = throwable.message ?: "Не удалось загрузить карточку студента"
+            error = throwable.userFacingMessage("Не удалось загрузить карточку студента")
             isLoading = false
         }
     }

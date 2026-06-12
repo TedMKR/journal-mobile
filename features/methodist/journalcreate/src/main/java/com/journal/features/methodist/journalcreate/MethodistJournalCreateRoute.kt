@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import com.journal.core.common.config.PersonNameFormatter
+import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriod
 import com.journal.core.model.teacher.AssignLessonTemplateRequest
@@ -111,7 +112,7 @@ fun MethodistJournalCreateRoute(
         scope.launch {
             runCatching { journalApi.getLessonTemplates(disciplineId = disciplineId.ifBlank { null }).data }
                 .onSuccess { templates = it }
-                .onFailure { error = it.message ?: "Не удалось загрузить КТП" }
+                .onFailure { error = it.userFacingMessage("Не удалось загрузить КТП") }
         }
     }
 
@@ -123,7 +124,7 @@ fun MethodistJournalCreateRoute(
             teachers = journalApi.getTeachers().data
             groups = journalApi.getGroups().data
             periodId = periods.firstOrNull { it.isActive }?.id ?: periods.firstOrNull()?.id.orEmpty()
-        }.onFailure { error = it.message ?: "Не удалось загрузить справочники" }
+        }.onFailure { error = it.userFacingMessage("Не удалось загрузить справочники") }
         isLoading = false
         loadTemplates()
     }
@@ -212,7 +213,7 @@ fun MethodistJournalCreateRoute(
                         }.onSuccess {
                             success = "Журнал создан"
                             onOpenJournal(MethodistJournalTarget(groupId, disciplineId, periodId, teacherId, lessonType))
-                        }.onFailure { error = it.message ?: "Не удалось создать журнал" }
+                        }.onFailure { error = it.userFacingMessage("Не удалось создать журнал") }
                         creating = false
                     }
                 }

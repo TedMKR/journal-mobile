@@ -41,6 +41,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import com.journal.core.common.config.PersonNameFormatter
+import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriod
 import com.journal.core.model.teacher.AssignLessonTemplateRequest
@@ -109,7 +110,7 @@ fun MethodistDashboardRoute(
                 .onFailure { throwable ->
                     loadErrors += DashboardLoadError(
                         title = title,
-                        message = throwable.message ?: "Не удалось получить данные"
+                        message = throwable.userFacingMessage("Не удалось получить данные")
                     )
                 }
                 .getOrNull()

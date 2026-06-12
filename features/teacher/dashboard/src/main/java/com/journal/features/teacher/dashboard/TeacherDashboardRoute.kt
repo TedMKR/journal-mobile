@@ -40,6 +40,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import com.journal.core.common.config.PersonNameFormatter
+import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.GrantJournalAccessRequest
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.TeacherLesson
@@ -94,7 +95,7 @@ fun TeacherDashboardRoute(
             state = uiState
             isLoading = false
         }.onFailure { throwable ->
-            error = throwable.message ?: "Не удалось загрузить личный кабинет"
+            error = throwable.userFacingMessage("Не удалось загрузить личный кабинет")
             isLoading = false
         }
     }
@@ -233,7 +234,7 @@ private fun AnalyticsCard(
         }.onSuccess { journal ->
             selectedJournal = journal
         }.onFailure { t ->
-            loadError = t.message ?: "Не удалось загрузить данные журнала"
+        loadError = t.userFacingMessage("Не удалось загрузить данные журнала")
         }
         isLoadingSelected = false
     }
@@ -416,7 +417,7 @@ private fun AccessGrantDialog(
                 isLoading = false
             }
             .onFailure { throwable ->
-                message = throwable.message ?: "Не удалось загрузить преподавателей"
+                message = throwable.userFacingMessage("Не удалось загрузить преподавателей")
                 isLoading = false
             }
     }
@@ -497,7 +498,7 @@ private fun AccessGrantDialog(
                                 isSaving = false
                                 onDismiss()
                             }.onFailure { throwable ->
-                                message = throwable.message ?: "Не удалось открыть доступ"
+                                message = throwable.userFacingMessage("Не удалось открыть доступ")
                                 isSaving = false
                             }
                         }
