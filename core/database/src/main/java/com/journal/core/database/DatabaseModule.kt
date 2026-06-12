@@ -6,6 +6,8 @@ import com.journal.core.database.dao.JournalGridCacheDao
 import com.journal.core.database.dao.PendingActionDao
 import com.journal.core.database.dao.SessionDao
 import com.journal.core.database.dao.StudentLessonDao
+import com.journal.core.database.dao.StudentProfileCacheDao
+import com.journal.core.database.dao.StudentSubjectCardCacheDao
 import com.journal.core.database.dao.TeacherLessonDao
 import dagger.Module
 import dagger.Provides
@@ -29,6 +31,7 @@ object DatabaseModule {
             .addMigrations(JournalDatabase.MIGRATION_1_2)
             .addMigrations(JournalDatabase.MIGRATION_2_3)
             .addMigrations(JournalDatabase.MIGRATION_3_4)
+            .addMigrations(JournalDatabase.MIGRATION_4_5)
             .build()
 
     @Provides
@@ -46,4 +49,12 @@ object DatabaseModule {
 
     @Provides
     fun providePendingActionDao(db: JournalDatabase): PendingActionDao = db.pendingActionDao()
+
+    @Provides
+    fun provideStudentSubjectCardCacheDao(db: JournalDatabase): StudentSubjectCardCacheDao =
+        db.studentSubjectCardCacheDao()
+
+    @Provides
+    fun provideStudentProfileCacheDao(db: JournalDatabase): StudentProfileCacheDao =
+        db.studentProfileCacheDao()
 }

@@ -198,7 +198,6 @@ fun JournalNavHost(
             }
             composable(Routes.STUDENT_SCHEDULE) {
                 StudentScheduleRoute(
-                    journalApi = journalApi,
                     onOpenLesson = { disciplineId, periodId, groupId ->
                         navController.navigate(Routes.studentJournal(disciplineId, periodId, groupId))
                     }
@@ -213,14 +212,13 @@ fun JournalNavHost(
                 )
             ) { entry ->
                 StudentJournalRoute(
-                    journalApi = journalApi,
                     disciplineId = entry.arguments?.getString("disciplineId").orEmpty(),
                     periodId = entry.arguments?.getString("periodId").orEmpty(),
                     groupId = entry.arguments?.getString("groupId").orEmpty()
                 )
             }
             composable(Routes.STUDENT_DASHBOARD) {
-                StudentDashboardRoute(journalApi = journalApi, jwtName = jwtFullName)
+                StudentDashboardRoute(jwtName = jwtFullName)
             }
             composable(Routes.METHODIST_DASHBOARD) {
                 MethodistDashboardRoute(journalApi = journalApi, jwtName = jwtFullName)

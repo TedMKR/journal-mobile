@@ -27,10 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -44,15 +41,12 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journal.core.common.config.PersonNameFormatter
-import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.StudentJournalGrade
 import com.journal.core.model.teacher.StudentJournalLesson
-import com.journal.core.model.teacher.StudentLesson
 import com.journal.core.model.teacher.StudentSubjectCard
-import com.journal.core.model.teacher.StudentProfile
-import com.journal.core.model.teacher.StudentSubjectSummary
-import com.journal.core.network.api.JournalApi
 import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppBarBackground
 import com.journal.core.ui.AppDanger
@@ -62,10 +56,7 @@ import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppSecondaryText
 import com.journal.core.ui.AppSuccess
 import com.journal.core.ui.AppWarning
-import retrofit2.HttpException
-import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -103,28 +94,15 @@ private val dayNames = listOf(
 
 @Composable
 fun StudentJournalRoute(
-    journalApi: JournalApi,
     disciplineId: String,
     periodId: String,
-    groupId: String
+    groupId: String,
+    viewModel: StudentJournalViewModel = hiltViewModel()
 ) {
-    var data by remember { mutableStateOf<StudentSubjectCard?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     LaunchedEffect(disciplineId, periodId, groupId) {
-        isLoading = true
-        error = null
-        runCatching { journalApi.getStudentSubjectCard(disciplineId, periodId, groupId) }
-            .onSuccess { data = it }
-            .onFailure { t ->
-                error = if ((t as? HttpException)?.code() == 403) {
-                    "Нет журнала для этого занятия"
-                } else {
-                    t.userFacingMessage("Не удалось загрузить журнал")
-                }
-            }
-        isLoading = false
+        viewModel.load(disciplineId, periodId, groupId)
     }
 
     Column(
@@ -132,11 +110,32 @@ fun StudentJournalRoute(
             .fillMaxSize()
             .background(Background)
     ) {
-        when {
-            isLoading -> CenterState { CircularProgressIndicator(color = PrimaryText) }
-            error != null -> CenterState { Text(error.orEmpty(), color = Danger, textAlign = TextAlign.Center) }
-            data != null -> StudentJournalContent(data!!)
+        if (uiState.isOffline) {
+            StudentOfflineBanner()
         }
+        when {
+            uiState.isLoading && uiState.data == null -> CenterState { CircularProgressIndicator(color = PrimaryText) }
+            uiState.error != null -> CenterState { Text(uiState.error.orEmpty(), color = Danger, textAlign = TextAlign.Center) }
+            uiState.data != null -> uiState.data?.let { StudentJournalContent(it) }
+        }
+    }
+}
+
+@Composable
+private fun StudentOfflineBanner(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF59E0B), RoundedCornerShape(bottomStart = 12.dp, bottomEnd = 12.dp))
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Офлайн — данные из кеша",
+            color = Color.White,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 

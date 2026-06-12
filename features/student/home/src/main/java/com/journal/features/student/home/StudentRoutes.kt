@@ -25,12 +25,8 @@ import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
@@ -44,15 +40,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journal.core.common.config.PersonNameFormatter
-import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.StudentJournalGrade
 import com.journal.core.model.teacher.StudentJournalLesson
 import com.journal.core.model.teacher.StudentLesson
 import com.journal.core.model.teacher.StudentSubjectCard
 import com.journal.core.model.teacher.StudentProfile
 import com.journal.core.model.teacher.StudentSubjectSummary
-import com.journal.core.network.api.JournalApi
 import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppBarBackground
 import com.journal.core.ui.AppDanger
@@ -62,8 +58,6 @@ import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppSecondaryText
 import com.journal.core.ui.AppSuccess
 import com.journal.core.ui.AppWarning
-import retrofit2.HttpException
-import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -105,33 +99,12 @@ private val dayNames = listOf(
 
 @Composable
 fun StudentScheduleRoute(
-    journalApi: JournalApi,
-    onOpenLesson: (disciplineId: String, periodId: String, groupId: String) -> Unit = { _, _, _ -> }
+    onOpenLesson: (disciplineId: String, periodId: String, groupId: String) -> Unit = { _, _, _ -> },
+    viewModel: StudentScheduleViewModel = hiltViewModel()
 ) {
-    val today = remember { LocalDate.now() }
-    var weekOffset by remember { mutableIntStateOf(0) }
-
-    val weekMonday = remember(weekOffset) { today.with(DayOfWeek.MONDAY).plusWeeks(weekOffset.toLong()) }
-    val weekSunday  = remember(weekMonday) { weekMonday.plusDays(6) }
-
-    var lessons by remember { mutableStateOf<List<StudentLesson>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(weekMonday) {
-        isLoading = true
-        error = null
-        runCatching {
-            journalApi.getStudentLessons(
-                dateFrom = weekMonday.format(DateTimeFormatter.ISO_LOCAL_DATE),
-                dateTo   = weekSunday.format(DateTimeFormatter.ISO_LOCAL_DATE),
-                limit    = 200
-            ).lessons
-        }
-            .onSuccess { lessons = it }
-            .onFailure { error = it.userFacingMessage("Не удалось загрузить расписание") }
-        isLoading = false
-    }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val weekMonday = uiState.weekMonday
+    val weekSunday = weekMonday.plusDays(6)
 
     Column(
         modifier = Modifier
@@ -140,18 +113,21 @@ fun StudentScheduleRoute(
             .padding(horizontal = 16.dp, vertical = 10.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
+        if (uiState.isOffline) {
+            StudentOfflineBanner()
+        }
         WeekNavBar(
             weekMonday  = weekMonday,
             weekSunday  = weekSunday,
-            isToday     = weekOffset == 0,
-            onPrev      = { weekOffset-- },
-            onNext      = { weekOffset++ }
+            isToday     = uiState.isCurrentWeek,
+            onPrev      = { viewModel.navigateWeek(-1) },
+            onNext      = { viewModel.navigateWeek(1) }
         )
         when {
-            isLoading  -> CenterState { CircularProgressIndicator(color = PrimaryText) }
-            error != null -> CenterState { Text(error.orEmpty(), color = Danger) }
+            uiState.isLoading && uiState.lessons.isEmpty() -> CenterState { CircularProgressIndicator(color = PrimaryText) }
+            uiState.error != null -> CenterState { Text(uiState.error.orEmpty(), color = Danger, textAlign = TextAlign.Center) }
             else -> ScheduleContent(
-                lessons     = lessons,
+                lessons     = uiState.lessons,
                 weekMonday  = weekMonday,
                 onOpenLesson = onOpenLesson
             )
@@ -161,37 +137,40 @@ fun StudentScheduleRoute(
 
 @Composable
 fun StudentDashboardRoute(
-    journalApi: JournalApi,
     /** Full name extracted from JWT; used when the profile payload has no name. */
-    jwtName: String? = null
+    jwtName: String? = null,
+    viewModel: StudentDashboardViewModel = hiltViewModel()
 ) {
-    var profile by remember { mutableStateOf<StudentProfile?>(null) }
-    var subjects by remember { mutableStateOf<List<StudentSubjectSummary>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(Unit) {
-        isLoading = true
-        error = null
-        runCatching {
-            val loadedProfile = journalApi.getStudentProfile()
-            val loadedSubjects = journalApi.getStudentSubjects().subjects
-            loadedProfile to loadedSubjects
-        }.onSuccess { (loadedProfile, loadedSubjects) ->
-            profile = loadedProfile
-            subjects = loadedSubjects
-        }.onFailure {
-            error = it.userFacingMessage("Не удалось загрузить личный кабинет")
-        }
-        isLoading = false
-    }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     StudentScaffold(title = "Личный кабинет") {
-        when {
-            isLoading -> CenterState { CircularProgressIndicator(color = PrimaryText) }
-            error != null -> CenterState { Text(error.orEmpty(), color = Danger) }
-            else -> StudentDashboardContent(profile = profile, subjects = subjects, jwtName = jwtName)
+        if (uiState.isOffline) {
+            StudentOfflineBanner()
         }
+        when {
+            uiState.isLoading && uiState.profile == null && uiState.subjects.isEmpty() ->
+                CenterState { CircularProgressIndicator(color = PrimaryText) }
+            uiState.error != null -> CenterState { Text(uiState.error.orEmpty(), color = Danger, textAlign = TextAlign.Center) }
+            else -> StudentDashboardContent(profile = uiState.profile, subjects = uiState.subjects, jwtName = jwtName)
+        }
+    }
+}
+
+@Composable
+private fun StudentOfflineBanner(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF59E0B), RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Офлайн — данные из кеша",
+            color = Color.White,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 

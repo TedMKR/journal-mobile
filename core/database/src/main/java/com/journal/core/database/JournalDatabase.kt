@@ -8,11 +8,15 @@ import com.journal.core.database.dao.JournalGridCacheDao
 import com.journal.core.database.dao.PendingActionDao
 import com.journal.core.database.dao.SessionDao
 import com.journal.core.database.dao.StudentLessonDao
+import com.journal.core.database.dao.StudentProfileCacheDao
+import com.journal.core.database.dao.StudentSubjectCardCacheDao
 import com.journal.core.database.dao.TeacherLessonDao
 import com.journal.core.database.entity.JournalGridCacheEntity
 import com.journal.core.database.entity.PendingActionEntity
 import com.journal.core.database.entity.SessionEntity
 import com.journal.core.database.entity.StudentLessonEntity
+import com.journal.core.database.entity.StudentProfileCacheEntity
+import com.journal.core.database.entity.StudentSubjectCardCacheEntity
 import com.journal.core.database.entity.TeacherLessonEntity
 
 @Database(
@@ -21,9 +25,11 @@ import com.journal.core.database.entity.TeacherLessonEntity
         TeacherLessonEntity::class,
         StudentLessonEntity::class,
         JournalGridCacheEntity::class,
-        PendingActionEntity::class
+        PendingActionEntity::class,
+        StudentSubjectCardCacheEntity::class,
+        StudentProfileCacheEntity::class
     ],
-    version = 4,
+    version = 5,
     exportSchema = false
 )
 abstract class JournalDatabase : RoomDatabase() {
@@ -32,6 +38,8 @@ abstract class JournalDatabase : RoomDatabase() {
     abstract fun studentLessonDao(): StudentLessonDao
     abstract fun journalGridCacheDao(): JournalGridCacheDao
     abstract fun pendingActionDao(): PendingActionDao
+    abstract fun studentSubjectCardCacheDao(): StudentSubjectCardCacheDao
+    abstract fun studentProfileCacheDao(): StudentProfileCacheDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -56,6 +64,33 @@ abstract class JournalDatabase : RoomDatabase() {
                 db.execSQL("ALTER TABLE pending_actions ADD COLUMN next_attempt_at INTEGER NOT NULL DEFAULT 0")
                 db.execSQL("ALTER TABLE pending_actions ADD COLUMN entity_type TEXT")
                 db.execSQL("ALTER TABLE pending_actions ADD COLUMN action_key TEXT")
+            }
+        }
+
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS student_subject_card_cache (
+                        cache_key TEXT NOT NULL PRIMARY KEY,
+                        discipline_id TEXT NOT NULL,
+                        period_id TEXT NOT NULL,
+                        group_id TEXT NOT NULL,
+                        json_data TEXT NOT NULL,
+                        cached_at INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS student_profile_cache (
+                        cache_key TEXT NOT NULL PRIMARY KEY,
+                        profile_json TEXT NOT NULL,
+                        subjects_json TEXT NOT NULL,
+                        cached_at INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
             }
         }
     }
