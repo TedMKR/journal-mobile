@@ -201,10 +201,12 @@ fun AppSecondaryButton(
     contentColor: Color = AppPrimary,
     cornerRadius: Int = 12
 ) {
+    val shape = RoundedCornerShape(cornerRadius.dp)
     Button(
         onClick = onClick,
-        modifier = modifier.border(1.dp, AppHeaderBackground, RoundedCornerShape(cornerRadius.dp)),
-        shape = RoundedCornerShape(cornerRadius.dp),
+        modifier = modifier,
+        shape = shape,
+        border = BorderStroke(1.dp, AppHeaderBackground),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,
