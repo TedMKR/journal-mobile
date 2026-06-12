@@ -1,4 +1,4 @@
-package com.journal.features.admin.dashboard
+package com.journal.features.admin.audit
 
 import android.content.Intent
 import androidx.core.content.FileProvider
@@ -111,6 +111,8 @@ private val WarningLight = Color(0xFFFEF3C7)
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
+
+private const val AUDIT_PAGE_SIZE = 20
 private fun formatDateTime(value: String?): String {
     if (value.isNullOrBlank()) return "—"
     return try {
@@ -386,322 +388,224 @@ private fun LoadingCard(text: String) {
 // ─── 1. Admin Dashboard ───────────────────────────────────────────────────────
 
 @Composable
-fun AdminDashboardRoute(
-    journalApi: JournalApi,
-    onOpenUsers: () -> Unit,
-    onOpenAudit: () -> Unit,
-    onOpenJournals: () -> Unit,
-    onOpenPeriods: () -> Unit,
-    onOpenAccess: () -> Unit,
-    onOpenProblemStudents: () -> Unit
-) {
+fun AdminAuditRoute(journalApi: JournalApi) {
+    val scope = rememberCoroutineScope()
+
+    var events by remember { mutableStateOf<List<AuditEvent>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    var journalsCount by remember { mutableIntStateOf(0) }
-    var usersCount by remember { mutableIntStateOf(0) }
-    var periodsCount by remember { mutableIntStateOf(0) }
-    var documentsCount by remember { mutableIntStateOf(0) }
+    var filterAction by remember { mutableStateOf("") }
+    var filterEntity by remember { mutableStateOf("") }
+    var page by remember { mutableIntStateOf(1) }
+    var total by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(Unit) {
-        isLoading = true
-        error = null
-        runCatching {
-            val journals = journalApi.getAdminJournals(pageSize = 1)
-            journalsCount = journals.meta?.total ?: journals.data.size
-
-            val users = journalApi.getAdminUsers(pageSize = 1)
-            usersCount = users.meta?.total ?: users.data.size
-
-            val periods = journalApi.getAdminPeriods(includeClosed = true)
-            periodsCount = periods.data.size
-
-            val docs = journalApi.getAdminDocuments(pageSize = 1)
-            documentsCount = docs.meta?.total ?: docs.data.size
-        }.onFailure { error = it.message ?: "Не удалось загрузить данные" }
-        isLoading = false
+    fun loadAudit() {
+        scope.launch {
+            isLoading = true
+            error = null
+            runCatching {
+                val resp = journalApi.getAdminAudit(
+                    page = page,
+                    pageSize = AUDIT_PAGE_SIZE,
+                    action = filterAction.ifBlank { null },
+                    entityType = filterEntity.ifBlank { null }
+                )
+                events = resp.data
+                total = resp.meta?.total ?: resp.data.size
+            }.onFailure { error = it.message ?: "Не удалось загрузить аудит" }
+            isLoading = false
+        }
     }
+
+    LaunchedEffect(page, filterAction, filterEntity) { loadAudit() }
+
+    val totalPages = maxOf(1, (total + AUDIT_PAGE_SIZE - 1) / AUDIT_PAGE_SIZE)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundColor)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header banner
+        // Filter bar
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .background(PrimaryBlue)
-                .padding(20.dp)
+                .background(CardBackground)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text(
-                "Кабинет администратора",
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp
-            )
-            Spacer(modifier = Modifier.height(16.dp))
+            Text("Фильтры", fontWeight = FontWeight.Bold, color = PrimaryBlue, fontSize = 14.sp)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                AdminDropdown(
+                    label = "Все события",
+                    selected = filterAction,
+                    options = listOf(
+                        "Все события" to "",
+                        "Журнал заморожен" to "JOURNAL_LOCKED",
+                        "Журнал разморожен" to "JOURNAL_UNLOCKED",
+                        "В архиве" to "JOURNAL_ARCHIVED",
+                        "Восстановлен" to "JOURNAL_RESTORED",
+                        "Период закрыт" to "PERIOD_CLOSED",
+                        "Период открыт" to "PERIOD_REOPENED",
+                        "Доступ выдан" to "ACCESS_BINDING_CREATED",
+                        "Доступ отозван" to "ACCESS_BINDING_REVOKED",
+                        "Заблокирован" to "USER_BLOCKED",
+                        "Разблокирован" to "USER_UNBLOCKED"
+                    ),
+                    onSelected = { filterAction = it; page = 1 },
+                    modifier = Modifier.weight(1f)
+                )
+                AdminDropdown(
+                    label = "Все сущности",
+                    selected = filterEntity,
+                    options = listOf(
+                        "Все сущности" to "",
+                        "Журнал" to "JournalContext",
+                        "Пользователь" to "AdminUser",
+                        "Период" to "AcademicPeriod",
+                        "Документ" to "DocumentTask"
+                    ),
+                    onSelected = { filterEntity = it; page = 1 },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
 
-            if (isLoading) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.width(20.dp).height(20.dp))
-                    Text("Загружаю данные...", color = Color.White.copy(alpha = 0.7f))
+        when {
+            isLoading -> Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(color = PrimaryBlue)
+            }
+
+            error != null -> Column(modifier = Modifier.padding(16.dp)) {
+                ErrorCard(error!!)
+            }
+
+            events.isEmpty() -> Box(
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("События не найдены", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+            }
+
+            else -> LazyColumn(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(0.dp)
+            ) {
+                items(events) { event ->
+                    AuditEventRow(event)
                 }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        Column(
+
+                // Pagination
+                if (totalPages > 1) {
+                    item {
+                        Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
-                                .padding(12.dp)
+                                .background(CardBackground)
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
+                            TextButton(
+                                onClick = { if (page > 1) page-- },
+                                enabled = page > 1
+                            ) {
+                                Text("← Назад", color = if (page > 1) PrimaryBlue else SecondaryText)
+                            }
                             Text(
-                                journalsCount.toString(),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 24.sp,
-                                color = PrimaryBlue
+                                "$page / $totalPages",
+                                modifier = Modifier.padding(horizontal = 16.dp),
+                                color = PrimaryBlue,
+                                fontWeight = FontWeight.Bold
                             )
-                            Text("Журналы", fontSize = 12.sp, color = SecondaryText)
-                        }
-                    }
-                    Box(modifier = Modifier.weight(1f)) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                usersCount.toString(),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 24.sp,
-                                color = PrimaryBlue
-                            )
-                            Text("Пользователи", fontSize = 12.sp, color = SecondaryText)
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                periodsCount.toString(),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 24.sp,
-                                color = PrimaryBlue
-                            )
-                            Text("Периоды", fontSize = 12.sp, color = SecondaryText)
-                        }
-                    }
-                    Box(modifier = Modifier.weight(1f)) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                documentsCount.toString(),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 24.sp,
-                                color = PrimaryBlue
-                            )
-                            Text("Документы", fontSize = 12.sp, color = SecondaryText)
+                            TextButton(
+                                onClick = { if (page < totalPages) page++ },
+                                enabled = page < totalPages
+                            ) {
+                                Text("Вперёд →", color = if (page < totalPages) PrimaryBlue else SecondaryText)
+                            }
                         }
                     }
                 }
             }
         }
-
-        error?.let { ErrorCard(it) }
-
-        // Navigation cards
-        Text("Разделы", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = PrimaryBlue)
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Пользователи",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Локальные профили, блокировка и корректировка данных",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenUsers)
-            }
-        }
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Аудит",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Журнал административных событий",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenAudit)
-            }
-        }
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Журналы",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Заморозка, архивирование и восстановление журналов",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenJournals)
-            }
-        }
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Учебные периоды",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Закрытие и повторное открытие периодов",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenPeriods)
-            }
-        }
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Доступы",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Выдача и отзыв доступа преподавателей к журналам",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenAccess)
-            }
-        }
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Проблемные студенты",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Студенты с высокой долей двоек и серийными неудами",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenProblemStudents)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
-// ─── 2. Admin Users ───────────────────────────────────────────────────────────
+@Composable
+private fun AuditEventRow(event: AuditEvent) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = adminActionLabel(event.action),
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryBlue,
+                    fontSize = 14.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                if (!event.entityType.isNullOrBlank()) {
+                    Text(
+                        text = "Сущность: ${event.entityType}",
+                        color = SecondaryText,
+                        fontSize = 12.sp
+                    )
+                }
+                if (!event.entityId.isNullOrBlank()) {
+                    Text(
+                        text = event.entityId.orEmpty(),
+                        color = SecondaryText,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = formatDateTime(event.createdAt),
+                    color = SecondaryText,
+                    fontSize = 12.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = event.actorId?.let { shortenId(it) } ?: "Система",
+                    color = SecondaryText,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    }
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(1.dp)
+            .background(BackgroundColor)
+    )
+}
 
-private const val USERS_PAGE_SIZE = 20
+private fun shortenId(id: String): String =
+    if (id.length > 16) "…${id.takeLast(12)}" else id
+
+// ─── 4. Admin Journals ────────────────────────────────────────────────────────
+
+private const val JOURNALS_PAGE_SIZE = 20
 

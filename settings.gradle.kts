@@ -33,6 +33,16 @@ include(
     ":features:teacher:dashboard",
     ":features:teacher:ved",
     ":features:student:home",
+    ":features:student:journal",
+    ":features:methodist:dashboard",
+    ":features:methodist:journals",
     ":features:methodist:templates",
-    ":features:admin:dashboard"
+    ":features:methodist:journalcreate",
+    ":features:admin:dashboard",
+    ":features:admin:users",
+    ":features:admin:audit",
+    ":features:admin:journals",
+    ":features:admin:periods",
+    ":features:admin:access",
+    ":features:admin:problemstudents"
 )

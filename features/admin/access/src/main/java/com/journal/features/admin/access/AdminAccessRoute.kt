@@ -1,4 +1,4 @@
-package com.journal.features.admin.dashboard
+package com.journal.features.admin.access
 
 import android.content.Intent
 import androidx.core.content.FileProvider
@@ -385,323 +385,231 @@ private fun LoadingCard(text: String) {
 
 // ─── 1. Admin Dashboard ───────────────────────────────────────────────────────
 
+private fun shortenId(id: String): String =
+    if (id.length > 16) "…${id.takeLast(12)}" else id
 @Composable
-fun AdminDashboardRoute(
-    journalApi: JournalApi,
-    onOpenUsers: () -> Unit,
-    onOpenAudit: () -> Unit,
-    onOpenJournals: () -> Unit,
-    onOpenPeriods: () -> Unit,
-    onOpenAccess: () -> Unit,
-    onOpenProblemStudents: () -> Unit
-) {
+fun AdminAccessRoute(journalApi: JournalApi) {
+    val scope = rememberCoroutineScope()
+
+    var bindings by remember { mutableStateOf<List<AdminAccessBinding>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    var journalsCount by remember { mutableIntStateOf(0) }
-    var usersCount by remember { mutableIntStateOf(0) }
-    var periodsCount by remember { mutableIntStateOf(0) }
-    var documentsCount by remember { mutableIntStateOf(0) }
+    var showRevoked by remember { mutableStateOf(false) }
+    var revokingId by remember { mutableStateOf<String?>(null) }
 
-    LaunchedEffect(Unit) {
-        isLoading = true
-        error = null
-        runCatching {
-            val journals = journalApi.getAdminJournals(pageSize = 1)
-            journalsCount = journals.meta?.total ?: journals.data.size
+    fun loadBindings() {
+        scope.launch {
+            isLoading = true
+            error = null
+            runCatching {
+                bindings = journalApi.getAdminAccessBindings(activeOnly = !showRevoked).data
+            }.onFailure { error = it.message ?: "Не удалось загрузить доступы" }
+            isLoading = false
+        }
+    }
 
-            val users = journalApi.getAdminUsers(pageSize = 1)
-            usersCount = users.meta?.total ?: users.data.size
+    LaunchedEffect(showRevoked) { loadBindings() }
 
-            val periods = journalApi.getAdminPeriods(includeClosed = true)
-            periodsCount = periods.data.size
-
-            val docs = journalApi.getAdminDocuments(pageSize = 1)
-            documentsCount = docs.meta?.total ?: docs.data.size
-        }.onFailure { error = it.message ?: "Не удалось загрузить данные" }
-        isLoading = false
+    // Revoke confirmation
+    revokingId?.let { id ->
+        Dialog(onDismissRequest = { revokingId = null }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(20.dp))
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        "Отозвать доступ?",
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryBlue,
+                        fontSize = 17.sp,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Text(
+                        "×",
+                        modifier = Modifier
+                            .clickable { revokingId = null }
+                            .padding(4.dp),
+                        color = SecondaryText,
+                        fontSize = 22.sp
+                    )
+                }
+                Text("Это действие нельзя отменить.", color = SecondaryText, fontSize = 14.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
+                ) {
+                    TextButton(onClick = { revokingId = null }) {
+                        Text("Отмена", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                    }
+                    DangerButton(
+                        text = "Отозвать",
+                        onClick = {
+                            scope.launch {
+                                runCatching {
+                                    journalApi.revokeAdminAccessBinding(id)
+                                }.onFailure { error = it.message }
+                                revokingId = null
+                                loadBindings()
+                            }
+                        }
+                    )
+                }
+            }
+        }
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundColor)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header banner
-        Column(
+        // Toggle active/all
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .background(PrimaryBlue)
-                .padding(20.dp)
+                .background(CardBackground)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                "Кабинет администратора",
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp
+            Text("Показывать:", color = PrimaryBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            AdminDropdown(
+                label = "Активные",
+                selected = if (showRevoked) "all" else "active",
+                options = listOf("Активные" to "active", "Все" to "all"),
+                onSelected = { showRevoked = it == "all" },
+                modifier = Modifier.weight(1f)
             )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (isLoading) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.width(20.dp).height(20.dp))
-                    Text("Загружаю данные...", color = Color.White.copy(alpha = 0.7f))
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                journalsCount.toString(),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 24.sp,
-                                color = PrimaryBlue
-                            )
-                            Text("Журналы", fontSize = 12.sp, color = SecondaryText)
-                        }
-                    }
-                    Box(modifier = Modifier.weight(1f)) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                usersCount.toString(),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 24.sp,
-                                color = PrimaryBlue
-                            )
-                            Text("Пользователи", fontSize = 12.sp, color = SecondaryText)
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                periodsCount.toString(),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 24.sp,
-                                color = PrimaryBlue
-                            )
-                            Text("Периоды", fontSize = 12.sp, color = SecondaryText)
-                        }
-                    }
-                    Box(modifier = Modifier.weight(1f)) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                documentsCount.toString(),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 24.sp,
-                                color = PrimaryBlue
-                            )
-                            Text("Документы", fontSize = 12.sp, color = SecondaryText)
-                        }
-                    }
-                }
-            }
         }
 
-        error?.let { ErrorCard(it) }
-
-        // Navigation cards
-        Text("Разделы", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = PrimaryBlue)
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+        when {
+            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = PrimaryBlue)
+            }
+            error != null -> Column(Modifier.padding(16.dp)) { ErrorCard(error!!) }
+            bindings.isEmpty() -> Box(
+                Modifier.fillMaxSize().padding(16.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Пользователи",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Локальные профили, блокировка и корректировка данных",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
+                Text("Доступы не найдены", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+            }
+            else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(bindings) { binding ->
+                    AccessBindingRow(
+                        binding = binding,
+                        onRevoke = { revokingId = binding.id }
                     )
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenUsers)
             }
         }
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Аудит",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Журнал административных событий",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenAudit)
-            }
-        }
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Журналы",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Заморозка, архивирование и восстановление журналов",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenJournals)
-            }
-        }
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Учебные периоды",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Закрытие и повторное открытие периодов",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenPeriods)
-            }
-        }
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Доступы",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Выдача и отзыв доступа преподавателей к журналам",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenAccess)
-            }
-        }
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Проблемные студенты",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Студенты с высокой долей двоек и серийными неудами",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenProblemStudents)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
-// ─── 2. Admin Users ───────────────────────────────────────────────────────────
+@Composable
+private fun AccessBindingRow(
+    binding: AdminAccessBinding,
+    onRevoke: () -> Unit
+) {
+    val isRevoked = binding.revokedAt != null
+    val accessLabel = if (binding.accessLevel == "write") "Запись" else "Чтение"
 
-private const val USERS_PAGE_SIZE = 20
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground)
+            .padding(horizontal = 16.dp, vertical = 12.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Получатель: ${shortenId(binding.granteeId ?: "—")}",
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryBlue,
+                    fontSize = 14.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "Выдал: ${shortenId(binding.granterId ?: "—")}",
+                    color = SecondaryText,
+                    fontSize = 12.sp
+                )
+                Text(
+                    text = "Дисциплина: ${shortenId(binding.disciplineId ?: "—")}",
+                    color = SecondaryText,
+                    fontSize = 12.sp
+                )
+                Text(
+                    text = "Группа: ${shortenId(binding.groupId ?: "—")}",
+                    color = SecondaryText,
+                    fontSize = 12.sp
+                )
+                Text(
+                    text = "Выдан: ${formatDateTime(binding.grantedAt)}",
+                    color = SecondaryText,
+                    fontSize = 11.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                AdminBadge(accessLabel, PrimaryBlue, AccentBadge)
+                AdminBadge(
+                    text = if (isRevoked) "Отозван" else "Активен",
+                    color = if (isRevoked) DangerColor else GreenColor,
+                    background = if (isRevoked) DangerLight else GreenLight
+                )
+            }
+        }
+        if (!isRevoked) {
+            Spacer(modifier = Modifier.height(10.dp))
+            DangerButton("Отозвать", onClick = onRevoke)
+        }
+    }
+    Box(Modifier.fillMaxWidth().height(1.dp).background(BackgroundColor))
+}
+
+// ─── Shared pagination row ────────────────────────────────────────────────────
+
+@Composable
+private fun AdminPaginationRow(page: Int, totalPages: Int, onPrev: () -> Unit, onNext: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground)
+            .padding(12.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TextButton(onClick = { if (page > 1) onPrev() }, enabled = page > 1) {
+            Text("← Назад", color = if (page > 1) PrimaryBlue else SecondaryText)
+        }
+        Text(
+            "$page / $totalPages",
+            modifier = Modifier.padding(horizontal = 16.dp),
+            color = PrimaryBlue,
+            fontWeight = FontWeight.Bold
+        )
+        TextButton(onClick = { if (page < totalPages) onNext() }, enabled = page < totalPages) {
+            Text("Вперёд →", color = if (page < totalPages) PrimaryBlue else SecondaryText)
+        }
+    }
+}
+
+// ─── 7. Admin Problem Students ────────────────────────────────────────────────
+
+private const val PROBLEM_STUDENTS_PAGE_SIZE = 10
 

@@ -1,0 +1,554 @@
+package com.journal.features.student.journal
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import com.journal.core.model.teacher.StudentJournalGrade
+import com.journal.core.model.teacher.StudentJournalLesson
+import com.journal.core.model.teacher.StudentLesson
+import com.journal.core.model.teacher.StudentSubjectCard
+import com.journal.core.model.teacher.StudentProfile
+import com.journal.core.model.teacher.StudentSubjectSummary
+import com.journal.core.network.api.JournalApi
+import com.journal.core.ui.AppBackground
+import com.journal.core.ui.AppBarBackground
+import com.journal.core.ui.AppDanger
+import com.journal.core.ui.AppHeaderBackground
+import com.journal.core.ui.AppLessonBackground
+import com.journal.core.ui.AppPrimary
+import com.journal.core.ui.AppSecondaryText
+import com.journal.core.ui.AppSuccess
+import com.journal.core.ui.AppWarning
+import retrofit2.HttpException
+import java.time.DayOfWeek
+import java.time.LocalDate
+import java.time.OffsetDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
+
+private val Background = AppBackground
+private val CardBackground = Color.White
+private val LessonBackground = AppLessonBackground
+private val PrimaryText = AppPrimary
+private val MutedText = AppSecondaryText
+private val BadgeBackground = AppHeaderBackground
+private val LightBlue = AppHeaderBackground
+private val BarBackground = AppBarBackground
+private val Accent = Color(0xFF3B82F6)
+private val Danger = Color(0xFFDC2626)
+private val Success = Color(0xFF16A34A)
+
+// Journal table colours
+private val JournalHeaderBg    = AppHeaderBackground
+private val JournalCellBorder  = Color(0xFFC9CED8)
+private val JournalPresentColor = AppSuccess
+private val JournalAbsentColor  = AppDanger
+private val JournalExcuseColor  = AppWarning
+
+private const val STUDENT_NAME_COL   = 190
+private const val STUDENT_ATTEND_COL = 82
+private const val STUDENT_GRADE_COL  = 112
+
+private val dayNames = listOf(
+    "Понедельник",
+    "Вторник",
+    "Среда",
+    "Четверг",
+    "Пятница",
+    "Суббота"
+)
+
+@Composable
+fun StudentJournalRoute(
+    journalApi: JournalApi,
+    disciplineId: String,
+    periodId: String,
+    groupId: String
+) {
+    var data by remember { mutableStateOf<StudentSubjectCard?>(null) }
+    var isLoading by remember { mutableStateOf(true) }
+    var error by remember { mutableStateOf<String?>(null) }
+
+    LaunchedEffect(disciplineId, periodId, groupId) {
+        isLoading = true
+        error = null
+        runCatching { journalApi.getStudentSubjectCard(disciplineId, periodId, groupId) }
+            .onSuccess { data = it }
+            .onFailure { t ->
+                error = if ((t as? HttpException)?.code() == 403) {
+                    "Нет журнала для этого занятия"
+                } else {
+                    t.message ?: "Не удалось загрузить журнал"
+                }
+            }
+        isLoading = false
+    }
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Background)
+    ) {
+        when {
+            isLoading -> CenterState { CircularProgressIndicator(color = PrimaryText) }
+            error != null -> CenterState { Text(error.orEmpty(), color = Danger, textAlign = TextAlign.Center) }
+            data != null -> StudentJournalContent(data!!)
+        }
+    }
+}
+
+@Composable
+private fun StudentJournalContent(card: StudentSubjectCard) {
+    val hScroll = rememberScrollState()
+    val studentName = card.student?.fullName ?: ""
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(12.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        // ── 1. Info card ──────────────────────────────────────────────────────
+        item {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(CardBackground, RoundedCornerShape(22.dp))
+                    .padding(18.dp)
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Text(
+                        card.disciplineName,
+                        color = PrimaryText,
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                    card.teacherName?.takeIf { it.isNotBlank() }?.let {
+                        JournalTag(it)
+                    }
+                    JournalTag(card.groupName)
+                }
+            }
+        }
+
+        // ── 2. Journal table card ─────────────────────────────────────────────
+        item {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(CardBackground, RoundedCornerShape(16.dp))
+            ) {
+                Text(
+                    "Посещаемость",
+                    color = PrimaryText,
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+                )
+                HorizontalDivider(color = JournalCellBorder, thickness = 0.5.dp)
+
+                // Scrollable table
+                Box(modifier = Modifier.horizontalScroll(hScroll)) {
+                    Column {
+                        StudentJournalTableHeader(card.journalLessons, card.journalGrades)
+                        StudentJournalDataRow(card.journalLessons, card.journalGrades, studentName)
+                    }
+                }
+            }
+        }
+
+        // ── 3. Stats card ──────────────────────────────────────────────────────
+        item {
+            StudentStatsCard(card)
+        }
+    }
+}
+
+// ── Tag / StatSmallCard (TeacherStudentCard style) ─────────────────────────────
+
+@Composable
+private fun JournalTag(text: String) {
+    Box(
+        modifier = Modifier
+            .background(LightBlue, RoundedCornerShape(10.dp))
+            .padding(horizontal = 14.dp, vertical = 7.dp)
+    ) {
+        Text(text, color = PrimaryText, style = MaterialTheme.typography.bodySmall)
+    }
+}
+
+@Composable
+private fun JournalStatSmallCard(title: String, value: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier
+            .background(LightBlue, RoundedCornerShape(12.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(4.dp)
+                .background(PrimaryText, RoundedCornerShape(4.dp))
+        )
+        Text(title, color = PrimaryText, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
+        Text(value, color = PrimaryText, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
+    }
+}
+
+// ── Stats card ──────────────────────────────────────────────────────────────────
+
+@Composable
+private fun StudentStatsCard(card: StudentSubjectCard) {
+    val chartMonths = card.attendanceByMonth.map { m ->
+        val label = runCatching {
+            LocalDate.parse(m.month.take(10))
+                .format(DateTimeFormatter.ofPattern("LLL", Locale("ru")))
+                .replaceFirstChar { it.uppercase() }
+        }.getOrElse { m.month.take(3) }
+        JournalAttendanceMonth(label, m.attendancePct.toInt())
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        // Stats section
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(CardBackground, RoundedCornerShape(22.dp))
+                .padding(14.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(
+                    "Статистика",
+                    color = PrimaryText,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    JournalStatSmallCard(
+                        title = "Средний балл",
+                        value = card.avgGrade?.let { "%.1f".format(it) } ?: "—",
+                        modifier = Modifier.weight(1f)
+                    )
+                    JournalStatSmallCard(
+                        title = "Пропущено",
+                        value = card.absencesTotal.toString(),
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                JournalAttendanceChartCard(chartMonths)
+                JournalProgressCard(
+                    title = "Сдано заданий",
+                    done = card.assessmentsCompleted,
+                    total = card.assessmentsTotal
+                )
+                JournalProgressCard(
+                    title = "Посещено занятий",
+                    done = card.lessonsAttended,
+                    total = card.lessonsTotal
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun JournalAttendanceChartCard(months: List<JournalAttendanceMonth>) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(LightBlue, RoundedCornerShape(18.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text("Посещаемость по месяцам", color = PrimaryText, fontWeight = FontWeight.Bold)
+        if (months.isEmpty()) {
+            Text("Нет данных", color = MutedText)
+        } else {
+            JournalAttendanceLineChart(months)
+        }
+    }
+}
+
+@Composable
+private fun JournalAttendanceLineChart(months: List<JournalAttendanceMonth>) {
+    Canvas(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(96.dp)
+    ) {
+        val chartTop = 18.dp.toPx()
+        val chartBottom = size.height - 28.dp.toPx()
+        val leftPadding = 28.dp.toPx()
+        val rightPadding = 28.dp.toPx()
+        val availableWidth = size.width - leftPadding - rightPadding
+
+        val points = months.mapIndexed { index, month ->
+            val x = if (months.size == 1) size.width / 2f
+                    else leftPadding + availableWidth * index / (months.size - 1)
+            val normalized = month.percent.coerceIn(0, 100) / 100f
+            val y = chartBottom - (chartBottom - chartTop) * normalized
+            Offset(x, y)
+        }
+
+        // Connecting lines
+        points.zipWithNext().forEach { (start, end) ->
+            drawLine(
+                color = PrimaryText,
+                start = start,
+                end = end,
+                strokeWidth = 1.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+        }
+
+        // Labels on points
+        points.forEachIndexed { index, point ->
+            val percentText = "${months[index].percent}%"
+            val labelW = 38.dp.toPx()
+            val labelH = 18.dp.toPx()
+            drawRoundRect(
+                color = PrimaryText,
+                topLeft = Offset(point.x - labelW / 2f, point.y - labelH / 2f),
+                size = Size(labelW, labelH),
+                cornerRadius = CornerRadius(9.dp.toPx())
+            )
+            drawContext.canvas.nativeCanvas.apply {
+                val paint = android.graphics.Paint().apply {
+                    color = android.graphics.Color.WHITE
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    textSize = 11.dp.toPx()
+                    isAntiAlias = true
+                }
+                drawText(percentText, point.x, point.y + 4.dp.toPx(), paint)
+
+                val monthPaint = android.graphics.Paint().apply {
+                    color = android.graphics.Color.rgb(34, 50, 104)
+                    textAlign = android.graphics.Paint.Align.CENTER
+                    textSize = 11.dp.toPx()
+                    isAntiAlias = true
+                }
+                drawText(months[index].month, point.x, size.height - 4.dp.toPx(), monthPaint)
+            }
+        }
+
+        // Baseline
+        drawLine(
+            color = PrimaryText.copy(alpha = 0.35f),
+            start = Offset(leftPadding, chartBottom + 4.dp.toPx()),
+            end = Offset(size.width - rightPadding, chartBottom + 4.dp.toPx()),
+            strokeWidth = 1.dp.toPx()
+        )
+    }
+}
+
+@Composable
+private fun JournalProgressCard(title: String, done: Int, total: Int) {
+    val percent = if (total > 0) done.toFloat() / total.toFloat() else 0f
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(LightBlue, RoundedCornerShape(18.dp))
+            .padding(14.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(title, color = PrimaryText, fontWeight = FontWeight.Bold)
+            Text("$done/$total", color = PrimaryText, fontWeight = FontWeight.Bold)
+        }
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(10.dp)
+                .background(BarBackground, RoundedCornerShape(6.dp))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(percent.coerceIn(0f, 1f))
+                    .height(10.dp)
+                    .background(PrimaryText, RoundedCornerShape(6.dp))
+            )
+        }
+    }
+}
+
+private data class JournalAttendanceMonth(val month: String, val percent: Int)
+
+@Composable
+private fun StudentJournalTableHeader(
+    lessons: List<StudentJournalLesson>,
+    grades: List<StudentJournalGrade>
+) {
+    Row {
+        StudentJournalCell(
+            text = "Студент",
+            width = STUDENT_NAME_COL,
+            isHeader = true,
+            textAlign = TextAlign.Start
+        )
+        lessons.forEach { lesson ->
+            StudentJournalCell(
+                text = "${studentFormatDate(lesson.date)}\n${studentLessonTypeName(lesson.lessonType)}",
+                width = STUDENT_ATTEND_COL,
+                isHeader = true
+            )
+        }
+        grades.forEach { grade ->
+            StudentJournalCell(
+                text = "${grade.title}\n${studentFormTypeName(grade.type)}",
+                width = STUDENT_GRADE_COL,
+                isHeader = true
+            )
+        }
+    }
+}
+
+@Composable
+private fun StudentJournalDataRow(
+    lessons: List<StudentJournalLesson>,
+    grades: List<StudentJournalGrade>,
+    studentName: String = ""
+) {
+    Row {
+        StudentJournalCell(
+            text = studentName.ifBlank { "Я" },
+            width = STUDENT_NAME_COL,
+            textAlign = TextAlign.Start
+        )
+        lessons.forEach { lesson ->
+            StudentJournalCell(
+                text = studentAttendanceSymbol(lesson.attendanceStatus),
+                width = STUDENT_ATTEND_COL,
+                color = studentAttendanceColor(lesson.attendanceStatus)
+            )
+        }
+        grades.forEach { grade ->
+            StudentJournalCell(
+                text = grade.value.orEmpty().ifBlank { "—" },
+                width = STUDENT_GRADE_COL,
+                color = PrimaryText
+            )
+        }
+    }
+}
+
+@Composable
+private fun StudentJournalCell(
+    text: String,
+    width: Int,
+    isHeader: Boolean = false,
+    color: Color = PrimaryText,
+    textAlign: TextAlign = TextAlign.Center
+) {
+    Box(
+        modifier = Modifier
+            .width(width.dp)
+            .height(if (isHeader) 64.dp else 46.dp)
+            .background(if (isHeader) JournalHeaderBg else CardBackground)
+            .border(0.5.dp, JournalCellBorder),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = color,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = if (isHeader) FontWeight.SemiBold else FontWeight.Normal,
+            textAlign = textAlign,
+            maxLines = if (isHeader) 3 else 2,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp)
+        )
+    }
+}
+
+private fun studentAttendanceSymbol(status: String?): String = when (status) {
+    "present"      -> "П"
+    "absent"       -> "Н"
+    "valid_excuse" -> "У"
+    null           -> ""
+    else           -> status
+}
+
+private fun studentAttendanceColor(status: String?): Color = when (status) {
+    "present"      -> JournalPresentColor
+    "absent"       -> JournalAbsentColor
+    "valid_excuse" -> JournalExcuseColor
+    else           -> PrimaryText
+}
+
+private fun studentFormatDate(date: String): String = runCatching {
+    LocalDate.parse(date.take(10)).format(DateTimeFormatter.ofPattern("dd.MM"))
+}.getOrElse { date }
+
+private fun studentLessonTypeName(type: String): String = when (type) {
+    "lecture"      -> "Лекция"
+    "practice"     -> "Практика"
+    "lab"          -> "Лаб."
+    "seminar"      -> "Семинар"
+    "consultation" -> "Консульт."
+    "exam"         -> "Экзамен"
+    else           -> type
+}
+
+private fun studentFormTypeName(type: String): String = when (type) {
+    "quiz"     -> "КР"
+    "exam"     -> "Экзамен"
+    "lab"      -> "Лаб"
+    "practice" -> "Практика"
+    "homework" -> "ДЗ"
+    else       -> type
+}
+@Composable
+private fun CenterState(content: @Composable () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 44.dp),
+        contentAlignment = Alignment.Center
+    ) { content() }
+}

@@ -1,4 +1,4 @@
-package com.journal.features.admin.dashboard
+package com.journal.features.admin.periods
 
 import android.content.Intent
 import androidx.core.content.FileProvider
@@ -385,323 +385,142 @@ private fun LoadingCard(text: String) {
 
 // ─── 1. Admin Dashboard ───────────────────────────────────────────────────────
 
+private fun formatDate(value: String?): String {
+    if (value.isNullOrBlank()) return "—"
+    return try {
+        val dt = OffsetDateTime.parse(value)
+        dt.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
+    } catch (_: Exception) {
+        value
+    }
+}
+
 @Composable
-fun AdminDashboardRoute(
-    journalApi: JournalApi,
-    onOpenUsers: () -> Unit,
-    onOpenAudit: () -> Unit,
-    onOpenJournals: () -> Unit,
-    onOpenPeriods: () -> Unit,
-    onOpenAccess: () -> Unit,
-    onOpenProblemStudents: () -> Unit
-) {
+fun AdminPeriodsRoute(journalApi: JournalApi) {
+    val scope = rememberCoroutineScope()
+
+    var periods by remember { mutableStateOf<List<AdminPeriod>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
-    var journalsCount by remember { mutableIntStateOf(0) }
-    var usersCount by remember { mutableIntStateOf(0) }
-    var periodsCount by remember { mutableIntStateOf(0) }
-    var documentsCount by remember { mutableIntStateOf(0) }
 
-    LaunchedEffect(Unit) {
-        isLoading = true
-        error = null
-        runCatching {
-            val journals = journalApi.getAdminJournals(pageSize = 1)
-            journalsCount = journals.meta?.total ?: journals.data.size
+    data class PendingToggle(val period: AdminPeriod, val closing: Boolean)
+    var pendingToggle by remember { mutableStateOf<PendingToggle?>(null) }
 
-            val users = journalApi.getAdminUsers(pageSize = 1)
-            usersCount = users.meta?.total ?: users.data.size
+    fun loadPeriods() {
+        scope.launch {
+            isLoading = true
+            error = null
+            runCatching {
+                periods = journalApi.getAdminPeriods(includeClosed = true).data
+            }.onFailure { error = it.message ?: "Не удалось загрузить периоды" }
+            isLoading = false
+        }
+    }
 
-            val periods = journalApi.getAdminPeriods(includeClosed = true)
-            periodsCount = periods.data.size
+    LaunchedEffect(Unit) { loadPeriods() }
 
-            val docs = journalApi.getAdminDocuments(pageSize = 1)
-            documentsCount = docs.meta?.total ?: docs.data.size
-        }.onFailure { error = it.message ?: "Не удалось загрузить данные" }
-        isLoading = false
+    pendingToggle?.let { pt ->
+        ReasonDialog(
+            title = if (pt.closing) "Закрыть период?" else "Открыть период?",
+            onConfirm = { reason ->
+                scope.launch {
+                    runCatching {
+                        if (pt.closing) {
+                            journalApi.closeAdminPeriod(pt.period.id, AdminActionRequest(reason))
+                        } else {
+                            journalApi.reopenAdminPeriod(pt.period.id, AdminActionRequest(reason))
+                        }
+                    }.onFailure { error = it.message }
+                    pendingToggle = null
+                    loadPeriods()
+                }
+            },
+            onDismiss = { pendingToggle = null }
+        )
     }
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundColor)
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // Header banner
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(20.dp))
-                .background(PrimaryBlue)
-                .padding(20.dp)
-        ) {
-            Text(
-                "Кабинет администратора",
-                color = Color.White,
-                fontWeight = FontWeight.Bold,
-                fontSize = 22.sp
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-
-            if (isLoading) {
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.width(20.dp).height(20.dp))
-                    Text("Загружаю данные...", color = Color.White.copy(alpha = 0.7f))
-                }
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                journalsCount.toString(),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 24.sp,
-                                color = PrimaryBlue
-                            )
-                            Text("Журналы", fontSize = 12.sp, color = SecondaryText)
-                        }
-                    }
-                    Box(modifier = Modifier.weight(1f)) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                usersCount.toString(),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 24.sp,
-                                color = PrimaryBlue
-                            )
-                            Text("Пользователи", fontSize = 12.sp, color = SecondaryText)
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Box(modifier = Modifier.weight(1f)) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                periodsCount.toString(),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 24.sp,
-                                color = PrimaryBlue
-                            )
-                            Text("Периоды", fontSize = 12.sp, color = SecondaryText)
-                        }
-                    }
-                    Box(modifier = Modifier.weight(1f)) {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color.White)
-                                .padding(12.dp)
-                        ) {
-                            Text(
-                                documentsCount.toString(),
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 24.sp,
-                                color = PrimaryBlue
-                            )
-                            Text("Документы", fontSize = 12.sp, color = SecondaryText)
-                        }
-                    }
-                }
+        when {
+            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator(color = PrimaryBlue)
             }
-        }
-
-        error?.let { ErrorCard(it) }
-
-        // Navigation cards
-        Text("Разделы", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = PrimaryBlue)
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            error != null -> Column(Modifier.padding(16.dp)) { ErrorCard(error!!) }
+            periods.isEmpty() -> Box(
+                Modifier.fillMaxSize().padding(16.dp),
+                contentAlignment = Alignment.Center
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Пользователи",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Локальные профили, блокировка и корректировка данных",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
+                Text("Периоды не найдены", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+            }
+            else -> LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(periods) { period ->
+                    PeriodAdminRow(
+                        period = period,
+                        onToggle = { pendingToggle = PendingToggle(period, !(period.isClosed ?: false)) }
                     )
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenUsers)
             }
         }
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Аудит",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Журнал административных событий",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenAudit)
-            }
-        }
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Журналы",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Заморозка, архивирование и восстановление журналов",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenJournals)
-            }
-        }
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Учебные периоды",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Закрытие и повторное открытие периодов",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenPeriods)
-            }
-        }
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Доступы",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Выдача и отзыв доступа преподавателей к журналам",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenAccess)
-            }
-        }
-
-        SectionCard {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        "Проблемные студенты",
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 18.sp,
-                        color = PrimaryBlue
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        "Студенты с высокой долей двоек и серийными неудами",
-                        fontSize = 13.sp,
-                        color = SecondaryText,
-                        lineHeight = 18.sp
-                    )
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                PrimaryButton("Открыть", onOpenProblemStudents)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
-// ─── 2. Admin Users ───────────────────────────────────────────────────────────
+@Composable
+private fun PeriodAdminRow(period: AdminPeriod, onToggle: () -> Unit) {
+    val isClosed = period.isClosed ?: false
+    val isActive = period.isActive ?: false
 
-private const val USERS_PAGE_SIZE = 20
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground)
+            .padding(horizontal = 16.dp, vertical = 14.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = period.name ?: "—",
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryBlue,
+                    fontSize = 15.sp
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = "${formatDate(period.startsAt)} — ${formatDate(period.endsAt)}",
+                    color = SecondaryText,
+                    fontSize = 13.sp
+                )
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                if (isActive) {
+                    AdminBadge("Активный", PrimaryBlue, AccentBadge)
+                }
+                AdminBadge(
+                    text = if (isClosed) "Закрыт" else "Открыт",
+                    color = if (isClosed) DangerColor else GreenColor,
+                    background = if (isClosed) DangerLight else GreenLight
+                )
+            }
+        }
+        Spacer(modifier = Modifier.height(10.dp))
+        if (isClosed) {
+            PrimaryButton("Открыть", onClick = onToggle)
+        } else {
+            DangerButton("Закрыть", onClick = onToggle)
+        }
+    }
+    Box(Modifier.fillMaxWidth().height(1.dp).background(BackgroundColor))
+}
+
+// ─── 6. Admin Access Bindings ─────────────────────────────────────────────────
 
