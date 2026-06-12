@@ -90,7 +90,7 @@ fun AppStatTile(
     modifier: Modifier = Modifier,
     backgroundColor: Color = Color.White,
     contentColor: Color = AppPrimary,
-    barColor: Color = contentColor
+    barColor: Color = AppHeaderBackground
 ) {
     Column(
         modifier = modifier

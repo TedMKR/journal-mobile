@@ -230,7 +230,7 @@ private fun JournalStatSmallCard(title: String, value: String, modifier: Modifie
             modifier = Modifier
                 .fillMaxWidth()
                 .height(4.dp)
-                .background(PrimaryText, RoundedCornerShape(4.dp))
+                .background(BarBackground, RoundedCornerShape(4.dp))
         )
         Text(title, color = PrimaryText, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
         Text(value, color = PrimaryText, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)

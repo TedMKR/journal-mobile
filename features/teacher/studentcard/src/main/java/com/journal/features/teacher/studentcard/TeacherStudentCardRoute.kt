@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -45,6 +44,7 @@ import com.journal.core.ui.AppSecondaryText
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import com.journal.core.ui.AppStatTile as StatTile
 
 private val BackgroundColor = AppBackground
 private val PrimaryText = AppPrimary
@@ -109,22 +109,30 @@ private fun StudentCardContent(card: StudentCardUiState) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(CardBackground, RoundedCornerShape(16.dp))
-                .padding(18.dp)
+                .background(PrimaryText, RoundedCornerShape(16.dp))
+                .padding(14.dp)
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Top
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.weight(1f)) {
-                    Text(PersonNameFormatter.formatFullName(card.student.fullName), color = PrimaryText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    Tag(card.groupName)
-                    card.student.externalId?.takeIf { it.isNotBlank() }?.let { Tag(it) }
+            Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                Text(
+                    PersonNameFormatter.formatFullName(card.student.fullName),
+                    color = Color.White,
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold
+                )
+                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text("Группа: ${card.groupName}", color = Color.White.copy(alpha = 0.84f))
                 }
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    StatSmallCard("Средняя\nуспеваемость", card.avgGrade ?: "—")
-                    StatSmallCard("Пропусков", card.absencesCount.toString())
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    StatTile(
+                        "Средняя\nуспеваемость",
+                        card.avgGrade ?: "—",
+                        Modifier.weight(1f).height(102.dp)
+                    )
+                    StatTile(
+                        "Пропусков",
+                        card.absencesCount.toString(),
+                        Modifier.weight(1f).height(102.dp)
+                    )
                 }
             }
         }
@@ -142,26 +150,6 @@ private fun StudentCardContent(card: StudentCardUiState) {
                 ProgressCard("Посещено занятий", card.attendedLessons, card.totalLessons)
             }
         }
-    }
-}
-
-@Composable
-private fun StatSmallCard(title: String, value: String) {
-    Column(
-        modifier = Modifier
-            .width(150.dp)
-            .background(CardBackground, RoundedCornerShape(12.dp))
-            .padding(12.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(6.dp)
-                .background(PrimaryText, RoundedCornerShape(4.dp))
-        )
-        Text(title, color = PrimaryText, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.SemiBold)
-        Text(value, color = PrimaryText, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
     }
 }
 

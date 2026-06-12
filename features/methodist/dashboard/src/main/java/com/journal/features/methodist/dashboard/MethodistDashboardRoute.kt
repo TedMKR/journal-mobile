@@ -265,7 +265,7 @@ private fun DashboardSummaryTile(label: String, value: String, modifier: Modifie
             modifier = Modifier
                 .fillMaxWidth()
                 .height(5.dp)
-                .background(PrimaryText, RoundedCornerShape(999.dp))
+                .background(LightBlue, RoundedCornerShape(999.dp))
         )
         Text(label, color = PrimaryText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
         Text(value, color = AccentBlue, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
