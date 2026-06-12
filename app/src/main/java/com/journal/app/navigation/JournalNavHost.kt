@@ -225,7 +225,10 @@ fun JournalNavHost(
                 StudentDashboardRoute(jwtName = jwtFullName)
             }
             composable(Routes.METHODIST_DASHBOARD) {
-                MethodistDashboardRoute(journalApi = journalApi, jwtName = jwtFullName)
+                MethodistDashboardRoute(
+                    jwtName = jwtFullName,
+                    userId = jwtUserId
+                )
             }
             composable(Routes.METHODIST_JOURNALS) {
                 MethodistJournalsRoute(

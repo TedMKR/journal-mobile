@@ -40,8 +40,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journal.core.common.config.PersonNameFormatter
-import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriod
 import com.journal.core.model.teacher.AssignLessonTemplateRequest
@@ -55,9 +56,7 @@ import com.journal.core.model.teacher.LessonTopic
 import com.journal.core.model.teacher.TeacherProfile
 import com.journal.core.model.teacher.TopicPayload
 import com.journal.core.model.teacher.UpdateLessonTemplateRequest
-import com.journal.core.network.api.JournalApi
 import com.journal.core.ui.AppBackground
-import com.journal.core.ui.AppDanger
 import com.journal.core.ui.AppDropdown
 import com.journal.core.ui.AppFieldPlaceholder
 import com.journal.core.ui.AppHeaderBackground
@@ -83,51 +82,26 @@ private val PrimaryText = AppPrimary
 private val SecondaryText = AppMutedText
 private val LightBlue = AppHeaderBackground
 private val AccentBlue = AppPrimary
-private val DangerColor = AppDanger
 private const val DashboardVisibleRows = 8
 
 @Composable
 fun MethodistDashboardRoute(
-    journalApi: JournalApi,
     /** Full name extracted from JWT and normalized for the profile header. */
-    jwtName: String? = null
+    jwtName: String? = null,
+    userId: String? = null,
+    viewModel: MethodistDashboardViewModel = hiltViewModel()
 ) {
-    var isLoading by remember { mutableStateOf(true) }
-    var errors by remember { mutableStateOf<List<DashboardLoadError>>(emptyList()) }
-    var periods by remember { mutableStateOf<List<AcademicPeriod>>(emptyList()) }
-    var disciplines by remember { mutableStateOf<List<Discipline>>(emptyList()) }
-    var teachers by remember { mutableStateOf<List<TeacherProfile>>(emptyList()) }
-    var groups by remember { mutableStateOf<List<AcademicGroup>>(emptyList()) }
-    var journals by remember { mutableStateOf<List<JournalContext>>(emptyList()) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val dashboard = uiState.dashboard
+    val periods = dashboard?.periods.orEmpty()
+    val disciplines = dashboard?.disciplines.orEmpty()
+    val teachers = dashboard?.teachers.orEmpty()
+    val groups = dashboard?.groups.orEmpty()
+    val journals = dashboard?.journals.orEmpty()
     var search by remember { mutableStateOf("") }
 
-    LaunchedEffect(Unit) {
-        isLoading = true
-        val loadErrors = mutableListOf<DashboardLoadError>()
-
-        suspend fun <T> loadSection(title: String, block: suspend () -> T): T? {
-            return runCatching { block() }
-                .onFailure { throwable ->
-                    loadErrors += DashboardLoadError(
-                        title = title,
-                        message = throwable.userFacingMessage("Не удалось получить данные")
-                    )
-                }
-                .getOrNull()
-        }
-
-        periods = loadSection("Периоды") { journalApi.getAcademicPeriods(includeClosed = true).data }.orEmpty()
-        disciplines = loadSection("Дисциплины") { journalApi.getDisciplines(limit = 200).data }.orEmpty()
-        teachers = loadSection("Преподаватели") { journalApi.getTeachers(limit = 200).data }.orEmpty()
-        groups = loadSection("Группы") { journalApi.getGroups(limit = 200).data }.orEmpty()
-
-        val activePeriodId = periods.firstOrNull { it.isActive }?.id ?: periods.firstOrNull()?.id
-        journals = loadSection("Журналы") {
-            journalApi.getJournals(periodId = activePeriodId, limit = 200, offset = 0).data
-        }.orEmpty()
-
-        errors = loadErrors
-        isLoading = false
+    LaunchedEffect(userId) {
+        viewModel.load(userId)
     }
 
     val activePeriodName = periods.firstOrNull { it.isActive }?.name ?: periods.firstOrNull()?.name ?: "Период не найден"
@@ -152,9 +126,14 @@ fun MethodistDashboardRoute(
 
     MethodologistScaffold(title = "Личный кабинет", useContentCard = false) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            if (isLoading) {
+            if (uiState.isLoading && dashboard == null) {
                 LoadingCard("Загружаю информацию...")
+            } else if (uiState.error != null && dashboard == null) {
+                StateCard(uiState.error.orEmpty(), isError = true)
             } else {
+                if (uiState.isOffline) {
+                    MethodistOfflineBanner()
+                }
                 DashboardSummaryGrid(
                     disciplinesCount = disciplines.size,
                     teachersCount = teachers.size,
@@ -163,9 +142,6 @@ fun MethodistDashboardRoute(
                     jwtName = jwtName
                 )
                 PeriodStrip(activePeriodName)
-                if (errors.isNotEmpty()) {
-                    DashboardAlerts(errors)
-                }
                 DirectoryPanel(
                     search = search,
                     onSearchChange = { search = it },
@@ -274,6 +250,24 @@ private fun DashboardSummaryTile(label: String, value: String, modifier: Modifie
 }
 
 @Composable
+private fun MethodistOfflineBanner(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF59E0B), RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Офлайн - данные из кеша",
+            color = Color.White,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
 private fun PeriodStrip(activePeriodName: String) {
     Column(
         modifier = Modifier
@@ -284,21 +278,6 @@ private fun PeriodStrip(activePeriodName: String) {
     ) {
         Text("Текущий период", color = SecondaryText)
         Text(activePeriodName, color = AccentBlue, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-private fun DashboardAlerts(errors: List<DashboardLoadError>) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFFFFE4E6), RoundedCornerShape(16.dp))
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
-    ) {
-        errors.forEach { error ->
-            Text("${error.title}: ${error.message}", color = DangerColor, fontWeight = FontWeight.SemiBold)
-        }
     }
 }
 
@@ -503,11 +482,6 @@ private fun lessonTypeName(type: String): String = when (type) {
     "seminar" -> "Семинар"
     else -> type
 }
-private data class DashboardLoadError(
-    val title: String,
-    val message: String
-)
-
 private data class DirectoryRow(
     val title: String,
     val subtitle: String
