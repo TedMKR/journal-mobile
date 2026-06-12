@@ -100,6 +100,9 @@ fun JournalNavHost(
     val jwtFullName: String? = remember(accessToken) {
         accessToken?.let { JwtUtils.extractFullName(it) }
     }
+    val jwtUserId: String? = remember(accessToken) {
+        accessToken?.let { JwtUtils.extractSubject(it) }
+    }
     val startDestination = if (initialRole != null) roleStartRoute(initialRole) else Routes.AUTH
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -180,6 +183,7 @@ fun JournalNavHost(
                 TeacherDashboardRoute(
                     journalApi = journalApi,
                     jwtName = jwtFullName,
+                    userId = jwtUserId,
                     onOpenJournal = { target ->
                         navController.navigate(
                             Routes.teacherJournal(

@@ -16,6 +16,11 @@ object JwtUtils {
         return jwtPersonName(payload).takeIf(String::isNotBlank)
     }
 
+    fun extractSubject(token: String): String? {
+        val payload = decodePayload(token) ?: return null
+        return payload.optString("sub").takeIf(String::isNotBlank)
+    }
+
     fun extractFirstName(token: String): String? {
         val payload = decodePayload(token) ?: return null
         return PersonNameFormatter.firstNameFromFullName(jwtPersonName(payload))

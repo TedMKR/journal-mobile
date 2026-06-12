@@ -4,6 +4,7 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.journal.core.database.dao.DashboardCacheDao
 import com.journal.core.database.dao.JournalGridCacheDao
 import com.journal.core.database.dao.PendingActionDao
 import com.journal.core.database.dao.SessionDao
@@ -11,6 +12,7 @@ import com.journal.core.database.dao.StudentLessonDao
 import com.journal.core.database.dao.StudentProfileCacheDao
 import com.journal.core.database.dao.StudentSubjectCardCacheDao
 import com.journal.core.database.dao.TeacherLessonDao
+import com.journal.core.database.entity.DashboardCacheEntity
 import com.journal.core.database.entity.JournalGridCacheEntity
 import com.journal.core.database.entity.PendingActionEntity
 import com.journal.core.database.entity.SessionEntity
@@ -27,9 +29,10 @@ import com.journal.core.database.entity.TeacherLessonEntity
         JournalGridCacheEntity::class,
         PendingActionEntity::class,
         StudentSubjectCardCacheEntity::class,
-        StudentProfileCacheEntity::class
+        StudentProfileCacheEntity::class,
+        DashboardCacheEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class JournalDatabase : RoomDatabase() {
@@ -40,6 +43,7 @@ abstract class JournalDatabase : RoomDatabase() {
     abstract fun pendingActionDao(): PendingActionDao
     abstract fun studentSubjectCardCacheDao(): StudentSubjectCardCacheDao
     abstract fun studentProfileCacheDao(): StudentProfileCacheDao
+    abstract fun dashboardCacheDao(): DashboardCacheDao
 
     companion object {
         val MIGRATION_1_2 = object : Migration(1, 2) {
@@ -87,6 +91,20 @@ abstract class JournalDatabase : RoomDatabase() {
                         cache_key TEXT NOT NULL PRIMARY KEY,
                         profile_json TEXT NOT NULL,
                         subjects_json TEXT NOT NULL,
+                        cached_at INTEGER NOT NULL
+                    )
+                    """.trimIndent()
+                )
+            }
+        }
+
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS dashboard_cache (
+                        cache_key TEXT NOT NULL PRIMARY KEY,
+                        json_data TEXT NOT NULL,
                         cached_at INTEGER NOT NULL
                     )
                     """.trimIndent()

@@ -1,4 +1,4 @@
-package com.journal.features.teacher.dashboard
+﻿package com.journal.features.teacher.dashboard
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -39,13 +39,15 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.common.config.userFacingMessage
+import com.journal.core.data.repository.TeacherDashboardData
 import com.journal.core.model.teacher.GrantJournalAccessRequest
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.TeacherLesson
 import com.journal.core.model.teacher.TeacherProfile
-import com.journal.core.model.teacher.TeacherStats
 import com.journal.core.network.api.JournalApi
 import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppDropdown
@@ -73,31 +75,17 @@ fun TeacherDashboardRoute(
     journalApi: JournalApi,
     onOpenJournal: (TeacherDashboardJournalTarget) -> Unit,
     /** Full name extracted from the JWT access token — most reliable source. */
-    jwtName: String? = null
+    jwtName: String? = null,
+    userId: String? = null,
+    viewModel: TeacherDashboardViewModel = hiltViewModel()
 ) {
-    var state by remember { mutableStateOf<TeacherDashboardUiState?>(null) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val dashboardState = uiState.dashboard?.let { dashboard ->
+        buildDashboardState(dashboard = dashboard, journalApi = journalApi, jwtName = jwtName)
+    }
 
-    LaunchedEffect(Unit) {
-        isLoading = true
-        error = null
-        runCatching {
-            val (dateFrom, dateTo) = currentWeekRange()
-            val lessons = journalApi.getLessons(
-                dateFrom = dateFrom,
-                dateTo = dateTo,
-                limit = 200
-            ).lessons
-            val stats = runCatching { journalApi.getTeacherStats() }.getOrNull()
-            buildDashboardState(journalApi = journalApi, lessons = lessons, stats = stats, jwtName = jwtName)
-        }.onSuccess { uiState ->
-            state = uiState
-            isLoading = false
-        }.onFailure { throwable ->
-            error = throwable.userFacingMessage("Не удалось загрузить личный кабинет")
-            isLoading = false
-        }
+    LaunchedEffect(userId) {
+        viewModel.load(userId)
     }
 
     Box(
@@ -107,10 +95,13 @@ fun TeacherDashboardRoute(
             .padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
         when {
-            isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            error != null -> Text(error.orEmpty(), color = PrimaryText, modifier = Modifier.align(Alignment.Center))
-            state != null -> TeacherDashboardContent(
-                state = state!!,
+            uiState.isLoading && dashboardState == null ->
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            uiState.error != null ->
+                Text(uiState.error.orEmpty(), color = PrimaryText, modifier = Modifier.align(Alignment.Center))
+            dashboardState != null -> TeacherDashboardContent(
+                state = dashboardState,
+                isOffline = uiState.isOffline,
                 onOpenJournal = onOpenJournal
             )
         }
@@ -120,6 +111,7 @@ fun TeacherDashboardRoute(
 @Composable
 private fun TeacherDashboardContent(
     state: TeacherDashboardUiState,
+    isOffline: Boolean,
     onOpenJournal: (TeacherDashboardJournalTarget) -> Unit
 ) {
     Column(
@@ -128,12 +120,33 @@ private fun TeacherDashboardContent(
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        if (isOffline) {
+            TeacherOfflineBanner()
+        }
         ProfileSummary(state)
         TodayScheduleCard(state.todayLessons)
         AnalyticsCard(
             state = state,
             journalApi = state.journalApi,
             onOpenJournal = onOpenJournal
+        )
+    }
+}
+
+@Composable
+private fun TeacherOfflineBanner(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .background(Color(0xFFF59E0B), RoundedCornerShape(12.dp))
+            .padding(horizontal = 12.dp, vertical = 7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = "Офлайн - данные из кеша",
+            color = Color.White,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold
         )
     }
 }
@@ -595,28 +608,19 @@ private fun AttendanceLineChart(months: List<AttendanceMonth>) {
     }
 }
 
-private suspend fun buildDashboardState(
+private fun buildDashboardState(
+    dashboard: TeacherDashboardData,
     journalApi: JournalApi,
-    lessons: List<TeacherLesson>,
-    stats: TeacherStats?,
     jwtName: String? = null
 ): TeacherDashboardUiState {
-    val defaultLesson = lessons.firstOrNull { it.groupId != null && it.disciplineId != null && it.periodId != null }
-    val defaultJournal = defaultLesson?.let { lesson ->
-        runCatching {
-            journalApi.getGroupJournalGrid(
-                groupId = lesson.groupId.orEmpty(),
-                disciplineId = lesson.disciplineId.orEmpty(),
-                academicPeriodId = lesson.periodId.orEmpty()
-            )
-        }.getOrNull()
-    }
-    // Active academic period — reliable fallback when a lesson-based periodId isn't found
-    val activePeriodId = runCatching {
-        journalApi.getAcademicPeriods(includeClosed = false).data
-            .firstOrNull { it.isActive }?.id
-    }.getOrNull()
+    val lessons = dashboard.lessons
+    val stats = dashboard.stats
+    val defaultJournal = dashboard.defaultJournal
+    val activePeriodId = dashboard.activePeriodId
 
+    val defaultLesson = lessons.firstOrNull {
+        it.groupId != null && it.disciplineId != null && it.periodId != null
+    }
     val uniqueDisciplines = lessons.mapNotNull { lesson -> lesson.disciplineId?.let { it to lesson.disciplineName } }.distinctBy { it.first }
     val journalTeacherName = PersonNameFormatter.formatFullName(defaultJournal?.teacher?.fullName)
     val lessonTeacherName = lessons.firstNotNullOfOrNull { lesson ->
@@ -703,13 +707,6 @@ private fun formatHours(hours: Float): String {
     return if (hours % 1f == 0f) hours.roundToInt().toString() else String.format(Locale.US, "%.1f", hours)
 }
 
-private fun currentWeekRange(): Pair<String, String> {
-    val today = LocalDate.now()
-    val monday = today.minusDays((today.dayOfWeek.value - 1).toLong())
-    val sunday = monday.plusDays(6)
-    return monday.toString() to sunday.toString()
-}
-
 private fun formatLessonTime(lesson: TeacherLesson): String = runCatching {
     val formatter = DateTimeFormatter.ofPattern("HH:mm")
     val start = OffsetDateTime.parse(lesson.scheduledAt).format(formatter)
@@ -773,4 +770,6 @@ private data class SelectOption(
     val id: String,
     val name: String
 )
+
+
 
