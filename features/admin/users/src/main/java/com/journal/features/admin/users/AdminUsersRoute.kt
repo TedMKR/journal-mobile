@@ -49,6 +49,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -222,17 +224,18 @@ private fun ReasonDialog(
 // ─── 1. Admin Dashboard ───────────────────────────────────────────────────────
 
 @Composable
-fun AdminUsersRoute(journalApi: JournalApi) {
+fun AdminUsersRoute(
+    journalApi: JournalApi,
+    viewModel: AdminUsersViewModel = hiltViewModel()
+) {
     val scope = rememberCoroutineScope()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    var users by remember { mutableStateOf<List<AdminUser>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var actionError by remember { mutableStateOf<String?>(null) }
     var search by remember { mutableStateOf("") }
     var filterRole by remember { mutableStateOf("") }
     var filterStatus by remember { mutableStateOf("") }
     var page by remember { mutableIntStateOf(1) }
-    var total by remember { mutableIntStateOf(0) }
 
     // Edit dialog state
     var editingUser by remember { mutableStateOf<AdminUser?>(null) }
@@ -248,27 +251,20 @@ fun AdminUsersRoute(journalApi: JournalApi) {
     var blockingUser by remember { mutableStateOf<AdminUser?>(null) }
 
     fun loadUsers() {
-        scope.launch {
-            isLoading = true
-            error = null
-            runCatching {
-                val resp = journalApi.getAdminUsers(
-                    page = page,
-                    pageSize = USERS_PAGE_SIZE,
-                    query = search.trim().ifBlank { null },
-                    userType = filterRole.ifBlank { null },
-                    status = filterStatus.ifBlank { null }
-                )
-                users = resp.data
-                total = resp.meta?.total ?: resp.data.size
-            }.onFailure { error = it.userFacingMessage("Не удалось загрузить пользователей") }
-            isLoading = false
-        }
+        actionError = null
+        viewModel.loadUsers(
+            page = page,
+            pageSize = USERS_PAGE_SIZE,
+            query = search,
+            userType = filterRole,
+            status = filterStatus
+        )
     }
 
     LaunchedEffect(page, search, filterRole, filterStatus) { loadUsers() }
 
-    val totalPages = maxOf(1, (total + USERS_PAGE_SIZE - 1) / USERS_PAGE_SIZE)
+    val totalPages = maxOf(1, (uiState.total + USERS_PAGE_SIZE - 1) / USERS_PAGE_SIZE)
+    val currentError = actionError ?: uiState.error
 
     // Block/unblock confirmation dialog
     blockingUser?.let { user ->
@@ -283,7 +279,7 @@ fun AdminUsersRoute(journalApi: JournalApi) {
                         } else {
                             journalApi.unblockAdminUser(user.id, AdminActionRequest(reason))
                         }
-                    }.onFailure { error = it.userFacingMessage("Не удалось изменить пользователя") }
+                    }.onFailure { actionError = it.userFacingMessage("Не удалось изменить пользователя") }
                     blockingUser = null
                     loadUsers()
                 }
@@ -372,7 +368,7 @@ fun AdminUsersRoute(journalApi: JournalApi) {
                                                 profileSyncLocked = editSyncLocked
                                             )
                                         )
-                                    }.onFailure { error = it.userFacingMessage("Не удалось сохранить пользователя") }
+                                    }.onFailure { actionError = it.userFacingMessage("Не удалось сохранить пользователя") }
                                     editingUser = null
                                     loadUsers()
                                 }
@@ -441,19 +437,22 @@ fun AdminUsersRoute(journalApi: JournalApi) {
         }
 
         // Content
+        if (uiState.isOffline) {
+            OfflineNotice("Показаны сохраненные пользователи. Редактирование и блокировка доступны после восстановления сети.")
+        }
         when {
-            isLoading -> Box(
+            uiState.isLoading -> Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(color = PrimaryBlue)
             }
 
-            error != null -> Column(modifier = Modifier.padding(16.dp)) {
-                ErrorCard(error!!)
+            currentError != null -> Column(modifier = Modifier.padding(16.dp)) {
+                ErrorCard(currentError)
             }
 
-            users.isEmpty() -> Box(
+            uiState.users.isEmpty() -> Box(
                 modifier = Modifier.fillMaxSize().padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
@@ -465,20 +464,30 @@ fun AdminUsersRoute(journalApi: JournalApi) {
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(users) { user ->
+                items(uiState.users) { user ->
                     UserRow(
                         user = user,
                         onEdit = {
-                            editingUser = user
-                            editFullName = user.displayName().takeIf { it != user.username && it != user.email } ?: (user.fullName ?: "")
-                            editEmail = user.email ?: ""
-                            editUsername = user.username ?: ""
-                            editFirstName = user.firstName ?: ""
-                            editLastName = user.lastName ?: ""
-                            editPatronymic = user.patronymic ?: ""
-                            editSyncLocked = user.profileSyncLocked ?: false
+                            if (uiState.isOffline) {
+                                actionError = "Для редактирования пользователя требуется подключение к сети"
+                            } else {
+                                editingUser = user
+                                editFullName = user.displayName().takeIf { it != user.username && it != user.email } ?: (user.fullName ?: "")
+                                editEmail = user.email ?: ""
+                                editUsername = user.username ?: ""
+                                editFirstName = user.firstName ?: ""
+                                editLastName = user.lastName ?: ""
+                                editPatronymic = user.patronymic ?: ""
+                                editSyncLocked = user.profileSyncLocked ?: false
+                            }
                         },
-                        onToggleBlock = { blockingUser = user }
+                        onToggleBlock = {
+                            if (uiState.isOffline) {
+                                actionError = "Для блокировки пользователя требуется подключение к сети"
+                            } else {
+                                blockingUser = user
+                            }
+                        }
                     )
                 }
 
@@ -518,6 +527,20 @@ fun AdminUsersRoute(journalApi: JournalApi) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun OfflineNotice(text: String) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .background(WarningLight)
+            .padding(12.dp)
+    ) {
+        Text(text, color = Color(0xFF7A4F00), fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
     }
 }
 

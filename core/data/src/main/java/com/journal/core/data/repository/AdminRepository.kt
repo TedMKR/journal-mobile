@@ -4,6 +4,7 @@ import com.journal.core.data.util.Resource
 import com.journal.core.data.util.networkBoundResource
 import com.journal.core.database.dao.DashboardCacheDao
 import com.journal.core.database.entity.DashboardCacheEntity
+import com.journal.core.model.teacher.AdminUser
 import com.journal.core.network.api.JournalApi
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -19,6 +20,14 @@ data class AdminDashboardData(
     val usersCount: Int = 0,
     val periodsCount: Int = 0,
     val documentsCount: Int = 0
+)
+
+@Serializable
+data class AdminUsersData(
+    val users: List<AdminUser> = emptyList(),
+    val total: Int = 0,
+    val page: Int = 1,
+    val pageSize: Int = 20
 )
 
 @Singleton
@@ -61,13 +70,69 @@ class AdminRepository @Inject constructor(
         )
     }
 
+    fun getUsers(
+        page: Int = 1,
+        pageSize: Int = 20,
+        query: String? = null,
+        userType: String? = null,
+        status: String? = null,
+        cacheMaxAgeMs: Long = CACHE_MAX_AGE_MS
+    ): Flow<Resource<AdminUsersData?>> {
+        val key = usersCacheKey(page, pageSize, query, userType, status)
+        return networkBoundResource(
+            localFlow = {
+                dashboardCacheDao.observe(key)
+                    .map { entity -> entity?.toAdminUsersData(json) }
+            },
+            shouldFetch = { cached ->
+                if (cached == null) return@networkBoundResource true
+                val entity = dashboardCacheDao.get(key)
+                entity == null || System.currentTimeMillis() - entity.cachedAt > cacheMaxAgeMs
+            },
+            fetch = {
+                val response = api.getAdminUsers(
+                    page = page,
+                    pageSize = pageSize,
+                    query = query,
+                    userType = userType,
+                    status = status
+                )
+                AdminUsersData(
+                    users = response.data,
+                    total = response.meta?.total ?: response.data.size,
+                    page = response.meta?.page ?: page,
+                    pageSize = response.meta?.pageSize ?: pageSize
+                )
+            },
+            saveFetchResult = { users ->
+                dashboardCacheDao.upsert(users.toEntity(key, json))
+            }
+        )
+    }
+
     companion object {
         const val CACHE_MAX_AGE_MS = 5 * 60 * 1000L
         private const val DASHBOARD_SCREEN_KEY = "admin_dashboard"
+        private const val USERS_SCREEN_KEY = "admin_users"
         private const val FALLBACK_USER_KEY = "current"
 
         fun dashboardCacheKey(userId: String?): String =
             "$DASHBOARD_SCREEN_KEY|${userId?.takeIf(String::isNotBlank) ?: FALLBACK_USER_KEY}"
+
+        fun usersCacheKey(
+            page: Int,
+            pageSize: Int,
+            query: String?,
+            userType: String?,
+            status: String?
+        ): String = listOf(
+            USERS_SCREEN_KEY,
+            page.toString(),
+            pageSize.toString(),
+            query.cachePart(),
+            userType.cachePart(),
+            status.cachePart()
+        ).joinToString("|")
     }
 }
 
@@ -78,3 +143,13 @@ private fun AdminDashboardData.toEntity(key: String, json: Json) = DashboardCach
 
 private fun DashboardCacheEntity.toAdminDashboardData(json: Json): AdminDashboardData =
     json.decodeFromString(AdminDashboardData.serializer(), jsonData)
+
+private fun AdminUsersData.toEntity(key: String, json: Json) = DashboardCacheEntity(
+    key = key,
+    jsonData = json.encodeToString(this)
+)
+
+private fun DashboardCacheEntity.toAdminUsersData(json: Json): AdminUsersData =
+    json.decodeFromString(AdminUsersData.serializer(), jsonData)
+
+private fun String?.cachePart(): String = this?.trim()?.takeIf { it.isNotBlank() } ?: "_"

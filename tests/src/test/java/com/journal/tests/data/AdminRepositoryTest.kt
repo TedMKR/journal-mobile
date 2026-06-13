@@ -3,6 +3,7 @@ package com.journal.tests.data
 import app.cash.turbine.test
 import com.journal.core.data.repository.AdminDashboardData
 import com.journal.core.data.repository.AdminRepository
+import com.journal.core.data.repository.AdminUsersData
 import com.journal.core.data.util.Resource
 import com.journal.core.database.dao.DashboardCacheDao
 import com.journal.core.database.entity.DashboardCacheEntity
@@ -102,6 +103,50 @@ class AdminRepositoryTest {
         }
     }
 
+    @Test
+    fun `getUsers saves filtered snapshot to cache`() = runTest {
+        coEvery {
+            api.getAdminUsers(any(), any(), any(), any(), any())
+        } returns AdminUsersResponse(
+            data = listOf(AdminUser(id = "user-1", fullName = "Ada Lovelace")),
+            meta = AdminPageMeta(total = 1, page = 2, pageSize = 20)
+        )
+
+        repository.getUsers(page = 2, query = "ada", userType = "teacher", status = "active").test {
+            assertTrue(awaitItem() is Resource.Loading)
+
+            val success = awaitItem()
+            assertTrue(success is Resource.Success)
+            val data = (success as Resource.Success).data
+            assertEquals(1, data?.users?.size)
+            assertEquals(1, data?.total)
+            assertEquals(2, data?.page)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val cached = dao.get(AdminRepository.usersCacheKey(2, 20, "ada", "teacher", "active"))
+        assertEquals("admin_users|2|20|ada|teacher|active", cached?.key)
+    }
+
+    @Test
+    fun `getUsers emits Error with cached data when refresh fails`() = runTest {
+        dao.upsert(cachedUsersEntity(cachedAt = 0L))
+        coEvery { api.getAdminUsers(any(), any(), any(), any(), any()) } throws RuntimeException("network down")
+
+        repository.getUsers(page = 1, cacheMaxAgeMs = 1L).test {
+            val loading = awaitItem()
+            assertTrue(loading is Resource.Loading)
+            assertEquals(1, (loading as Resource.Loading).data?.users?.size)
+
+            val error = awaitItem()
+            assertTrue(error is Resource.Error)
+            assertEquals(1, (error as Resource.Error).data?.users?.size)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     private fun stubDashboardApi() {
         coEvery {
             api.getAdminJournals(any(), any(), any(), any(), any(), any(), any())
@@ -137,6 +182,20 @@ class AdminRepositoryTest {
                     usersCount = 3,
                     periodsCount = 2,
                     documentsCount = 1
+                )
+            ),
+            cachedAt = cachedAt
+        )
+
+    private fun cachedUsersEntity(cachedAt: Long): DashboardCacheEntity =
+        DashboardCacheEntity(
+            key = AdminRepository.usersCacheKey(1, 20, null, null, null),
+            jsonData = json.encodeToString(
+                AdminUsersData(
+                    users = listOf(AdminUser(id = "user-1", fullName = "Cached User")),
+                    total = 1,
+                    page = 1,
+                    pageSize = 20
                 )
             ),
             cachedAt = cachedAt
