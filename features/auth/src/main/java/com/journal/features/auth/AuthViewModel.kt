@@ -18,12 +18,22 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import net.openid.appauth.AppAuthConfiguration
 import net.openid.appauth.AuthorizationException
 import net.openid.appauth.AuthorizationRequest
 import net.openid.appauth.AuthorizationResponse
 import net.openid.appauth.AuthorizationService
 import net.openid.appauth.AuthorizationServiceConfiguration
 import net.openid.appauth.ResponseTypeValues
+import net.openid.appauth.connectivity.ConnectionBuilder
+import net.openid.appauth.connectivity.DefaultConnectionBuilder
+import java.net.HttpURLConnection
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import javax.net.ssl.HostnameVerifier
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLContext
+import javax.net.ssl.X509TrustManager
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
@@ -35,7 +45,12 @@ class AuthViewModel @Inject constructor(
     private val sessionRepository: SessionRepository
 ) : AndroidViewModel(application) {
 
-    private val authService = AuthorizationService(application)
+    private val authService = AuthorizationService(
+        application,
+        AppAuthConfiguration.Builder()
+            .setConnectionBuilder(KeycloakDevConnectionBuilder(appConfig.keycloakBaseUrl))
+            .build()
+    )
     private val redirectUri = Uri.parse("com.university.journal:/oauth2redirect")
 
     private val _state = MutableStateFlow<AuthUiState>(AuthUiState.Idle)
@@ -125,6 +140,32 @@ class AuthViewModel @Inject constructor(
 
     companion object {
         private const val TAG = "AuthViewModel"
+    }
+}
+
+private class KeycloakDevConnectionBuilder(keycloakBaseUrl: String) : ConnectionBuilder {
+    private val keycloakHost = Uri.parse(keycloakBaseUrl).host.orEmpty()
+    private val trustAllSocketFactory by lazy {
+        val sslContext = SSLContext.getInstance("TLS")
+        sslContext.init(null, arrayOf(TRUST_ALL_MANAGER), SecureRandom())
+        sslContext.socketFactory
+    }
+
+    override fun openConnection(uri: Uri): HttpURLConnection {
+        val connection = DefaultConnectionBuilder.INSTANCE.openConnection(uri)
+        if (uri.host == keycloakHost && connection is HttpsURLConnection) {
+            connection.sslSocketFactory = trustAllSocketFactory
+            connection.hostnameVerifier = HostnameVerifier { _, _ -> true }
+        }
+        return connection
+    }
+
+    private companion object {
+        private val TRUST_ALL_MANAGER = object : X509TrustManager {
+            override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+            override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+            override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+        }
     }
 }
 
