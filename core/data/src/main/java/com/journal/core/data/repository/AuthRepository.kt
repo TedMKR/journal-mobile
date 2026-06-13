@@ -9,10 +9,17 @@ import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.io.IOException
 import java.net.HttpURLConnection
+import java.net.URI
 import java.net.URL
 import java.net.URLEncoder
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
 import javax.inject.Inject
 import javax.inject.Singleton
+import javax.net.ssl.HostnameVerifier
+import javax.net.ssl.HttpsURLConnection
+import javax.net.ssl.SSLContext
+import javax.net.ssl.X509TrustManager
 
 data class TokenProfile(
     val userId: String?,
@@ -23,6 +30,12 @@ data class TokenProfile(
 class AuthRepository @Inject constructor(
     private val appConfig: AppConfig
 ) {
+    private val keycloakHost = runCatching { URI(appConfig.keycloakBaseUrl).host }.getOrNull().orEmpty()
+    private val trustAllSocketFactory by lazy {
+        val sslContext = SSLContext.getInstance("TLS")
+        sslContext.init(null, arrayOf(TRUST_ALL_MANAGER), SecureRandom())
+        sslContext.socketFactory
+    }
 
     suspend fun refreshTokens(refreshToken: String, currentRole: String): StoredTokens =
         withContext(Dispatchers.IO) {
@@ -32,7 +45,7 @@ class AuthRepository @Inject constructor(
                     "${appConfig.keycloakBaseUrl}/realms/${appConfig.keycloakRealm}" +
                         "/protocol/openid-connect/token"
                 )
-                connection = (tokenUrl.openConnection() as HttpURLConnection).apply {
+                connection = openTokenConnection(tokenUrl).apply {
                     requestMethod = "POST"
                     doOutput = true
                     setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
@@ -108,5 +121,25 @@ class AuthRepository @Inject constructor(
             "${key.urlEncode()}=${value.urlEncode()}"
         }
 
+    private fun openTokenConnection(tokenUrl: URL): HttpURLConnection {
+        val connection = tokenUrl.openConnection() as HttpURLConnection
+        if (tokenUrl.host == keycloakHost && connection is HttpsURLConnection) {
+            // Temporary test-contour bypass until Keycloak reverse proxy serves an Android-trusted chain.
+            connection.sslSocketFactory = trustAllSocketFactory
+            connection.hostnameVerifier = HostnameVerifier { hostname, _ ->
+                hostname.equals(keycloakHost, ignoreCase = true)
+            }
+        }
+        return connection
+    }
+
     private fun String.urlEncode(): String = URLEncoder.encode(this, Charsets.UTF_8.name())
+
+    private companion object {
+        private val TRUST_ALL_MANAGER = object : X509TrustManager {
+            override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+            override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+            override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
+        }
+    }
 }

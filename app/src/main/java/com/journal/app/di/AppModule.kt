@@ -9,18 +9,25 @@ import com.journal.core.common.config.TokenSession
 import com.journal.core.common.config.TokenStore
 import com.journal.core.network.api.JournalApi
 import com.journal.core.network.interceptor.BearerTokenInterceptor
+import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import java.net.URI
+import java.security.SecureRandom
+import java.security.cert.X509Certificate
+import javax.inject.Singleton
+import javax.net.ssl.HostnameVerifier
+import javax.net.ssl.SSLContext
+import javax.net.ssl.X509TrustManager
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
-import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
-import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
@@ -59,11 +66,13 @@ object AppModule {
     @Provides
     @Singleton
     fun provideOkHttp(
-        tokenSession: TokenSession
+        tokenSession: TokenSession,
+        config: AppConfig
     ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
 
         return OkHttpClient.Builder()
+            .applyTestTlsBypass(config.apiBaseUrl)
             .addInterceptor(BearerTokenInterceptor(tokenSession))
             .addInterceptor(logging)
             .build()
@@ -71,6 +80,7 @@ object AppModule {
 
     @Provides
     @Singleton
+    @OptIn(ExperimentalSerializationApi::class)
     fun provideJson(): Json = Json {
         ignoreUnknownKeys = true
         explicitNulls = false
@@ -89,4 +99,23 @@ object AppModule {
     @Provides
     @Singleton
     fun provideJournalApi(retrofit: Retrofit): JournalApi = retrofit.create(JournalApi::class.java)
+}
+
+private fun OkHttpClient.Builder.applyTestTlsBypass(baseUrl: String): OkHttpClient.Builder {
+    val host = runCatching { URI(baseUrl).host }.getOrNull()?.takeIf { it.isNotBlank() }
+        ?: return this
+    val trustAllManager = TrustAllManager()
+    val sslContext = SSLContext.getInstance("TLS").apply {
+        init(null, arrayOf(trustAllManager), SecureRandom())
+    }
+
+    // Temporary test-contour bypass until edge/auth reverse proxies serve an Android-trusted chain.
+    return sslSocketFactory(sslContext.socketFactory, trustAllManager)
+        .hostnameVerifier(HostnameVerifier { hostname, _ -> hostname.equals(host, ignoreCase = true) })
+}
+
+private class TrustAllManager : X509TrustManager {
+    override fun checkClientTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+    override fun checkServerTrusted(chain: Array<X509Certificate>, authType: String) = Unit
+    override fun getAcceptedIssuers(): Array<X509Certificate> = emptyArray()
 }
