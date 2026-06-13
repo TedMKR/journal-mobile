@@ -49,6 +49,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -224,17 +226,13 @@ private fun ReasonDialog(
 private const val PROBLEM_STUDENTS_PAGE_SIZE = 10
 
 @Composable
-fun AdminProblemStudentsRoute(journalApi: JournalApi) {
-    val scope = rememberCoroutineScope()
+fun AdminProblemStudentsRoute(
+    journalApi: JournalApi,
+    viewModel: AdminProblemStudentsViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    var students by remember { mutableStateOf<List<ProblemStudentEntry>>(emptyList()) }
-    var meta by remember { mutableStateOf<ProblemStudentsMeta?>(null) }
-    var isLoading by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf<String?>(null) }
     var page by rememberSaveable { mutableIntStateOf(1) }
-    var total by remember { mutableIntStateOf(0) }
-
-    // Filter states — rememberSaveable сохраняет при повороте экрана
     var periodId by rememberSaveable { mutableStateOf("") }
     var groupId by rememberSaveable { mutableStateOf("") }
     var disciplineId by rememberSaveable { mutableStateOf("") }
@@ -242,53 +240,29 @@ fun AdminProblemStudentsRoute(journalApi: JournalApi) {
     var minFailingGrades by rememberSaveable { mutableStateOf("3") }
     var failingPercentThreshold by rememberSaveable { mutableStateOf("50") }
 
-    // Filter options
-    var periods by remember { mutableStateOf<List<AdminPeriod>>(emptyList()) }
-    var groups by remember { mutableStateOf<List<com.journal.core.model.teacher.AcademicGroup>>(emptyList()) }
-    var disciplines by remember { mutableStateOf<List<com.journal.core.model.teacher.Discipline>>(emptyList()) }
-
     fun loadStudents() {
-        scope.launch {
-            isLoading = true
-            error = null
-            runCatching {
-                val resp = journalApi.getAdminProblemStudents(
-                    periodId = periodId.ifBlank { null },
-                    groupId = groupId.ifBlank { null },
-                    disciplineId = disciplineId.ifBlank { null },
-                    minGrades = minGrades.toIntOrNull(),
-                    minFailingGrades = minFailingGrades.toIntOrNull(),
-                    failingPercentThreshold = failingPercentThreshold.toIntOrNull(),
-                    limit = PROBLEM_STUDENTS_PAGE_SIZE,
-                    offset = (page - 1) * PROBLEM_STUDENTS_PAGE_SIZE
-                )
-                students = resp.data
-                meta = resp.meta
-                total = resp.meta.total
-            }.onFailure { error = it.userFacingMessage("Не удалось загрузить данные") }
-            isLoading = false
-        }
-    }
-
-    LaunchedEffect(Unit) {
-        runCatching {
-            periods = journalApi.getAdminPeriods(includeClosed = true).data
-            groups = journalApi.getGroups(limit = 200).data
-            disciplines = journalApi.getDisciplines(limit = 200).data
-        }
-        loadStudents()
+        viewModel.loadStudents(
+            periodId = periodId,
+            groupId = groupId,
+            disciplineId = disciplineId,
+            minGrades = minGrades,
+            minFailingGrades = minFailingGrades,
+            failingPercentThreshold = failingPercentThreshold,
+            limit = PROBLEM_STUDENTS_PAGE_SIZE,
+            offset = (page - 1) * PROBLEM_STUDENTS_PAGE_SIZE
+        )
     }
 
     LaunchedEffect(page) { loadStudents() }
 
-    val totalPages = maxOf(1, (total + PROBLEM_STUDENTS_PAGE_SIZE - 1) / PROBLEM_STUDENTS_PAGE_SIZE)
+    val totalPages = maxOf(1, (uiState.total + PROBLEM_STUDENTS_PAGE_SIZE - 1) / PROBLEM_STUDENTS_PAGE_SIZE)
 
-    val periodOptions = listOf("Все периоды" to "") +
-        periods.map { (it.name ?: it.id) to it.id }
-    val groupOptions = listOf("Все группы" to "") +
-        groups.map { it.name to it.id }
-    val disciplineOptions = listOf("Все дисциплины" to "") +
-        disciplines.map { it.name to it.id }
+    val periodOptions = listOf("��� �������" to "") +
+        uiState.periods.map { (it.name ?: it.id) to it.id }
+    val groupOptions = listOf("��� ������" to "") +
+        uiState.groups.map { it.name to it.id }
+    val disciplineOptions = listOf("��� ����������" to "") +
+        uiState.disciplines.map { it.name to it.id }
 
     LazyColumn(
         modifier = Modifier
@@ -296,7 +270,6 @@ fun AdminProblemStudentsRoute(journalApi: JournalApi) {
             .background(BackgroundColor),
         contentPadding = PaddingValues(bottom = 16.dp)
     ) {
-        // ── Фильтры ─────────────────────────────────────────────────────────
         item {
             Column(
                 modifier = Modifier
@@ -305,18 +278,18 @@ fun AdminProblemStudentsRoute(journalApi: JournalApi) {
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("Фильтры", fontWeight = FontWeight.Bold, color = PrimaryBlue, fontSize = 14.sp)
+                Text("�������", fontWeight = FontWeight.Bold, color = PrimaryBlue, fontSize = 14.sp)
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AdminDropdown(
-                        label = "Все периоды",
+                        label = "��� �������",
                         selected = periodId,
                         options = periodOptions,
                         onSelected = { periodId = it; page = 1 },
                         modifier = Modifier.weight(1f)
                     )
                     AdminDropdown(
-                        label = "Все группы",
+                        label = "��� ������",
                         selected = groupId,
                         options = groupOptions,
                         onSelected = { groupId = it; page = 1 },
@@ -325,7 +298,7 @@ fun AdminProblemStudentsRoute(journalApi: JournalApi) {
                 }
 
                 AdminDropdown(
-                    label = "Все дисциплины",
+                    label = "��� ����������",
                     selected = disciplineId,
                     options = disciplineOptions,
                     onSelected = { disciplineId = it; page = 1 },
@@ -334,19 +307,19 @@ fun AdminProblemStudentsRoute(journalApi: JournalApi) {
 
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     ProblemNumberField(
-                        label = "Минимум оценок",
+                        label = "������� ������",
                         value = minGrades,
                         onChange = { minGrades = it },
                         modifier = Modifier.weight(1f)
                     )
                     ProblemNumberField(
-                        label = "Двоек подряд",
+                        label = "����� ������",
                         value = minFailingGrades,
                         onChange = { minFailingGrades = it },
                         modifier = Modifier.weight(1f)
                     )
                     ProblemNumberField(
-                        label = "Процент двоек",
+                        label = "������� �����",
                         value = failingPercentThreshold,
                         onChange = { failingPercentThreshold = it },
                         modifier = Modifier.weight(1f)
@@ -354,14 +327,13 @@ fun AdminProblemStudentsRoute(journalApi: JournalApi) {
                 }
 
                 PrimaryButton(
-                    text = "Применить",
+                    text = "���������",
                     onClick = { page = 1; loadStudents() },
                     modifier = Modifier.fillMaxWidth()
                 )
             }
         }
 
-        // ── Сводные карточки ────────────────────────────────────────────────
         item {
             Row(
                 modifier = Modifier
@@ -370,35 +342,33 @@ fun AdminProblemStudentsRoute(journalApi: JournalApi) {
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 SummaryStatCard(
-                    label = "Найдено",
-                    value = total.toString(),
-                    sub = "студентов",
+                    label = "�������",
+                    value = uiState.total.toString(),
+                    sub = "���������",
                     modifier = Modifier.weight(1f)
                 )
                 SummaryStatCard(
-                    label = "Порог",
-                    value = "${(meta?.failingPercentThreshold?.toInt() ?: failingPercentThreshold.toIntOrNull() ?: 50)}%",
-                    sub = "доля двоек",
+                    label = "�����",
+                    value = "${(uiState.meta?.failingPercentThreshold?.toInt() ?: failingPercentThreshold.toIntOrNull() ?: 50)}%",
+                    sub = "���� �����",
                     modifier = Modifier.weight(1f)
                 )
                 SummaryStatCard(
-                    label = "Серия",
-                    value = (meta?.minFailingGrades ?: minFailingGrades.toIntOrNull() ?: 3).toString(),
-                    sub = "подряд",
+                    label = "�����",
+                    value = (uiState.meta?.minFailingGrades ?: minFailingGrades.toIntOrNull() ?: 3).toString(),
+                    sub = "������",
                     modifier = Modifier.weight(1f)
                 )
             }
         }
 
-        // ── Ошибка ──────────────────────────────────────────────────────────
-        error?.let { msg ->
+        uiState.error?.let { msg ->
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) { ErrorCard(msg) }
             }
         }
 
-        // ── Загрузка ────────────────────────────────────────────────────────
-        if (isLoading) {
+        if (uiState.isLoading) {
             item {
                 Box(
                     modifier = Modifier
@@ -411,8 +381,7 @@ fun AdminProblemStudentsRoute(journalApi: JournalApi) {
             }
         }
 
-        // ── Пусто ───────────────────────────────────────────────────────────
-        if (!isLoading && students.isEmpty()) {
+        if (!uiState.isLoading && uiState.students.isEmpty()) {
             item {
                 Box(
                     modifier = Modifier
@@ -421,7 +390,7 @@ fun AdminProblemStudentsRoute(journalApi: JournalApi) {
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "Проблемные студенты не найдены",
+                        "���������� �������� �� �������",
                         color = SecondaryText,
                         fontWeight = FontWeight.SemiBold
                     )
@@ -429,15 +398,13 @@ fun AdminProblemStudentsRoute(journalApi: JournalApi) {
             }
         }
 
-        // ── Список студентов ────────────────────────────────────────────────
-        items(students) { student ->
+        items(uiState.students) { student ->
             ProblemStudentCard(
                 student = student,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp)
             )
         }
 
-        // ── Пагинация ───────────────────────────────────────────────────────
         if (totalPages > 1) {
             item {
                 AdminPaginationRow(
@@ -450,7 +417,6 @@ fun AdminProblemStudentsRoute(journalApi: JournalApi) {
         }
     }
 }
-
 @Composable
 private fun SummaryStatCard(
     label: String,

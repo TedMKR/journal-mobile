@@ -49,6 +49,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -228,32 +230,27 @@ private fun formatDate(value: String?): String {
 }
 
 @Composable
-fun AdminPeriodsRoute(journalApi: JournalApi) {
+fun AdminPeriodsRoute(
+    journalApi: JournalApi,
+    viewModel: AdminPeriodsViewModel = hiltViewModel()
+) {
     val scope = rememberCoroutineScope()
-
-    var periods by remember { mutableStateOf<List<AdminPeriod>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    var actionError by remember { mutableStateOf<String?>(null) }
 
     data class PendingToggle(val period: AdminPeriod, val closing: Boolean)
     var pendingToggle by remember { mutableStateOf<PendingToggle?>(null) }
 
     fun loadPeriods() {
-        scope.launch {
-            isLoading = true
-            error = null
-            runCatching {
-                periods = journalApi.getAdminPeriods(includeClosed = true).data
-            }.onFailure { error = it.userFacingMessage("ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð·Ð°Ð³Ñ€ÑƒÐ·Ð¸Ñ‚ÑŒ Ð¿ÐµÑ€Ð¸Ð¾Ð´Ñ‹") }
-            isLoading = false
-        }
+        actionError = null
+        viewModel.loadPeriods()
     }
 
     LaunchedEffect(Unit) { loadPeriods() }
 
     pendingToggle?.let { pt ->
         ReasonDialog(
-            title = if (pt.closing) "Ð—Ð°ÐºÑ€Ñ‹Ñ‚ÑŒ Ð¿ÐµÑ€Ð¸Ð¾Ð´?" else "ÐžÑ‚ÐºÑ€Ñ‹Ñ‚ÑŒ Ð¿ÐµÑ€Ð¸Ð¾Ð´?",
+            title = if (pt.closing) "Çàêðûòü ïåðèîä?" else "Îòêðûòü ïåðèîä?",
             onConfirm = { reason ->
                 scope.launch {
                     runCatching {
@@ -262,7 +259,7 @@ fun AdminPeriodsRoute(journalApi: JournalApi) {
                         } else {
                             journalApi.reopenAdminPeriod(pt.period.id, AdminActionRequest(reason))
                         }
-                    }.onFailure { error = it.userFacingMessage("ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð¸Ð·Ð¼ÐµÐ½Ð¸Ñ‚ÑŒ Ð¿ÐµÑ€Ð¸Ð¾Ð´") }
+                    }.onFailure { actionError = it.userFacingMessage("Íå óäàëîñü èçìåíèòü ïåðèîä") }
                     pendingToggle = null
                     loadPeriods()
                 }
@@ -271,28 +268,30 @@ fun AdminPeriodsRoute(journalApi: JournalApi) {
         )
     }
 
+    val currentError = actionError ?: uiState.error
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundColor)
     ) {
         when {
-            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = PrimaryBlue)
             }
-            error != null -> Column(Modifier.padding(16.dp)) { ErrorCard(error!!) }
-            periods.isEmpty() -> Box(
+            currentError != null -> Column(Modifier.padding(16.dp)) { ErrorCard(currentError) }
+            uiState.periods.isEmpty() -> Box(
                 Modifier.fillMaxSize().padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("ÐŸÐµÑ€Ð¸Ð¾Ð´Ñ‹ Ð½Ðµ Ð½Ð°Ð¹Ð´ÐµÐ½Ñ‹", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                Text("Ïåðèîäû íå íàéäåíû", color = SecondaryText, fontWeight = FontWeight.SemiBold)
             }
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(periods) { period ->
+                items(uiState.periods) { period ->
                     PeriodAdminRow(
                         period = period,
                         onToggle = { pendingToggle = PendingToggle(period, !(period.isClosed ?: false)) }
@@ -302,7 +301,6 @@ fun AdminPeriodsRoute(journalApi: JournalApi) {
         }
     }
 }
-
 @Composable
 private fun PeriodAdminRow(period: AdminPeriod, onToggle: () -> Unit) {
     val isClosed = period.isClosed ?: false

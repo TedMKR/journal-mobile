@@ -44,6 +44,11 @@ dependencies {
     implementation(project(":features:teacher:studentcard"))
     implementation(project(":features:teacher:ved"))
     implementation(project(":features:methodist:journals"))
+    implementation(project(":features:admin:access"))
+    implementation(project(":features:admin:audit"))
+    implementation(project(":features:admin:journals"))
+    implementation(project(":features:admin:periods"))
+    implementation(project(":features:admin:problemstudents"))
     implementation(project(":features:admin:users"))
 
     // ── Transitive deps not exposed by the modules above ─────────────────────

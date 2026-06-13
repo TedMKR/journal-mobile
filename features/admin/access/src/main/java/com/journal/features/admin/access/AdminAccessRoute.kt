@@ -49,6 +49,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -220,29 +222,24 @@ private fun ReasonDialog(
 private fun shortenId(id: String): String =
     if (id.length > 16) "â€¦${id.takeLast(12)}" else id
 @Composable
-fun AdminAccessRoute(journalApi: JournalApi) {
+fun AdminAccessRoute(
+    journalApi: JournalApi,
+    viewModel: AdminAccessViewModel = hiltViewModel()
+) {
     val scope = rememberCoroutineScope()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    var bindings by remember { mutableStateOf<List<AdminAccessBinding>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var actionError by remember { mutableStateOf<String?>(null) }
     var showRevoked by remember { mutableStateOf(false) }
     var revokingId by remember { mutableStateOf<String?>(null) }
 
     fun loadBindings() {
-        scope.launch {
-            isLoading = true
-            error = null
-            runCatching {
-                bindings = journalApi.getAdminAccessBindings(activeOnly = !showRevoked).data
-            }.onFailure { error = it.userFacingMessage("ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð·Ð°Ð³Ñ€ÑƒÐ·Ð¸Ñ‚ÑŒ Ð´Ð¾ÑÑ‚ÑƒÐ¿Ñ‹") }
-            isLoading = false
-        }
+        actionError = null
+        viewModel.loadBindings(activeOnly = !showRevoked)
     }
 
     LaunchedEffect(showRevoked) { loadBindings() }
 
-    // Revoke confirmation
     revokingId?.let { id ->
         Dialog(onDismissRequest = { revokingId = null }) {
             Column(
@@ -258,14 +255,14 @@ fun AdminAccessRoute(journalApi: JournalApi) {
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "ÐžÑ‚Ð¾Ð·Ð²Ð°Ñ‚ÑŒ Ð´Ð¾ÑÑ‚ÑƒÐ¿?",
+                        "Îòîçâàòü äîñòóï?",
                         fontWeight = FontWeight.Bold,
                         color = PrimaryBlue,
                         fontSize = 17.sp,
                         modifier = Modifier.weight(1f)
                     )
                     Text(
-                        "Ã—",
+                        "?",
                         modifier = Modifier
                             .clickable { revokingId = null }
                             .padding(4.dp),
@@ -273,21 +270,20 @@ fun AdminAccessRoute(journalApi: JournalApi) {
                         fontSize = 22.sp
                     )
                 }
-                Text("Ð­Ñ‚Ð¾ Ð´ÐµÐ¹ÑÑ‚Ð²Ð¸Ðµ Ð½ÐµÐ»ÑŒÐ·Ñ Ð¾Ñ‚Ð¼ÐµÐ½Ð¸Ñ‚ÑŒ.", color = SecondaryText, fontSize = 14.sp)
+                Text("Ýòî äåéñòâèå íåëüçÿ îòìåíèòü.", color = SecondaryText, fontSize = 14.sp)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
                 ) {
                     TextButton(onClick = { revokingId = null }) {
-                        Text("ÐžÑ‚Ð¼ÐµÐ½Ð°", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                        Text("Îòìåíà", color = SecondaryText, fontWeight = FontWeight.SemiBold)
                     }
                     DangerButton(
-                        text = "ÐžÑ‚Ð¾Ð·Ð²Ð°Ñ‚ÑŒ",
+                        text = "Îòîçâàòü",
                         onClick = {
                             scope.launch {
-                                runCatching {
-                                    journalApi.revokeAdminAccessBinding(id)
-                                }.onFailure { error = it.userFacingMessage("ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð¾Ñ‚Ð¾Ð·Ð²Ð°Ñ‚ÑŒ Ð´Ð¾ÑÑ‚ÑƒÐ¿") }
+                                runCatching { journalApi.revokeAdminAccessBinding(id) }
+                                    .onFailure { actionError = it.userFacingMessage("Íå óäàëîñü îòîçâàòü äîñòóï") }
                                 revokingId = null
                                 loadBindings()
                             }
@@ -298,12 +294,13 @@ fun AdminAccessRoute(journalApi: JournalApi) {
         }
     }
 
+    val currentError = actionError ?: uiState.error
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundColor)
     ) {
-        // Toggle active/all
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -312,33 +309,33 @@ fun AdminAccessRoute(journalApi: JournalApi) {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("ÐŸÐ¾ÐºÐ°Ð·Ñ‹Ð²Ð°Ñ‚ÑŒ:", color = PrimaryBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text("Ïîêàçûâàòü:", color = PrimaryBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             AdminDropdown(
-                label = "ÐÐºÑ‚Ð¸Ð²Ð½Ñ‹Ðµ",
+                label = "Àêòèâíûå",
                 selected = if (showRevoked) "all" else "active",
-                options = listOf("ÐÐºÑ‚Ð¸Ð²Ð½Ñ‹Ðµ" to "active", "Ð’ÑÐµ" to "all"),
+                options = listOf("Àêòèâíûå" to "active", "Âñå" to "all"),
                 onSelected = { showRevoked = it == "all" },
                 modifier = Modifier.weight(1f)
             )
         }
 
         when {
-            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = PrimaryBlue)
             }
-            error != null -> Column(Modifier.padding(16.dp)) { ErrorCard(error!!) }
-            bindings.isEmpty() -> Box(
+            currentError != null -> Column(Modifier.padding(16.dp)) { ErrorCard(currentError) }
+            uiState.bindings.isEmpty() -> Box(
                 Modifier.fillMaxSize().padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Ð”Ð¾ÑÑ‚ÑƒÐ¿Ñ‹ Ð½Ðµ Ð½Ð°Ð¹Ð´ÐµÐ½Ñ‹", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                Text("Äîñòóïû íå íàéäåíû", color = SecondaryText, fontWeight = FontWeight.SemiBold)
             }
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(bindings) { binding ->
+                items(uiState.bindings) { binding ->
                     AccessBindingRow(
                         binding = binding,
                         onRevoke = { revokingId = binding.id }
@@ -348,7 +345,6 @@ fun AdminAccessRoute(journalApi: JournalApi) {
         }
     }
 }
-
 @Composable
 private fun AccessBindingRow(
     binding: AdminAccessBinding,

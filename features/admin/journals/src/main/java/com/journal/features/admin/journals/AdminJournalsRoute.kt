@@ -49,6 +49,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -252,36 +254,28 @@ private fun lessonTypeLabel(type: String?): String = when (type) {
 }
 
 @Composable
-fun AdminJournalsRoute(journalApi: JournalApi) {
+fun AdminJournalsRoute(
+    journalApi: JournalApi,
+    viewModel: AdminJournalsViewModel = hiltViewModel()
+) {
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
-    var journals by remember { mutableStateOf<List<AdminJournalContext>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+    var actionError by remember { mutableStateOf<String?>(null) }
     var filterStatus by remember { mutableStateOf("") }
     var page by remember { mutableIntStateOf(1) }
-    var total by remember { mutableIntStateOf(0) }
 
-    // Pending action dialog
     data class PendingAction(val journal: AdminJournalContext, val action: String)
     var pendingAction by remember { mutableStateOf<PendingAction?>(null) }
 
     fun loadJournals() {
-        scope.launch {
-            isLoading = true
-            error = null
-            runCatching {
-                val resp = journalApi.getAdminJournals(
-                    page = page,
-                    pageSize = JOURNALS_PAGE_SIZE,
-                    status = filterStatus.ifBlank { null }
-                )
-                journals = resp.data
-                total = resp.meta?.total ?: resp.data.size
-            }.onFailure { error = it.userFacingMessage("ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð·Ð°Ð³Ñ€ÑƒÐ·Ð¸Ñ‚ÑŒ Ð¶ÑƒÑ€Ð½Ð°Ð»Ñ‹") }
-            isLoading = false
-        }
+        actionError = null
+        viewModel.loadJournals(
+            page = page,
+            pageSize = JOURNALS_PAGE_SIZE,
+            status = filterStatus
+        )
     }
 
     fun exportJournal(journalId: String) {
@@ -297,23 +291,23 @@ fun AdminJournalsRoute(journalApi: JournalApi) {
                     putExtra(Intent.EXTRA_STREAM, uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
-                context.startActivity(Intent.createChooser(intent, "Ð­ÐºÑÐ¿Ð¾Ñ€Ñ‚ Ð¶ÑƒÑ€Ð½Ð°Ð»Ð°"))
-            }.onFailure { error = it.userFacingMessage("ÐžÑˆÐ¸Ð±ÐºÐ° ÑÐºÑÐ¿Ð¾Ñ€Ñ‚Ð°") }
+                context.startActivity(Intent.createChooser(intent, "Ýêñïîðò æóðíàëà"))
+            }.onFailure { actionError = it.userFacingMessage("Îøèáêà ýêñïîðòà") }
         }
     }
 
     LaunchedEffect(page, filterStatus) { loadJournals() }
 
-    val totalPages = maxOf(1, (total + JOURNALS_PAGE_SIZE - 1) / JOURNALS_PAGE_SIZE)
+    val totalPages = maxOf(1, (uiState.total + JOURNALS_PAGE_SIZE - 1) / JOURNALS_PAGE_SIZE)
+    val currentError = actionError ?: uiState.error
 
-    // Action confirmation dialog
     pendingAction?.let { pa ->
         val actionLabel = when (pa.action) {
-            "lock" -> "Ð—Ð°Ð¼Ð¾Ñ€Ð¾Ð·Ð¸Ñ‚ÑŒ Ð¶ÑƒÑ€Ð½Ð°Ð»"
-            "unlock" -> "Ð Ð°Ð·Ð¼Ð¾Ñ€Ð¾Ð·Ð¸Ñ‚ÑŒ Ð¶ÑƒÑ€Ð½Ð°Ð»"
-            "archive" -> "ÐÑ€Ñ…Ð¸Ð²Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒ Ð¶ÑƒÑ€Ð½Ð°Ð»"
-            "restore" -> "Ð’Ð¾ÑÑÑ‚Ð°Ð½Ð¾Ð²Ð¸Ñ‚ÑŒ Ð¶ÑƒÑ€Ð½Ð°Ð»"
-            else -> "Ð”ÐµÐ¹ÑÑ‚Ð²Ð¸Ðµ"
+            "lock" -> "Çàìîðîçèòü æóðíàë"
+            "unlock" -> "Ðàçìîðîçèòü æóðíàë"
+            "archive" -> "Àðõèâèðîâàòü æóðíàë"
+            "restore" -> "Âîññòàíîâèòü æóðíàë"
+            else -> "Äåéñòâèå"
         }
         ReasonDialog(
             title = actionLabel,
@@ -321,7 +315,7 @@ fun AdminJournalsRoute(journalApi: JournalApi) {
                 scope.launch {
                     runCatching {
                         journalApi.adminJournalAction(pa.journal.id, pa.action, AdminActionRequest(reason))
-                    }.onFailure { error = it.userFacingMessage("ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð²Ñ‹Ð¿Ð¾Ð»Ð½Ð¸Ñ‚ÑŒ Ð´ÐµÐ¹ÑÑ‚Ð²Ð¸Ðµ Ñ Ð¶ÑƒÑ€Ð½Ð°Ð»Ð¾Ð¼") }
+                    }.onFailure { actionError = it.userFacingMessage("Íå óäàëîñü âûïîëíèòü äåéñòâèå ñ æóðíàëîì") }
                     pendingAction = null
                     loadJournals()
                 }
@@ -335,7 +329,6 @@ fun AdminJournalsRoute(journalApi: JournalApi) {
             .fillMaxSize()
             .background(BackgroundColor)
     ) {
-        // Filter bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -344,15 +337,15 @@ fun AdminJournalsRoute(journalApi: JournalApi) {
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Ð¡Ñ‚Ð°Ñ‚ÑƒÑ:", color = PrimaryBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text("Ñòàòóñ:", color = PrimaryBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             AdminDropdown(
-                label = "Ð’ÑÐµ",
+                label = "Âñå",
                 selected = filterStatus,
                 options = listOf(
-                    "Ð’ÑÐµ" to "",
-                    "ÐÐºÑ‚Ð¸Ð²Ð½Ñ‹Ðµ" to "active",
-                    "Ð—Ð°Ð¼Ð¾Ñ€Ð¾Ð¶ÐµÐ½Ð½Ñ‹Ðµ" to "locked",
-                    "ÐÑ€Ñ…Ð¸Ð²Ð½Ñ‹Ðµ" to "archived"
+                    "Âñå" to "",
+                    "Àêòèâíûå" to "active",
+                    "Çàìîðîæåííûå" to "locked",
+                    "Àðõèâíûå" to "archived"
                 ),
                 onSelected = { filterStatus = it; page = 1 },
                 modifier = Modifier.weight(1f)
@@ -360,26 +353,24 @@ fun AdminJournalsRoute(journalApi: JournalApi) {
         }
 
         when {
-            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = PrimaryBlue)
             }
-            error != null -> Column(Modifier.padding(16.dp)) { ErrorCard(error!!) }
-            journals.isEmpty() -> Box(
+            currentError != null -> Column(Modifier.padding(16.dp)) { ErrorCard(currentError) }
+            uiState.journals.isEmpty() -> Box(
                 Modifier.fillMaxSize().padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Ð–ÑƒÑ€Ð½Ð°Ð»Ñ‹ Ð½Ðµ Ð½Ð°Ð¹Ð´ÐµÐ½Ñ‹", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                Text("Æóðíàëû íå íàéäåíû", color = SecondaryText, fontWeight = FontWeight.SemiBold)
             }
             else -> LazyColumn(
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
-                items(journals) { journal ->
+                items(uiState.journals) { journal ->
                     JournalAdminRow(
                         journal = journal,
-                        onAction = { action ->
-                            pendingAction = PendingAction(journal, action)
-                        },
+                        onAction = { action -> pendingAction = PendingAction(journal, action) },
                         onExport = { exportJournal(journal.id) }
                     )
                 }
@@ -390,7 +381,6 @@ fun AdminJournalsRoute(journalApi: JournalApi) {
         }
     }
 }
-
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun JournalAdminRow(

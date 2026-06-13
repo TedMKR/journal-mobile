@@ -49,6 +49,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -220,45 +222,33 @@ private fun ReasonDialog(
 // â”€â”€â”€ 1. Admin Dashboard â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 @Composable
-fun AdminAuditRoute(journalApi: JournalApi) {
-    val scope = rememberCoroutineScope()
-
-    var events by remember { mutableStateOf<List<AuditEvent>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
+fun AdminAuditRoute(
+    journalApi: JournalApi,
+    viewModel: AdminAuditViewModel = hiltViewModel()
+) {
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var filterAction by remember { mutableStateOf("") }
     var filterEntity by remember { mutableStateOf("") }
     var page by remember { mutableIntStateOf(1) }
-    var total by remember { mutableIntStateOf(0) }
 
     fun loadAudit() {
-        scope.launch {
-            isLoading = true
-            error = null
-            runCatching {
-                val resp = journalApi.getAdminAudit(
-                    page = page,
-                    pageSize = AUDIT_PAGE_SIZE,
-                    action = filterAction.ifBlank { null },
-                    entityType = filterEntity.ifBlank { null }
-                )
-                events = resp.data
-                total = resp.meta?.total ?: resp.data.size
-            }.onFailure { error = it.userFacingMessage("ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð·Ð°Ð³Ñ€ÑƒÐ·Ð¸Ñ‚ÑŒ Ð°ÑƒÐ´Ð¸Ñ‚") }
-            isLoading = false
-        }
+        viewModel.loadAudit(
+            page = page,
+            pageSize = AUDIT_PAGE_SIZE,
+            action = filterAction,
+            entityType = filterEntity
+        )
     }
 
     LaunchedEffect(page, filterAction, filterEntity) { loadAudit() }
 
-    val totalPages = maxOf(1, (total + AUDIT_PAGE_SIZE - 1) / AUDIT_PAGE_SIZE)
+    val totalPages = maxOf(1, (uiState.total + AUDIT_PAGE_SIZE - 1) / AUDIT_PAGE_SIZE)
 
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundColor)
     ) {
-        // Filter bar
         Column(
             modifier = Modifier
                 .fillMaxWidth()
@@ -266,39 +256,39 @@ fun AdminAuditRoute(journalApi: JournalApi) {
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text("Ð¤Ð¸Ð»ÑŒÑ‚Ñ€Ñ‹", fontWeight = FontWeight.Bold, color = PrimaryBlue, fontSize = 14.sp)
+            Text("Ôèëüòðû", fontWeight = FontWeight.Bold, color = PrimaryBlue, fontSize = 14.sp)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 AdminDropdown(
-                    label = "Ð’ÑÐµ ÑÐ¾Ð±Ñ‹Ñ‚Ð¸Ñ",
+                    label = "Âñå ñîáûòèÿ",
                     selected = filterAction,
                     options = listOf(
-                        "Ð’ÑÐµ ÑÐ¾Ð±Ñ‹Ñ‚Ð¸Ñ" to "",
-                        "Ð–ÑƒÑ€Ð½Ð°Ð» Ð·Ð°Ð¼Ð¾Ñ€Ð¾Ð¶ÐµÐ½" to "JOURNAL_LOCKED",
-                        "Ð–ÑƒÑ€Ð½Ð°Ð» Ñ€Ð°Ð·Ð¼Ð¾Ñ€Ð¾Ð¶ÐµÐ½" to "JOURNAL_UNLOCKED",
-                        "Ð’ Ð°Ñ€Ñ…Ð¸Ð²Ðµ" to "JOURNAL_ARCHIVED",
-                        "Ð’Ð¾ÑÑÑ‚Ð°Ð½Ð¾Ð²Ð»ÐµÐ½" to "JOURNAL_RESTORED",
-                        "ÐŸÐµÑ€Ð¸Ð¾Ð´ Ð·Ð°ÐºÑ€Ñ‹Ñ‚" to "PERIOD_CLOSED",
-                        "ÐŸÐµÑ€Ð¸Ð¾Ð´ Ð¾Ñ‚ÐºÑ€Ñ‹Ñ‚" to "PERIOD_REOPENED",
-                        "Ð”Ð¾ÑÑ‚ÑƒÐ¿ Ð²Ñ‹Ð´Ð°Ð½" to "ACCESS_BINDING_CREATED",
-                        "Ð”Ð¾ÑÑ‚ÑƒÐ¿ Ð¾Ñ‚Ð¾Ð·Ð²Ð°Ð½" to "ACCESS_BINDING_REVOKED",
-                        "Ð—Ð°Ð±Ð»Ð¾ÐºÐ¸Ñ€Ð¾Ð²Ð°Ð½" to "USER_BLOCKED",
-                        "Ð Ð°Ð·Ð±Ð»Ð¾ÐºÐ¸Ñ€Ð¾Ð²Ð°Ð½" to "USER_UNBLOCKED"
+                        "Âñå ñîáûòèÿ" to "",
+                        "Æóðíàë çàìîðîæåí" to "JOURNAL_LOCKED",
+                        "Æóðíàë ðàçìîðîæåí" to "JOURNAL_UNLOCKED",
+                        "Â àðõèâå" to "JOURNAL_ARCHIVED",
+                        "Âîññòàíîâëåí" to "JOURNAL_RESTORED",
+                        "Ïåðèîä çàêðûò" to "PERIOD_CLOSED",
+                        "Ïåðèîä îòêðûò" to "PERIOD_REOPENED",
+                        "Äîñòóï âûäàí" to "ACCESS_BINDING_CREATED",
+                        "Äîñòóï îòîçâàí" to "ACCESS_BINDING_REVOKED",
+                        "Çàáëîêèðîâàí" to "USER_BLOCKED",
+                        "Ðàçáëîêèðîâàí" to "USER_UNLOCKED"
                     ),
                     onSelected = { filterAction = it; page = 1 },
                     modifier = Modifier.weight(1f)
                 )
                 AdminDropdown(
-                    label = "Ð’ÑÐµ ÑÑƒÑ‰Ð½Ð¾ÑÑ‚Ð¸",
+                    label = "Âñå ñóùíîñòè",
                     selected = filterEntity,
                     options = listOf(
-                        "Ð’ÑÐµ ÑÑƒÑ‰Ð½Ð¾ÑÑ‚Ð¸" to "",
-                        "Ð–ÑƒÑ€Ð½Ð°Ð»" to "JournalContext",
-                        "ÐŸÐ¾Ð»ÑŒÐ·Ð¾Ð²Ð°Ñ‚ÐµÐ»ÑŒ" to "AdminUser",
-                        "ÐŸÐµÑ€Ð¸Ð¾Ð´" to "AcademicPeriod",
-                        "Ð”Ð¾ÐºÑƒÐ¼ÐµÐ½Ñ‚" to "DocumentTask"
+                        "Âñå ñóùíîñòè" to "",
+                        "Æóðíàë" to "JournalContext",
+                        "Ïîëüçîâàòåëü" to "AdminUser",
+                        "Ïåðèîä" to "AcademicPeriod",
+                        "Äîêóìåíò" to "DocumentTask"
                     ),
                     onSelected = { filterEntity = it; page = 1 },
                     modifier = Modifier.weight(1f)
@@ -307,22 +297,22 @@ fun AdminAuditRoute(journalApi: JournalApi) {
         }
 
         when {
-            isLoading -> Box(
+            uiState.isLoading -> Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
                 CircularProgressIndicator(color = PrimaryBlue)
             }
 
-            error != null -> Column(modifier = Modifier.padding(16.dp)) {
-                ErrorCard(error!!)
+            uiState.error != null -> Column(modifier = Modifier.padding(16.dp)) {
+                ErrorCard(uiState.error!!)
             }
 
-            events.isEmpty() -> Box(
+            uiState.events.isEmpty() -> Box(
                 modifier = Modifier.fillMaxSize().padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Ð¡Ð¾Ð±Ñ‹Ñ‚Ð¸Ñ Ð½Ðµ Ð½Ð°Ð¹Ð´ÐµÐ½Ñ‹", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                Text("Ñîáûòèÿ íå íàéäåíû", color = SecondaryText, fontWeight = FontWeight.SemiBold)
             }
 
             else -> LazyColumn(
@@ -330,11 +320,8 @@ fun AdminAuditRoute(journalApi: JournalApi) {
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                items(events) { event ->
-                    AuditEventRow(event)
-                }
+                items(uiState.events) { event -> AuditEventRow(event) }
 
-                // Pagination
                 if (totalPages > 1) {
                     item {
                         Row(
@@ -351,7 +338,7 @@ fun AdminAuditRoute(journalApi: JournalApi) {
                                 onClick = { if (page > 1) page-- },
                                 enabled = page > 1
                             ) {
-                                Text("â† ÐÐ°Ð·Ð°Ð´", color = if (page > 1) PrimaryBlue else SecondaryText)
+                                Text("< Íàçàä", color = if (page > 1) PrimaryBlue else SecondaryText)
                             }
                             Text(
                                 "$page / $totalPages",
@@ -363,7 +350,7 @@ fun AdminAuditRoute(journalApi: JournalApi) {
                                 onClick = { if (page < totalPages) page++ },
                                 enabled = page < totalPages
                             ) {
-                                Text("Ð’Ð¿ÐµÑ€Ñ‘Ð´ â†’", color = if (page < totalPages) PrimaryBlue else SecondaryText)
+                                Text("Âïåð¸ä >", color = if (page < totalPages) PrimaryBlue else SecondaryText)
                             }
                         }
                     }
@@ -372,7 +359,6 @@ fun AdminAuditRoute(journalApi: JournalApi) {
         }
     }
 }
-
 @Composable
 private fun AuditEventRow(event: AuditEvent) {
     Column(
