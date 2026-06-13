@@ -17,11 +17,9 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -33,10 +31,8 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.journal.core.common.config.PersonNameFormatter
-import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.JournalGridStudent
-import com.journal.core.network.api.JournalApi
 import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppBarBackground
 import com.journal.core.ui.AppHeaderBackground
@@ -56,34 +52,9 @@ private val BarBackground = AppBarBackground
 
 @Composable
 fun TeacherStudentCardRoute(
-    groupId: String,
-    disciplineId: String,
-    periodId: String,
-    studentId: String,
-    journalApi: JournalApi
+    viewModel: TeacherStudentCardViewModel = hiltViewModel()
 ) {
-    var card by remember(groupId, disciplineId, periodId, studentId) { mutableStateOf<StudentCardUiState?>(null) }
-    var isLoading by remember(groupId, disciplineId, periodId, studentId) { mutableStateOf(true) }
-    var error by remember(groupId, disciplineId, periodId, studentId) { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(groupId, disciplineId, periodId, studentId) {
-        isLoading = true
-        error = null
-        runCatching {
-            val journal = journalApi.getGroupJournalGrid(
-                groupId = groupId,
-                disciplineId = disciplineId,
-                academicPeriodId = periodId
-            )
-            buildStudentCard(journal, studentId)
-        }.onSuccess { state ->
-            card = state
-            isLoading = false
-        }.onFailure { throwable ->
-            error = throwable.userFacingMessage("Не удалось загрузить карточку студента")
-            isLoading = false
-        }
-    }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     Box(
         modifier = Modifier
@@ -92,21 +63,31 @@ fun TeacherStudentCardRoute(
             .padding(10.dp)
     ) {
         when {
-            isLoading -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
-            error != null -> Text(error.orEmpty(), color = PrimaryText, modifier = Modifier.align(Alignment.Center))
-            card != null -> StudentCardContent(card = card!!)
+            uiState.isLoading && uiState.card == null -> CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            uiState.error != null && uiState.card == null -> Text(uiState.error.orEmpty(), color = PrimaryText, modifier = Modifier.align(Alignment.Center))
+            uiState.card != null -> StudentCardContent(
+                card = uiState.card!!,
+                isOffline = uiState.isOffline
+            )
         }
     }
 }
 
 @Composable
-private fun StudentCardContent(card: StudentCardUiState) {
+private fun StudentCardContent(
+    card: StudentCardUiState,
+    isOffline: Boolean
+) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        if (isOffline) {
+            OfflineBanner()
+        }
+
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -151,6 +132,23 @@ private fun StudentCardContent(card: StudentCardUiState) {
                 ProgressCard("Посещено занятий", card.attendedLessons, card.totalLessons)
             }
         }
+    }
+}
+
+@Composable
+private fun OfflineBanner() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(Color(0xFFFFF3CD), RoundedCornerShape(14.dp))
+            .padding(12.dp)
+    ) {
+        Text(
+            "Показаны сохраненные данные. Изменения появятся после восстановления сети.",
+            color = Color(0xFF7A4F00),
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold
+        )
     }
 }
 
@@ -280,8 +278,8 @@ private fun Tag(text: String) {
     }
 }
 
-private fun buildStudentCard(journal: JournalGridResponse, studentId: String): StudentCardUiState {
-    val student = journal.students.first { it.studentId == studentId }
+internal fun buildStudentCard(journal: JournalGridResponse, studentId: String): StudentCardUiState? {
+    val student = journal.students.firstOrNull { it.studentId == studentId } ?: return null
     val totalLessons = journal.lessons.size
     val attendedLessons = journal.lessons.count { lesson ->
         journal.attendance.any { it.studentId == studentId && it.lessonId == lesson.lessonId && it.status == "present" }
@@ -323,7 +321,7 @@ private fun monthLabel(date: String): String = runCatching {
     LocalDate.parse(date.take(10)).format(DateTimeFormatter.ofPattern("LLLL", Locale("ru")))
 }.getOrElse { date }
 
-private data class StudentCardUiState(
+data class StudentCardUiState(
     val student: JournalGridStudent,
     val groupName: String,
     val disciplineName: String,

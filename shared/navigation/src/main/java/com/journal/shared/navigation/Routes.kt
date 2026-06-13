@@ -6,7 +6,7 @@ object Routes {
     const val TEACHER_DASHBOARD = "teacher_dashboard"
     const val TEACHER_VED = "teacher_ved"
     const val TEACHER_JOURNAL = "teacher_journal/{groupId}/{disciplineId}/{periodId}/{lessonType}?teacherId={teacherId}"
-    const val TEACHER_STUDENT_CARD = "teacher_student_card/{groupId}/{disciplineId}/{periodId}/{studentId}"
+    const val TEACHER_STUDENT_CARD = "teacher_student_card/{groupId}/{disciplineId}/{periodId}/{lessonType}/{studentId}"
     const val STUDENT_SCHEDULE = "student_schedule"
     const val STUDENT_DASHBOARD = "student_dashboard"
     const val STUDENT_JOURNAL = "student_journal/{disciplineId}/{periodId}/{groupId}"
@@ -33,8 +33,14 @@ object Routes {
         return if (teacherId.isNullOrBlank()) base else "$base?teacherId=$teacherId"
     }
 
-    fun teacherStudentCard(groupId: String, disciplineId: String, periodId: String, studentId: String): String =
-        "teacher_student_card/$groupId/$disciplineId/$periodId/$studentId"
+    fun teacherStudentCard(
+        groupId: String,
+        disciplineId: String,
+        periodId: String,
+        lessonType: String,
+        studentId: String
+    ): String =
+        "teacher_student_card/$groupId/$disciplineId/$periodId/$lessonType/$studentId"
 
     fun studentJournal(disciplineId: String, periodId: String, groupId: String): String =
         "student_journal/$disciplineId/$periodId/$groupId"

@@ -41,6 +41,7 @@ dependencies {
     implementation(project(":core:network"))
     implementation(project(":features:teacher:home"))
     implementation(project(":features:teacher:journal"))
+    implementation(project(":features:teacher:studentcard"))
 
     // ── Transitive deps not exposed by the modules above ─────────────────────
     // kotlinx-serialization (used in JournalRepositoryTest for Json)
