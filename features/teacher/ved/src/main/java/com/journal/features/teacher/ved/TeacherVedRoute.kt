@@ -39,6 +39,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
@@ -66,9 +68,10 @@ import com.journal.core.model.teacher.CurrentAttestationOverrides
 import com.journal.core.model.teacher.CurrentAttestationContext
 import com.journal.core.model.teacher.CurrentAttestationPrefill
 import com.journal.core.model.teacher.Discipline
+import com.journal.core.model.teacher.DocumentTask
+import com.journal.core.model.teacher.JobAccepted
 import com.journal.core.model.teacher.TeacherLesson
 import com.journal.core.model.teacher.RequestReportPayload
-import com.journal.core.network.api.JournalApi
 import java.io.File
 import java.io.IOException
 import java.util.UUID
@@ -89,11 +92,12 @@ private val Danger = AppDanger
 private val Success = AppSuccess
 
 @Composable
-fun TeacherVedRoute(journalApi: JournalApi) {
+fun TeacherVedRoute(
+    viewModel: TeacherVedViewModel = hiltViewModel()
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    var periods by remember { mutableStateOf<List<AcademicPeriod>>(emptyList()) }
-    var teacherLessons by remember { mutableStateOf<List<TeacherLesson>>(emptyList()) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var disciplines by remember { mutableStateOf<List<Discipline>>(emptyList()) }
     var groups by remember { mutableStateOf<List<AcademicGroup>>(emptyList()) }
     var selectedPeriodId by remember { mutableStateOf("") }
@@ -106,7 +110,6 @@ fun TeacherVedRoute(journalApi: JournalApi) {
     var overrides by remember { mutableStateOf(CurrentAttestationOverrides()) }
     var options by remember { mutableStateOf(CurrentAttestationOptions()) }
     var readyStatements by remember { mutableStateOf<List<ReadyStatement>>(emptyList()) }
-    var isLoading by remember { mutableStateOf(true) }
     var isLoadingPrefill by remember { mutableStateOf(false) }
     var isGenerating by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
@@ -118,11 +121,11 @@ fun TeacherVedRoute(journalApi: JournalApi) {
 
     fun syncCatalogs() {
         val disciplineLessons = selectedGroupId.takeIf { it.isNotBlank() }?.let { groupId ->
-            teacherLessons.filter { it.groupId == groupId }
-        } ?: teacherLessons
+            uiState.lessons.filter { it.groupId == groupId }
+        } ?: uiState.lessons
         val groupLessons = selectedDisciplineId.takeIf { it.isNotBlank() }?.let { disciplineId ->
-            teacherLessons.filter { it.disciplineId == disciplineId }
-        } ?: teacherLessons
+            uiState.lessons.filter { it.disciplineId == disciplineId }
+        } ?: uiState.lessons
 
         disciplines = disciplineLessons
             .filter { it.disciplineId != null }
@@ -145,34 +148,24 @@ fun TeacherVedRoute(journalApi: JournalApi) {
     }
 
     LaunchedEffect(Unit) {
-        runCatching {
-            val loadedPeriods = journalApi.getAcademicPeriods(includeClosed = true).data
-            periods = loadedPeriods
-            selectedPeriodId = loadedPeriods.firstOrNull { it.isActive }?.id ?: loadedPeriods.firstOrNull()?.id.orEmpty()
-        }.onFailure { throwable ->
-            error = throwable.userFacingMessage("Не удалось загрузить периоды")
+        viewModel.loadCatalog()
+    }
+
+    LaunchedEffect(uiState.selectedPeriodId) {
+        if (selectedPeriodId.isBlank()) {
+            selectedPeriodId = uiState.selectedPeriodId.orEmpty()
         }
     }
 
     LaunchedEffect(selectedPeriodId) {
-        if (selectedPeriodId.isBlank()) {
-            isLoading = false
-            return@LaunchedEffect
+        if (selectedPeriodId.isNotBlank() && selectedPeriodId != uiState.selectedPeriodId) {
+            resetPrefill()
+            viewModel.loadCatalog(selectedPeriodId)
         }
-        isLoading = true
-        resetPrefill()
-        runCatching {
-            loadLessonsForPeriod(journalApi, selectedPeriodId, periods)
-        }.onSuccess { lessons ->
-            teacherLessons = lessons
-            syncCatalogs()
-        }.onFailure { throwable ->
-            teacherLessons = emptyList()
-            disciplines = emptyList()
-            groups = emptyList()
-            error = throwable.userFacingMessage("Не удалось загрузить группы и предметы преподавателя")
-        }
-        isLoading = false
+    }
+
+    LaunchedEffect(uiState.lessons, selectedDisciplineId, selectedGroupId) {
+        syncCatalogs()
     }
 
     LazyColumn(
@@ -185,9 +178,14 @@ fun TeacherVedRoute(journalApi: JournalApi) {
         item {
             TemplateCard()
         }
+        if (uiState.isOffline) {
+            item {
+                OfflineBanner()
+            }
+        }
         item {
             StatementFormCard(
-                periods = periods,
+                periods = uiState.periods,
                 disciplines = disciplines,
                 groups = groups,
                 selectedPeriodId = selectedPeriodId,
@@ -199,11 +197,12 @@ fun TeacherVedRoute(journalApi: JournalApi) {
                 progressAsOf = progressAsOf,
                 overrides = overrides,
                 options = options,
-                isLoading = isLoading,
+                isLoading = uiState.isLoading,
                 isLoadingPrefill = isLoadingPrefill,
                 isGenerating = isGenerating,
                 message = message,
-                error = error,
+                error = error ?: uiState.error,
+                isOffline = uiState.isOffline,
                 onPeriodChange = { value ->
                     selectedPeriodId = value
                     selectedDisciplineId = ""
@@ -231,7 +230,7 @@ fun TeacherVedRoute(journalApi: JournalApi) {
                         error = null
                         message = null
                         runCatching {
-                            journalApi.getCurrentAttestationPrefill(
+                            viewModel.getPrefill(
                                 groupId = selectedGroupId,
                                 disciplineId = selectedDisciplineId,
                                 academicPeriodId = selectedPeriodId
@@ -259,7 +258,7 @@ fun TeacherVedRoute(journalApi: JournalApi) {
                         message = null
                         runCatching {
                             val accepted = requestStatementReport(
-                                journalApi = journalApi,
+                                requestReport = viewModel::requestReport,
                                 idempotencyKey = idempotencyKey,
                                 context = data.context,
                                 format = selectedFormat,
@@ -281,7 +280,7 @@ fun TeacherVedRoute(journalApi: JournalApi) {
                             pendingIdempotencyKey = null
                             readyStatements = listOf(statement) + readyStatements.filter { it.jobId != statement.jobId }
                             message = "Ведомость отправлена на формирование"
-                            waitForStatement(journalApi, statement) { updated ->
+                            waitForStatement(viewModel::getReportStatus, statement) { updated ->
                                 readyStatements = readyStatements.map { if (it.jobId == statement.jobId) updated else it }
                                 if (updated.status == "done") message = "Ведомость готова к скачиванию"
                                 if (updated.status == "failed" || updated.status == "permanently_failed") error = updated.error ?: "Формирование ведомости завершилось ошибкой"
@@ -308,10 +307,11 @@ fun TeacherVedRoute(journalApi: JournalApi) {
         item {
             ReadyStatementsCard(
                 statements = readyStatements,
+                isOffline = uiState.isOffline,
                 onRefresh = {
                     scope.launch {
                         readyStatements.forEach { statement ->
-                            runCatching { journalApi.getReportStatus(statement.jobId) }.onSuccess { task ->
+                            runCatching { viewModel.getReportStatus(statement.jobId) }.onSuccess { task ->
                                 readyStatements = readyStatements.map {
                                     if (it.jobId == statement.jobId) {
                                         it.copy(status = task.status, fileName = task.result?.fileName, error = task.errorMessage)
@@ -328,7 +328,7 @@ fun TeacherVedRoute(journalApi: JournalApi) {
                         error = null
                         message = null
                         runCatching {
-                            val body = journalApi.downloadReportFile(statement.jobId)
+                            val body = viewModel.downloadReportFile(statement.jobId)
                             shareReportFile(
                                 context = context,
                                 bytes = body.bytes(),
@@ -344,6 +344,22 @@ fun TeacherVedRoute(journalApi: JournalApi) {
                 }
             )
         }
+    }
+}
+
+@Composable
+private fun OfflineBanner() {
+    Card(
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3CD)),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        Text(
+            "Показаны сохраненные данные. Формирование и скачивание ведомостей доступны после восстановления сети.",
+            color = Color(0xFF7A4F00),
+            fontWeight = FontWeight.SemiBold,
+            modifier = Modifier.padding(14.dp)
+        )
     }
 }
 
@@ -390,6 +406,7 @@ private fun StatementFormCard(
     isGenerating: Boolean,
     message: String?,
     error: String?,
+    isOffline: Boolean,
     onPeriodChange: (String) -> Unit,
     onDisciplineChange: (String) -> Unit,
     onGroupChange: (String) -> Unit,
@@ -441,9 +458,13 @@ private fun StatementFormCard(
                 placeholder = "Выберите период",
                 onValueChange = onPeriodChange
             )
-            Button(
+                Button(
                 onClick = onLoadPrefill,
-                enabled = selectedDisciplineId.isNotBlank() && selectedGroupId.isNotBlank() && selectedPeriodId.isNotBlank() && !isLoadingPrefill,
+                enabled = selectedDisciplineId.isNotBlank() &&
+                    selectedGroupId.isNotBlank() &&
+                    selectedPeriodId.isNotBlank() &&
+                    !isLoadingPrefill &&
+                    !isOffline,
                 colors = ButtonDefaults.buttonColors(containerColor = LightBlue, contentColor = PrimaryText),
                 shape = RoundedCornerShape(10.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
@@ -469,9 +490,9 @@ private fun StatementFormCard(
                     onOverridesChange = onOverridesChange,
                     onOptionsChange = onOptionsChange
                 )
-                Button(
+                    Button(
                     onClick = onGenerate,
-                    enabled = !isGenerating,
+                    enabled = !isGenerating && !isOffline,
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
                     shape = RoundedCornerShape(10.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
@@ -552,6 +573,7 @@ private fun StudentsPreview(prefill: CurrentAttestationPrefill) {
 @Composable
 private fun ReadyStatementsCard(
     statements: List<ReadyStatement>,
+    isOffline: Boolean,
     onRefresh: () -> Unit,
     onDownload: (ReadyStatement) -> Unit
 ) {
@@ -564,7 +586,7 @@ private fun ReadyStatementsCard(
             Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                 Text("Готовые ведомости", color = PrimaryText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Spacer(Modifier.weight(1f))
-                TextButton(onClick = onRefresh, enabled = statements.isNotEmpty()) { Text("Обновить", color = PrimaryText) }
+                TextButton(onClick = onRefresh, enabled = statements.isNotEmpty() && !isOffline) { Text("Обновить", color = PrimaryText) }
             }
             if (statements.isEmpty()) {
                 Text("Готовые ведомости появятся здесь после формирования.", color = SecondaryText)
@@ -581,7 +603,7 @@ private fun ReadyStatementsCard(
                         Text("${statement.contextLabel} · ${formatLabel(statement.format)} · ${statusLabel(statement.status)}", color = SecondaryText)
                         Button(
                             onClick = { onDownload(statement) },
-                            enabled = statement.status == "done",
+                            enabled = statement.status == "done" && !isOffline,
                             colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
                             shape = RoundedCornerShape(10.dp),
                             contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
@@ -760,7 +782,7 @@ private fun String.toDisplayDate(): String = runCatching {
 }.getOrElse { this }
 
 private suspend fun requestStatementReport(
-    journalApi: JournalApi,
+    requestReport: suspend (String, RequestReportPayload) -> JobAccepted,
     idempotencyKey: String,
     context: CurrentAttestationContext,
     format: String,
@@ -781,7 +803,7 @@ private suspend fun requestStatementReport(
         try {
             // Pass the same idempotency key for every payload variant: preflight 404s don't
             // consume the key on the server side, so reusing the key across variants is safe.
-            return@let journalApi.requestCurrentAttestationReport(idempotencyKey, payload)
+            return@let requestReport(idempotencyKey, payload)
         } catch (throwable: Throwable) {
             lastError = throwable
             if (!throwable.isRecoverableReportRequestError()) throw throwable
@@ -871,13 +893,13 @@ internal fun Throwable.httpErrorMessage(): String {
 }
 
 private suspend fun waitForStatement(
-    journalApi: JournalApi,
+    getReportStatus: suspend (String) -> DocumentTask,
     statement: ReadyStatement,
     onUpdate: (ReadyStatement) -> Unit
 ) {
     repeat(12) {
         delay(2500)
-        runCatching { journalApi.getReportStatus(statement.jobId) }.onSuccess { task ->
+        runCatching { getReportStatus(statement.jobId) }.onSuccess { task ->
             onUpdate(
                 statement.copy(
                     status = task.status,
@@ -921,40 +943,6 @@ private fun reportMimeType(format: String): String = when (format) {
     "pdf" -> "application/pdf"
     "excel" -> "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     else -> "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-}
-
-private suspend fun loadLessonsForPeriod(
-    journalApi: JournalApi,
-    periodId: String,
-    periods: List<AcademicPeriod>
-): List<TeacherLesson> {
-    val period = periods.find { it.id == periodId }
-
-    // Use date-range strategy (mirrors the dashboard approach which is proven to return
-    // disciplineId / groupId in each lesson object).
-    if (period != null) {
-        val dateFrom = period.startsAt.take(10)
-        val dateTo = period.endsAt.take(10)
-        val all = mutableListOf<TeacherLesson>()
-        val pageSize = 200
-        var offset = 0
-        while (true) {
-            val page = journalApi.getLessons(
-                dateFrom = dateFrom,
-                dateTo = dateTo,
-                limit = pageSize,
-                offset = offset
-            )
-            all.addAll(page.lessons)
-            val total = page.total ?: break
-            if (all.size >= total) break
-            offset += pageSize
-        }
-        return all
-    }
-
-    // Fallback: period dates not available yet, try period_id param directly.
-    return journalApi.getLessons(periodId = periodId, limit = 500).lessons
 }
 
 private data class ReadyStatement(

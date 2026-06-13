@@ -11,7 +11,7 @@ todos:
   - id: stage0-student-viewmodels
     content: "✅ StudentScheduleViewModel и StudentJournalViewModel созданы и подключены"
   - id: stage0-admin-repos
-    content: "⚠️ MethodistDashboard и AdminDashboard переведены на repository/cache; TeacherStudentCard переведен на JournalRepository; остальные admin/methodist secondary repositories еще нужны"
+    content: "⚠️ MethodistDashboard и AdminDashboard переведены на repository/cache; TeacherStudentCard и TeacherVed переведены на repositories; остальные admin/methodist secondary repositories еще нужны"
   - id: stage1-session-entity
     content: "✅ SessionEntity расширен: userId, fullName, lastOnlineAt, offlineAllowedUntil"
   - id: stage1-offline-state
@@ -53,7 +53,7 @@ todos:
   - id: stage4-student-offline-ui
     content: "✅ Student экраны показывают cached/offline states"
   - id: stage5-teacher-dashboard-cache
-    content: "✅ TeacherDashboardRoute использует dashboard_cache для стартового JSON snapshot"
+    content: "⚠️ TeacherDashboardRoute использует dashboard_cache для стартового JSON snapshot; TeacherVed catalog cache готов; secondary access grant/journal flows еще требуют доработки"
   - id: stage5-methodist-read-cache
     content: "⚠️ MethodistDashboard и MethodistJournals кешируются; осталось templates/journalcreate read-cache и online-only markers"
   - id: stage5-admin-read-cache
@@ -73,7 +73,7 @@ todos:
   - id: tests-stage1
     content: "❌ Тесты AppViewModel offline fallback / OfflineAuthenticated / SessionExpired еще не добавлены"
   - id: tests-stage2
-    content: "⚠️ JournalRepository tests и TeacherStudentCardViewModel tests есть; LocalJournalMutationApplier/coalescing/error-classification покрытие нужно усилить"
+    content: "⚠️ JournalRepository tests, TeacherStudentCardViewModel tests и TeacherVed tests есть; LocalJournalMutationApplier/coalescing/error-classification покрытие нужно усилить"
   - id: tests-stage3
     content: "❌ SyncWorker tests еще не добавлены"
   - id: tests-migration
@@ -87,7 +87,7 @@ todos:
 
 ## СТАТУС ВЫПОЛНЕНИЯ ПЛАНА
 
-> Актуализировано после среза AdminUsers offline read-cache.
+> Актуализировано после среза TeacherVed offline read-cache.
 > Проверено по коду: JournalDatabase v6, 5 миграций (1->2, 2->3, 3->4, 4->5, 5->6). Debug-mode удален, тестирование идет через Keycloak.
 
 ### Этап 0 — Архитектурные основы
@@ -106,6 +106,7 @@ todos:
 - **AdminUsersViewModel** — ✅ создан. `AdminUsersRoute` читает список пользователей через `AdminRepository`, write-операции остаются online-only через `JournalApi`.
 - **AdminProblemStudentsViewModel / остальные Admin*ViewModels** — ❌ не созданы. Остальные admin route-файлы пока используют `JournalApi` напрямую.
 - **TeacherStudentCardViewModel** — ✅ создан. `TeacherStudentCardRoute` читает карточку через `JournalRepository.getJournalGrid()` и показывает cached/offline state.
+- **TeacherVedViewModel** — ✅ создан. `TeacherVedRoute` читает каталог периодов/занятий через `TeacherVedRepository`, показывает cached/offline state, а формирование/скачивание ведомостей оставлены online-only.
 
 ### Этап 1 — Сессия и offline-вход
 
@@ -151,6 +152,7 @@ todos:
 - **DashboardCacheEntity** — ✅ создана (migration 5->6).
 - **TeacherDashboardRepository** — ✅ создан, `TeacherDashboardRoute` использует кеш для стартового dashboard snapshot.
 - **TeacherStudentCardRoute** — ✅ прямой `JournalApi` убран, маршрут расширен `lessonType`, карточка строится из кешируемого `JournalGrid`.
+- **TeacherVedRoute** — ✅ прямой `JournalApi` убран из Route; каталог периодов/групп/дисциплин кешируется через `TeacherVedRepository`, report actions disabled offline.
 - **MethodistRepository** — ✅ создан для `MethodistDashboardRoute`.
 - **MethodistDashboardRoute** — ✅ убран прямой `JournalApi`, добавлен offline snapshot и banner.
 - **AdminRepository** — ✅ создан для `AdminDashboardRoute`.
@@ -171,20 +173,20 @@ todos:
 
 ### Тесты
 
-- **Уже есть** — ✅ `NetworkBoundResourceTest`, `SessionRepositoryTest`, `StudentRepositoryTest`, `TeacherRepositoryTest`, `JournalRepositoryTest`, `TeacherDashboardRepositoryTest`, `MethodistRepositoryTest`, `AdminRepositoryTest`, `TeacherHomeViewModelTest`, `TeacherJournalViewModelTest`, `TeacherStudentCardViewModelTest`, `MethodistJournalsViewModelTest`, `AdminUsersViewModelTest`, `BearerTokenInterceptorTest`, common tests для token/JWT.
+- **Уже есть** — ✅ `NetworkBoundResourceTest`, `SessionRepositoryTest`, `StudentRepositoryTest`, `TeacherRepositoryTest`, `JournalRepositoryTest`, `TeacherDashboardRepositoryTest`, `TeacherVedRepositoryTest`, `MethodistRepositoryTest`, `AdminRepositoryTest`, `TeacherHomeViewModelTest`, `TeacherJournalViewModelTest`, `TeacherStudentCardViewModelTest`, `TeacherVedViewModelTest`, `MethodistJournalsViewModelTest`, `AdminUsersViewModelTest`, `BearerTokenInterceptorTest`, common tests для token/JWT.
 - **AuthRepository тесты** — ❌ нет.
 - **NetworkError classifier тесты** — ❌ нет.
 - **AppViewModel offline fallback / SessionExpired тесты** — ❌ нет.
 - **LocalJournalMutationApplier тесты** — ❌ нет.
 - **SyncWorker тесты** — ❌ нет.
 - **Room migration тесты** — ❌ нет.
-- **AdminRepository / Methodist extended repository тесты** — ⚠️ dashboard, MethodistJournals и AdminUsers tests есть; остальные secondary read-cache tests появятся после реализации соответствующих repositories.
+- **AdminRepository / Methodist / Teacher extended repository тесты** — ⚠️ dashboard, MethodistJournals, AdminUsers и TeacherVed tests есть; остальные secondary read-cache tests появятся после реализации соответствующих repositories.
 
 ### Итог
 
 | Статус | Этапы | Комментарий |
 |---|---|---|
-| ✅ Выполнено | Stage 0 базово, Stage 1 частично, Stage 2 почти полностью, Student offline, Teacher Dashboard snapshot, TeacherStudentCard cache, Methodist Dashboard snapshot, Admin Dashboard snapshot | Основной offline каркас работает |
+| ✅ Выполнено | Stage 0 базово, Stage 1 частично, Stage 2 почти полностью, Student offline, Teacher Dashboard snapshot, TeacherStudentCard cache, TeacherVed catalog cache, Methodist Dashboard snapshot, Admin Dashboard snapshot | Основной offline каркас работает |
 | ⚠️ Частично | SyncWorker conflict path, DELETE_GRADE, Session TTL UI, TeacherDashboard secondary flows | Нужны UX/edge-case доработки |
 | ❌ Не выполнено | Admin audit/journals/periods/access/problem students read-cache, Methodist Templates/Create read-cache, Conflict UI, online-only markers, часть unit/migration tests | Следующий основной пласт |
 
@@ -228,7 +230,7 @@ features/
 
 - **Нет Domain Layer.** Нет ни одного UseCase. ViewModels вызывают репозитории напрямую. `TeacherJournalViewModel` содержит бизнес-логику (coalescing, retry, conflict resolution), которая должна быть в Use Cases.
 
-- **Admin/Methodist/часть Teacher features импортируют `core:network` напрямую.** Admin secondary routes, `MethodistTemplatesRoute`, `MethodistJournalCreateRoute`, `TeacherVedRoute` и secondary flows в `TeacherDashboardRoute` вызывают `JournalApi` напрямую, минуя репозитории/cache. `TeacherStudentCardRoute` уже переведен на `JournalRepository`, `MethodistJournalsRoute` — на `MethodistRepository`.
+- **Admin/Methodist/часть Teacher features импортируют `core:network` напрямую.** Admin secondary routes, `MethodistTemplatesRoute`, `MethodistJournalCreateRoute` и secondary flows в `TeacherDashboardRoute` вызывают `JournalApi` напрямую, минуя репозитории/cache. `TeacherStudentCardRoute` уже переведен на `JournalRepository`, `TeacherVedRoute` — на `TeacherVedRepository`, `MethodistJournalsRoute` — на `MethodistRepository`.
 
 - **Нет UI управления `FAILED/CONFLICT` pending actions.** `SyncWorker` уже выставляет статусы, но пользователь не может увидеть детали, повторить или отбросить проблемное действие.
 
@@ -255,7 +257,7 @@ features/
 
 - **Student экраны без ViewModel.** `StudentScheduleRoute`, `StudentJournalRoute` хранят state в `remember` + `LaunchedEffect`. Нет тестируемости, нет lifecycle awareness.
 
-- **Admin/Methodist routes — state в Route-файле.** Admin route-файлы, `MethodistTemplatesRoute`, `MethodistJournalCreateRoute` и `TeacherVedRoute` держат часть state/network logic прямо в Route. Не тестируемо и плохо кешируется. `TeacherStudentCardRoute` и `MethodistJournalsRoute` уже вынесены во ViewModel.
+- **Admin/Methodist routes — state в Route-файле.** Admin route-файлы, `MethodistTemplatesRoute`, `MethodistJournalCreateRoute` держат часть state/network logic прямо в Route. Не тестируемо и плохо кешируется. `TeacherStudentCardRoute`, `TeacherVedRoute` и `MethodistJournalsRoute` уже вынесены во ViewModel.
 
 - **`AppViewModel` всё еще широковат.** HTTP refresh и SSL уже вынесены/удалены, но bootstrap сессии, biometric gating, logout и TTL fallback остаются в одном ViewModel. Дальнейшая цель: `SessionBootstrapUseCase` + тонкий `AppViewModel`.
 
@@ -299,7 +301,7 @@ FSD — веб-методология (app -> pages -> widgets -> features -> en
 
 - Admin secondary screens (`audit`, `journals`, `periods`, `access`, `problem students`) все еще используют `JournalApi` напрямую и не имеют read-cache repository. `users` уже читает через `AdminRepository`, write остается online-only.
 - Methodist secondary screens (`journals`, `templates`, `journalcreate`) все еще используют `JournalApi` напрямую.
-- `TeacherVedRoute` и secondary flows в `TeacherDashboardRoute` остаются online/direct API; `TeacherStudentCardRoute` уже использует кешируемый `JournalRepository`.
+- Secondary flows в `TeacherDashboardRoute` остаются online/direct API; `TeacherStudentCardRoute` уже использует кешируемый `JournalRepository`, `TeacherVedRoute` — кешируемый `TeacherVedRepository`.
 - `DELETE_GRADE` локально применяется, но не синхронизируется с сервером из-за отсутствия endpoint.
 - Нет UI для просмотра/решения `FAILED` и `CONFLICT` pending actions.
 - Нет отдельного `SessionState.SessionExpired` и пользовательского TTL-сообщения.
@@ -380,7 +382,8 @@ fun Throwable.toNetworkError(): NetworkError = when (this) {
 - `TeacherDashboardViewModel` — ✅ создан для стартового dashboard snapshot.
 - `MethodistDashboardViewModel` — ✅ создан для стартового dashboard snapshot.
 - `AdminProblemStudentsViewModel` — ❌ вместо прямого `JournalApi` в Route.
-- `TeacherStudentCardViewModel` — ❌ вместо локального state/API в Route.
+- `TeacherStudentCardViewModel` — ✅ создан вместо локального state/API в Route.
+- `TeacherVedViewModel` — ✅ создан для cached/offline каталога ведомостей и online-only report actions.
 - `MethodistJournalsViewModel` — ✅ создан.
 - `MethodistTemplatesViewModel`, `MethodistJournalCreateViewModel` — ❌ вместо прямого `JournalApi` в Route.
 

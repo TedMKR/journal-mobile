@@ -42,6 +42,7 @@ dependencies {
     implementation(project(":features:teacher:home"))
     implementation(project(":features:teacher:journal"))
     implementation(project(":features:teacher:studentcard"))
+    implementation(project(":features:teacher:ved"))
     implementation(project(":features:methodist:journals"))
     implementation(project(":features:admin:users"))
 
