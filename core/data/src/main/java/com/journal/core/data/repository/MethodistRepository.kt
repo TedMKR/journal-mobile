@@ -27,6 +27,15 @@ data class MethodistDashboardData(
     val journals: List<JournalContext> = emptyList()
 )
 
+@Serializable
+data class MethodistJournalsData(
+    val periods: List<AcademicPeriod> = emptyList(),
+    val disciplines: List<Discipline> = emptyList(),
+    val teachers: List<TeacherProfile> = emptyList(),
+    val groups: List<AcademicGroup> = emptyList(),
+    val journals: List<JournalContext> = emptyList()
+)
+
 @Singleton
 class MethodistRepository @Inject constructor(
     private val api: JournalApi,
@@ -71,13 +80,75 @@ class MethodistRepository @Inject constructor(
         )
     }
 
+    fun getJournals(
+        periodId: String? = null,
+        disciplineId: String? = null,
+        groupId: String? = null,
+        teacherId: String? = null,
+        lessonType: String? = null,
+        query: String? = null,
+        cacheMaxAgeMs: Long = CACHE_MAX_AGE_MS
+    ): Flow<Resource<MethodistJournalsData?>> {
+        val key = journalsCacheKey(periodId, disciplineId, groupId, teacherId, lessonType, query)
+        return networkBoundResource(
+            localFlow = {
+                dashboardCacheDao.observe(key)
+                    .map { entity -> entity?.toMethodistJournalsData(json) }
+            },
+            shouldFetch = { cached ->
+                if (cached == null) return@networkBoundResource true
+                val entity = dashboardCacheDao.get(key)
+                entity == null || System.currentTimeMillis() - entity.cachedAt > cacheMaxAgeMs
+            },
+            fetch = {
+                MethodistJournalsData(
+                    periods = api.getAcademicPeriods(includeClosed = true).data,
+                    disciplines = api.getDisciplines(limit = 200).data,
+                    teachers = api.getTeachers(limit = 200).data,
+                    groups = api.getGroups(limit = 200).data,
+                    journals = api.getJournals(
+                        periodId = periodId,
+                        disciplineId = disciplineId,
+                        groupId = groupId,
+                        teacherId = teacherId,
+                        lessonType = lessonType,
+                        query = query,
+                        limit = 200,
+                        offset = 0
+                    ).data
+                )
+            },
+            saveFetchResult = { data ->
+                dashboardCacheDao.upsert(data.toEntity(key, json))
+            }
+        )
+    }
+
     companion object {
         const val CACHE_MAX_AGE_MS = 5 * 60 * 1000L
         private const val DASHBOARD_SCREEN_KEY = "methodist_dashboard"
+        private const val JOURNALS_SCREEN_KEY = "methodist_journals"
         private const val FALLBACK_USER_KEY = "current"
 
         fun dashboardCacheKey(userId: String?): String =
             "$DASHBOARD_SCREEN_KEY|${userId?.takeIf(String::isNotBlank) ?: FALLBACK_USER_KEY}"
+
+        fun journalsCacheKey(
+            periodId: String?,
+            disciplineId: String?,
+            groupId: String?,
+            teacherId: String?,
+            lessonType: String?,
+            query: String?
+        ): String = listOf(
+            JOURNALS_SCREEN_KEY,
+            periodId.cachePart(),
+            disciplineId.cachePart(),
+            groupId.cachePart(),
+            teacherId.cachePart(),
+            lessonType.cachePart(),
+            query.cachePart()
+        ).joinToString("|")
     }
 }
 
@@ -88,3 +159,13 @@ private fun MethodistDashboardData.toEntity(key: String, json: Json) = Dashboard
 
 private fun DashboardCacheEntity.toMethodistDashboardData(json: Json): MethodistDashboardData =
     json.decodeFromString(MethodistDashboardData.serializer(), jsonData)
+
+private fun MethodistJournalsData.toEntity(key: String, json: Json) = DashboardCacheEntity(
+    key = key,
+    jsonData = json.encodeToString(this)
+)
+
+private fun DashboardCacheEntity.toMethodistJournalsData(json: Json): MethodistJournalsData =
+    json.decodeFromString(MethodistJournalsData.serializer(), jsonData)
+
+private fun String?.cachePart(): String = this?.trim()?.takeIf { it.isNotBlank() } ?: "_"

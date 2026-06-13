@@ -2,6 +2,7 @@ package com.journal.tests.data
 
 import app.cash.turbine.test
 import com.journal.core.data.repository.MethodistDashboardData
+import com.journal.core.data.repository.MethodistJournalsData
 import com.journal.core.data.repository.MethodistRepository
 import com.journal.core.data.util.Resource
 import com.journal.core.database.dao.DashboardCacheDao
@@ -122,6 +123,53 @@ class MethodistRepositoryTest {
         }
     }
 
+    @Test
+    fun `getJournals saves filtered snapshot to cache`() = runTest {
+        stubDashboardApi()
+
+        repository.getJournals(periodId = samplePeriod.id, query = "math").test {
+            assertTrue(awaitItem() is Resource.Loading)
+
+            val success = awaitItem()
+            assertTrue(success is Resource.Success)
+            val data = (success as Resource.Success).data
+            assertEquals(listOf(samplePeriod), data?.periods)
+            assertEquals(listOf(sampleJournal), data?.journals)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val cached = dao.get(
+            MethodistRepository.journalsCacheKey(
+                periodId = samplePeriod.id,
+                disciplineId = null,
+                groupId = null,
+                teacherId = null,
+                lessonType = null,
+                query = "math"
+            )
+        )
+        assertEquals("methodist_journals|period-1|_|_|_|_|math", cached?.key)
+    }
+
+    @Test
+    fun `getJournals emits Error with cached data when refresh fails`() = runTest {
+        dao.upsert(cachedJournalsEntity(cachedAt = 0L))
+        coEvery { api.getAcademicPeriods(any()) } throws RuntimeException("network down")
+
+        repository.getJournals(periodId = samplePeriod.id, cacheMaxAgeMs = 1L).test {
+            val loading = awaitItem()
+            assertTrue(loading is Resource.Loading)
+            assertEquals(listOf(sampleJournal), (loading as Resource.Loading).data?.journals)
+
+            val error = awaitItem()
+            assertTrue(error is Resource.Error)
+            assertEquals(listOf(sampleJournal), (error as Resource.Error).data?.journals)
+
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
     private fun stubDashboardApi() {
         coEvery { api.getAcademicPeriods(any()) } returns AcademicPeriodsResponse(listOf(samplePeriod))
         coEvery {
@@ -143,6 +191,28 @@ class MethodistRepositoryTest {
             key = MethodistRepository.dashboardCacheKey("methodist-1"),
             jsonData = json.encodeToString(
                 MethodistDashboardData(
+                    periods = listOf(samplePeriod),
+                    disciplines = listOf(sampleDiscipline),
+                    teachers = listOf(sampleTeacher),
+                    groups = listOf(sampleGroup),
+                    journals = listOf(sampleJournal)
+                )
+            ),
+            cachedAt = cachedAt
+        )
+
+    private fun cachedJournalsEntity(cachedAt: Long): DashboardCacheEntity =
+        DashboardCacheEntity(
+            key = MethodistRepository.journalsCacheKey(
+                periodId = samplePeriod.id,
+                disciplineId = null,
+                groupId = null,
+                teacherId = null,
+                lessonType = null,
+                query = null
+            ),
+            jsonData = json.encodeToString(
+                MethodistJournalsData(
                     periods = listOf(samplePeriod),
                     disciplines = listOf(sampleDiscipline),
                     teachers = listOf(sampleTeacher),

@@ -232,7 +232,6 @@ fun JournalNavHost(
             }
             composable(Routes.METHODIST_JOURNALS) {
                 MethodistJournalsRoute(
-                    journalApi = journalApi,
                     onOpenJournal = { target ->
                         navController.navigate(
                             Routes.teacherJournal(

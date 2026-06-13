@@ -31,8 +31,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -41,7 +42,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import com.journal.core.common.config.PersonNameFormatter
-import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriod
 import com.journal.core.model.teacher.AssignLessonTemplateRequest
@@ -55,7 +55,6 @@ import com.journal.core.model.teacher.LessonTopic
 import com.journal.core.model.teacher.TeacherProfile
 import com.journal.core.model.teacher.TopicPayload
 import com.journal.core.model.teacher.UpdateLessonTemplateRequest
-import com.journal.core.network.api.JournalApi
 import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppDanger
 import com.journal.core.ui.AppDropdown
@@ -88,17 +87,11 @@ private const val DashboardVisibleRows = 8
 
 @Composable
 fun MethodistJournalsRoute(
-    journalApi: JournalApi,
     onOpenJournal: (MethodistJournalTarget) -> Unit,
-    onCreateJournal: () -> Unit
+    onCreateJournal: () -> Unit,
+    viewModel: MethodistJournalsViewModel = hiltViewModel()
 ) {
-    var isLoading by remember { mutableStateOf(true) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var journals by remember { mutableStateOf<List<JournalContext>>(emptyList()) }
-    var periods by remember { mutableStateOf<List<AcademicPeriod>>(emptyList()) }
-    var disciplines by remember { mutableStateOf<List<Discipline>>(emptyList()) }
-    var groups by remember { mutableStateOf<List<AcademicGroup>>(emptyList()) }
-    var teachers by remember { mutableStateOf<List<TeacherProfile>>(emptyList()) }
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var search by remember { mutableStateOf("") }
     var selectedPeriodId by remember { mutableStateOf("") }
     var selectedDisciplineId by remember { mutableStateOf("") }
@@ -106,41 +99,18 @@ fun MethodistJournalsRoute(
     var selectedTeacherId by remember { mutableStateOf("") }
     var selectedType by remember { mutableStateOf("") }
 
-    suspend fun loadJournals() {
-        isLoading = true
-        error = null
-        runCatching {
-            journalApi.getJournals(
-                periodId = selectedPeriodId.ifBlank { null },
-                disciplineId = selectedDisciplineId.ifBlank { null },
-                groupId = selectedGroupId.ifBlank { null },
-                teacherId = selectedTeacherId.ifBlank { null },
-                lessonType = selectedType.ifBlank { null },
-                query = search.trim().ifBlank { null },
-                limit = 200,
-                offset = 0
-            ).data
-        }.onSuccess { loadedJournals ->
-            journals = loadedJournals
-        }.onFailure { throwable ->
-            journals = emptyList()
-            error = throwable.userFacingMessage("Не удалось загрузить журналы")
-        }
-        isLoading = false
-    }
-
-    LaunchedEffect(Unit) {
-        runCatching { periods = journalApi.getAcademicPeriods(includeClosed = true).data }
-        runCatching { disciplines = journalApi.getDisciplines(limit = 200).data }
-        runCatching { groups = journalApi.getGroups(limit = 200).data }
-        runCatching { teachers = journalApi.getTeachers(limit = 200).data }
-    }
-
     LaunchedEffect(selectedPeriodId, selectedDisciplineId, selectedGroupId, selectedTeacherId, selectedType, search) {
-        loadJournals()
+        viewModel.loadJournals(
+            periodId = selectedPeriodId,
+            disciplineId = selectedDisciplineId,
+            groupId = selectedGroupId,
+            teacherId = selectedTeacherId,
+            lessonType = selectedType,
+            query = search
+        )
     }
 
-    val contexts = remember(journals) { journals }
+    val contexts = uiState.journals
 
     MethodologistScaffold(
         title = "Журналы",
@@ -153,24 +123,27 @@ fun MethodistJournalsRoute(
             JournalFilters(
                 search = search,
                 onSearchChange = { search = it },
-                periods = periods,
+                periods = uiState.periods,
                 selectedPeriodId = selectedPeriodId,
                 onPeriodChange = { selectedPeriodId = it },
-                disciplines = disciplines,
+                disciplines = uiState.disciplines,
                 selectedDisciplineId = selectedDisciplineId,
                 onDisciplineChange = { selectedDisciplineId = it },
-                groups = groups,
+                groups = uiState.groups,
                 selectedGroupId = selectedGroupId,
                 onGroupChange = { selectedGroupId = it },
-                teachers = teachers,
+                teachers = uiState.teachers,
                 selectedTeacherId = selectedTeacherId,
                 onTeacherChange = { selectedTeacherId = it },
                 selectedType = selectedType,
                 onTypeChange = { selectedType = it }
             )
+            if (uiState.isOffline) {
+                StateCard("Показаны сохраненные данные. Обновление будет доступно после восстановления сети.")
+            }
             when {
-                isLoading -> LoadingCard("Загружаю журналы...")
-                error != null -> StateCard(error.orEmpty(), isError = true)
+                uiState.isLoading -> LoadingCard("Загружаю журналы...")
+                uiState.error != null -> StateCard(uiState.error.orEmpty(), isError = true)
                 contexts.isEmpty() -> StateCard("Журналы не найдены")
                 else -> contexts.forEach { context ->
                     JournalContextCard(context = context, onOpen = { onOpenJournal(context.toTarget()) })

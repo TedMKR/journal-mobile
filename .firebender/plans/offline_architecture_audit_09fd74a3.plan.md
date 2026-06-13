@@ -55,7 +55,7 @@ todos:
   - id: stage5-teacher-dashboard-cache
     content: "✅ TeacherDashboardRoute использует dashboard_cache для стартового JSON snapshot"
   - id: stage5-methodist-read-cache
-    content: "⚠️ MethodistDashboard кешируется; осталось journals/templates/journalcreate read-cache и online-only markers"
+    content: "⚠️ MethodistDashboard и MethodistJournals кешируются; осталось templates/journalcreate read-cache и online-only markers"
   - id: stage5-admin-read-cache
     content: "⚠️ AdminDashboard кешируется через AdminRepository; users/audit/journals/periods/access/problem students еще без read-cache"
   - id: stage5-dashboard-cache-table
@@ -87,7 +87,7 @@ todos:
 
 ## СТАТУС ВЫПОЛНЕНИЯ ПЛАНА
 
-> Актуализировано после среза TeacherStudentCard offline read-cache.
+> Актуализировано после среза MethodistJournals offline read-cache.
 > Проверено по коду: JournalDatabase v6, 5 миграций (1->2, 2->3, 3->4, 4->5, 5->6). Debug-mode удален, тестирование идет через Keycloak.
 
 ### Этап 0 — Архитектурные основы
@@ -100,7 +100,8 @@ todos:
 - **StudentJournalViewModel** — ✅ создан и подключен.
 - **TeacherDashboardViewModel** — ✅ создан и подключен к `TeacherDashboardRepository` для стартового snapshot.
 - **MethodistDashboardViewModel** — ✅ создан и подключен к `MethodistRepository`.
-- **MethodistJournalsViewModel / MethodistTemplatesViewModel** — ❌ не созданы. `MethodistJournalsRoute`, `MethodistRoutes.kt`, `MethodistJournalCreateRoute` пока используют `JournalApi` напрямую.
+- **MethodistJournalsViewModel** — ✅ создан. `MethodistJournalsRoute` читает список журналов и справочники фильтров через `MethodistRepository`.
+- **MethodistTemplatesViewModel / MethodistJournalCreateViewModel** — ❌ не созданы. `MethodistRoutes.kt`, `MethodistJournalCreateRoute` пока используют `JournalApi` напрямую.
 - **AdminDashboardViewModel** — ✅ создан и подключен к `AdminRepository`.
 - **AdminProblemStudentsViewModel / остальные Admin*ViewModels** — ❌ не созданы. Остальные admin route-файлы пока используют `JournalApi` напрямую.
 - **TeacherStudentCardViewModel** — ✅ создан. `TeacherStudentCardRoute` читает карточку через `JournalRepository.getJournalGrid()` и показывает cached/offline state.
@@ -153,7 +154,8 @@ todos:
 - **MethodistDashboardRoute** — ✅ убран прямой `JournalApi`, добавлен offline snapshot и banner.
 - **AdminRepository** — ✅ создан для `AdminDashboardRoute`.
 - **AdminDashboardRoute** — ✅ убран прямой `JournalApi`, добавлен offline snapshot и banner.
-- **MethodistJournalsRoute / Templates / JournalCreate** — ❌ прямой `JournalApi` остается; read-cache и online-only markers еще не сделаны.
+- **MethodistJournalsRoute** — ✅ прямой `JournalApi` убран, добавлен `MethodistRepository.getJournals()` с cache snapshot и offline state.
+- **MethodistTemplatesRoute / JournalCreate** — ❌ прямой `JournalApi` остается; read-cache и online-only markers еще не сделаны.
 - **Admin screens read-cache** — ⚠️ dashboard сделан; users, audit, journals, periods, access, problem students пока ходят напрямую в `JournalApi`.
 - **TeacherDashboard secondary flows** — ⚠️ стартовый snapshot кешируется, но интерактивные подгрузки выбранного журнала/access grant остаются online-only через `JournalApi`.
 
@@ -224,7 +226,7 @@ features/
 
 - **Нет Domain Layer.** Нет ни одного UseCase. ViewModels вызывают репозитории напрямую. `TeacherJournalViewModel` содержит бизнес-логику (coalescing, retry, conflict resolution), которая должна быть в Use Cases.
 
-- **Admin/Methodist/часть Teacher features импортируют `core:network` напрямую.** Admin secondary routes, `MethodistJournalsRoute`, `MethodistTemplatesRoute`, `MethodistJournalCreateRoute`, `TeacherVedRoute` и secondary flows в `TeacherDashboardRoute` вызывают `JournalApi` напрямую, минуя репозитории/cache. `TeacherStudentCardRoute` уже переведен на `JournalRepository`.
+- **Admin/Methodist/часть Teacher features импортируют `core:network` напрямую.** Admin secondary routes, `MethodistTemplatesRoute`, `MethodistJournalCreateRoute`, `TeacherVedRoute` и secondary flows в `TeacherDashboardRoute` вызывают `JournalApi` напрямую, минуя репозитории/cache. `TeacherStudentCardRoute` уже переведен на `JournalRepository`, `MethodistJournalsRoute` — на `MethodistRepository`.
 
 - **Нет UI управления `FAILED/CONFLICT` pending actions.** `SyncWorker` уже выставляет статусы, но пользователь не может увидеть детали, повторить или отбросить проблемное действие.
 
@@ -251,7 +253,7 @@ features/
 
 - **Student экраны без ViewModel.** `StudentScheduleRoute`, `StudentJournalRoute` хранят state в `remember` + `LaunchedEffect`. Нет тестируемости, нет lifecycle awareness.
 
-- **Admin/Methodist routes — state в Route-файле.** Admin route-файлы, `MethodistJournalsRoute`, `MethodistTemplatesRoute`, `MethodistJournalCreateRoute` и `TeacherVedRoute` держат часть state/network logic прямо в Route. Не тестируемо и плохо кешируется. `TeacherStudentCardRoute` уже вынесен во ViewModel.
+- **Admin/Methodist routes — state в Route-файле.** Admin route-файлы, `MethodistTemplatesRoute`, `MethodistJournalCreateRoute` и `TeacherVedRoute` держат часть state/network logic прямо в Route. Не тестируемо и плохо кешируется. `TeacherStudentCardRoute` и `MethodistJournalsRoute` уже вынесены во ViewModel.
 
 - **`AppViewModel` всё еще широковат.** HTTP refresh и SSL уже вынесены/удалены, но bootstrap сессии, biometric gating, logout и TTL fallback остаются в одном ViewModel. Дальнейшая цель: `SessionBootstrapUseCase` + тонкий `AppViewModel`.
 
@@ -377,7 +379,8 @@ fun Throwable.toNetworkError(): NetworkError = when (this) {
 - `MethodistDashboardViewModel` — ✅ создан для стартового dashboard snapshot.
 - `AdminProblemStudentsViewModel` — ❌ вместо прямого `JournalApi` в Route.
 - `TeacherStudentCardViewModel` — ❌ вместо локального state/API в Route.
-- `MethodistJournalsViewModel`, `MethodistTemplatesViewModel`, `MethodistJournalCreateViewModel` — ❌ вместо прямого `JournalApi` в Route.
+- `MethodistJournalsViewModel` — ✅ создан.
+- `MethodistTemplatesViewModel`, `MethodistJournalCreateViewModel` — ❌ вместо прямого `JournalApi` в Route.
 
 ---
 
