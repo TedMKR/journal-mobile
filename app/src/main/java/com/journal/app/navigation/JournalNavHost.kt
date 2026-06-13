@@ -181,7 +181,6 @@ fun JournalNavHost(
             }
             composable(Routes.TEACHER_DASHBOARD) {
                 TeacherDashboardRoute(
-                    journalApi = journalApi,
                     jwtName = jwtFullName,
                     userId = jwtUserId,
                     onOpenJournal = { target ->

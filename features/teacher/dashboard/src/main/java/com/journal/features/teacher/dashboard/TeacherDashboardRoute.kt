@@ -48,7 +48,6 @@ import com.journal.core.model.teacher.GrantJournalAccessRequest
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.TeacherLesson
 import com.journal.core.model.teacher.TeacherProfile
-import com.journal.core.network.api.JournalApi
 import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppDropdown
 import com.journal.core.ui.AppHeaderBackground
@@ -72,7 +71,6 @@ private val LessonBackground = AppLessonBackground
 
 @Composable
 fun TeacherDashboardRoute(
-    journalApi: JournalApi,
     onOpenJournal: (TeacherDashboardJournalTarget) -> Unit,
     /** Full name extracted from the JWT access token — most reliable source. */
     jwtName: String? = null,
@@ -80,8 +78,10 @@ fun TeacherDashboardRoute(
     viewModel: TeacherDashboardViewModel = hiltViewModel()
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val selectedJournalState by viewModel.selectedJournalState.collectAsStateWithLifecycle()
+    val teachersState by viewModel.teachersState.collectAsStateWithLifecycle()
     val dashboardState = uiState.dashboard?.let { dashboard ->
-        buildDashboardState(dashboard = dashboard, journalApi = journalApi, jwtName = jwtName)
+        buildDashboardState(dashboard = dashboard, jwtName = jwtName)
     }
 
     LaunchedEffect(userId) {
@@ -102,6 +102,9 @@ fun TeacherDashboardRoute(
             dashboardState != null -> TeacherDashboardContent(
                 state = dashboardState,
                 isOffline = uiState.isOffline,
+                selectedJournalState = selectedJournalState,
+                teachersState = teachersState,
+                viewModel = viewModel,
                 onOpenJournal = onOpenJournal
             )
         }
@@ -112,6 +115,9 @@ fun TeacherDashboardRoute(
 private fun TeacherDashboardContent(
     state: TeacherDashboardUiState,
     isOffline: Boolean,
+    selectedJournalState: TeacherDashboardJournalState,
+    teachersState: TeacherDashboardTeachersState,
+    viewModel: TeacherDashboardViewModel,
     onOpenJournal: (TeacherDashboardJournalTarget) -> Unit
 ) {
     Column(
@@ -127,7 +133,10 @@ private fun TeacherDashboardContent(
         TodayScheduleCard(state.todayLessons)
         AnalyticsCard(
             state = state,
-            journalApi = state.journalApi,
+            isOffline = isOffline,
+            selectedJournalState = selectedJournalState,
+            teachersState = teachersState,
+            viewModel = viewModel,
             onOpenJournal = onOpenJournal
         )
     }
@@ -213,7 +222,10 @@ private fun TodayScheduleCard(lessons: List<TeacherLesson>) {
 @Composable
 private fun AnalyticsCard(
     state: TeacherDashboardUiState,
-    journalApi: JournalApi,
+    isOffline: Boolean,
+    selectedJournalState: TeacherDashboardJournalState,
+    teachersState: TeacherDashboardTeachersState,
+    viewModel: TeacherDashboardViewModel,
     onOpenJournal: (TeacherDashboardJournalTarget) -> Unit
 ) {
     var selectedType by remember { mutableStateOf("practice") }
@@ -223,10 +235,6 @@ private fun AnalyticsCard(
     var showAccessDialog by remember { mutableStateOf(false) }
 
     // Journal loaded for the currently applied selection
-    var selectedJournal by remember { mutableStateOf<JournalGridResponse?>(null) }
-    var isLoadingSelected by remember { mutableStateOf(false) }
-    var loadError by remember { mutableStateOf<String?>(null) }
-
     val selectedTarget = appliedTarget ?: state.defaultJournalTarget
     val canApply = selectedDisciplineId.isNotBlank() && selectedGroupId.isNotBlank()
 
@@ -235,24 +243,15 @@ private fun AnalyticsCard(
     // subgroup so "Студентов в группе" shows the real group total.
     LaunchedEffect(appliedTarget) {
         val target = appliedTarget ?: return@LaunchedEffect
-        isLoadingSelected = true
-        selectedJournal = null
-        loadError = null
-        runCatching {
-            journalApi.getGroupJournalGrid(
-                groupId = target.groupId,
-                disciplineId = target.disciplineId,
-                academicPeriodId = target.periodId
-            )
-        }.onSuccess { journal ->
-            selectedJournal = journal
-        }.onFailure { t ->
-        loadError = t.userFacingMessage("Не удалось загрузить данные журнала")
-        }
-        isLoadingSelected = false
+        viewModel.loadSelectedJournal(
+            groupId = target.groupId,
+            disciplineId = target.disciplineId,
+            periodId = target.periodId
+        )
     }
 
     // Stats to display from freshly loaded journal
+    val selectedJournal = selectedJournalState.journal
     val displayAttendance = selectedJournal?.let { attendanceByMonth(it) } ?: emptyList()
     val displayStudentsCount = selectedJournal?.students?.size ?: 0
 
@@ -318,7 +317,7 @@ private fun AnalyticsCard(
             }
             Button(
                 onClick = { showAccessDialog = true },
-                enabled = selectedTarget != null,
+                enabled = selectedTarget != null && !isOffline,
                 colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
                 shape = RoundedCornerShape(12.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
@@ -341,7 +340,7 @@ private fun AnalyticsCard(
                     Text("Выберите предмет и группу для просмотра аналитики", color = SecondaryText)
                 }
             }
-            isLoadingSelected -> {
+            selectedJournalState.isLoading -> {
                 Box(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 20.dp),
                     contentAlignment = Alignment.Center
@@ -349,7 +348,7 @@ private fun AnalyticsCard(
                     CircularProgressIndicator()
                 }
             }
-            loadError != null -> {
+            selectedJournalState.error != null -> {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -357,7 +356,7 @@ private fun AnalyticsCard(
                         .padding(vertical = 20.dp, horizontal = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
-                    Text(loadError.orEmpty(), color = SecondaryText, style = MaterialTheme.typography.bodySmall)
+                    Text(selectedJournalState.error.orEmpty(), color = SecondaryText, style = MaterialTheme.typography.bodySmall)
                 }
             }
             selectedJournal != null && selectedTarget != null -> {
@@ -388,8 +387,11 @@ private fun AnalyticsCard(
 
     if (showAccessDialog) {
         AccessGrantDialog(
-            journalApi = journalApi,
             target = selectedTarget,
+            teachersState = teachersState,
+            isOffline = isOffline,
+            onLoadTeachers = viewModel::loadAccessTeachers,
+            onGrantAccess = viewModel::grantJournalAccess,
             onDismiss = { showAccessDialog = false }
         )
     }
@@ -411,28 +413,21 @@ private fun ActionTile(title: String, value: String, modifier: Modifier = Modifi
 
 @Composable
 private fun AccessGrantDialog(
-    journalApi: JournalApi,
     target: TeacherDashboardJournalTarget?,
+    teachersState: TeacherDashboardTeachersState,
+    isOffline: Boolean,
+    onLoadTeachers: () -> Unit,
+    onGrantAccess: suspend (GrantJournalAccessRequest) -> Unit,
     onDismiss: () -> Unit
 ) {
     val scope = rememberCoroutineScope()
-    var teachers by remember { mutableStateOf<List<TeacherProfile>>(emptyList()) }
     var selectedTeacher by remember { mutableStateOf<TeacherProfile?>(null) }
     var accessLevel by remember { mutableStateOf("read") }
-    var isLoading by remember { mutableStateOf(true) }
     var isSaving by remember { mutableStateOf(false) }
     var message by remember { mutableStateOf<String?>(null) }
 
     LaunchedEffect(Unit) {
-        runCatching { journalApi.getTeachers(limit = 200).data }
-            .onSuccess { loaded ->
-                teachers = loaded.filter { !it.keycloakId.isNullOrBlank() }
-                isLoading = false
-            }
-            .onFailure { throwable ->
-                message = throwable.userFacingMessage("Не удалось загрузить преподавателей")
-                isLoading = false
-            }
+        onLoadTeachers()
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -446,12 +441,16 @@ private fun AccessGrantDialog(
             Text("Открыть доступ", color = PrimaryText, style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
             Text("Выберите преподавателя и уровень доступа к текущему журналу.", color = SecondaryText, style = MaterialTheme.typography.bodySmall)
 
-            if (isLoading) {
+            if (teachersState.isLoading) {
                 CircularProgressIndicator()
             } else {
+                teachersState.error?.let { Text(it, color = PrimaryText, style = MaterialTheme.typography.bodySmall) }
+                if (teachersState.isOffline) {
+                    Text("Показан сохраненный список преподавателей. Выдать доступ можно после восстановления сети.", color = SecondaryText, style = MaterialTheme.typography.bodySmall)
+                }
                 Text("Преподаватель", color = PrimaryText, fontWeight = FontWeight.SemiBold)
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    teachers.take(6).forEach { teacher ->
+                    teachersState.teachers.take(6).forEach { teacher ->
                         SelectRow(
                             text = PersonNameFormatter.formatFullName(teacher.fullName),
                             selected = selectedTeacher?.id == teacher.id,
@@ -498,7 +497,7 @@ private fun AccessGrantDialog(
                         scope.launch {
                             isSaving = true
                             runCatching {
-                                journalApi.grantJournalAccess(
+                                onGrantAccess(
                                     GrantJournalAccessRequest(
                                         granteeId = granteeId,
                                         disciplineId = target.disciplineId,
@@ -516,7 +515,7 @@ private fun AccessGrantDialog(
                             }
                         }
                     },
-                    enabled = !isSaving && !isLoading,
+                    enabled = !isSaving && !teachersState.isLoading && !isOffline && !teachersState.isOffline,
                     colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
                     shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
@@ -610,7 +609,6 @@ private fun AttendanceLineChart(months: List<AttendanceMonth>) {
 
 private fun buildDashboardState(
     dashboard: TeacherDashboardData,
-    journalApi: JournalApi,
     jwtName: String? = null
 ): TeacherDashboardUiState {
     val lessons = dashboard.lessons
@@ -649,7 +647,6 @@ private fun buildDashboardState(
             .map { SelectOption(it.first, it.second) },
         lessons = lessons,
         activePeriodId = activePeriodId,
-        journalApi = journalApi,
         defaultJournalTarget = defaultLesson?.let {
             TeacherDashboardJournalTarget(
                 groupId = it.groupId.orEmpty(),
@@ -749,7 +746,6 @@ private data class TeacherDashboardUiState(
     val lessons: List<TeacherLesson>,
     /** ID of the currently active academic period — reliable fallback for periodId resolution */
     val activePeriodId: String?,
-    val journalApi: JournalApi,
     val defaultJournalTarget: TeacherDashboardJournalTarget?
 )
 

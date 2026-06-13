@@ -39,6 +39,7 @@ dependencies {
     // core:network must be explicit – it's an `implementation` dep of core:data
     // so it is NOT exposed transitively to this module
     implementation(project(":core:network"))
+    implementation(project(":features:teacher:dashboard"))
     implementation(project(":features:teacher:home"))
     implementation(project(":features:teacher:journal"))
     implementation(project(":features:teacher:studentcard"))

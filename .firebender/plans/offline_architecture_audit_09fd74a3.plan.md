@@ -53,7 +53,7 @@ todos:
   - id: stage4-student-offline-ui
     content: "✅ Student экраны показывают cached/offline states"
   - id: stage5-teacher-dashboard-cache
-    content: "⚠️ TeacherDashboardRoute использует dashboard_cache для стартового JSON snapshot; TeacherVed catalog cache готов; secondary access grant/journal flows еще требуют доработки"
+    content: "✅ TeacherDashboardRoute использует dashboard_cache для стартового JSON snapshot, выбранного журнала и списка учителей access dialog; access grant остается online-only"
   - id: stage5-methodist-read-cache
     content: "⚠️ MethodistDashboard и MethodistJournals кешируются; осталось templates/journalcreate read-cache и online-only markers"
   - id: stage5-admin-read-cache
@@ -98,7 +98,7 @@ todos:
 - **Debug auth mode / RoleSession / DebugRoleInterceptor** — ✅ удалены из проекта. Пункты про debug-login больше не актуальны.
 - **StudentScheduleViewModel** — ✅ создан и подключен в `StudentRoutes.kt`; прямых вызовов `JournalApi` в `features/student` нет.
 - **StudentJournalViewModel** — ✅ создан и подключен.
-- **TeacherDashboardViewModel** — ✅ создан и подключен к `TeacherDashboardRepository` для стартового snapshot.
+- **TeacherDashboardViewModel** — ✅ создан и подключен к `TeacherDashboardRepository` для стартового snapshot, выбранного журнала и списка учителей access dialog.
 - **MethodistDashboardViewModel** — ✅ создан и подключен к `MethodistRepository`.
 - **MethodistJournalsViewModel** — ✅ создан. `MethodistJournalsRoute` читает список журналов и справочники фильтров через `MethodistRepository`.
 - **MethodistTemplatesViewModel / MethodistJournalCreateViewModel** — ❌ не созданы. `MethodistRoutes.kt`, `MethodistJournalCreateRoute` пока используют `JournalApi` напрямую.
@@ -150,7 +150,7 @@ todos:
 ### Этап 5 — Read-only offline для Dashboard/Methodist/Admin
 
 - **DashboardCacheEntity** — ✅ создана (migration 5->6).
-- **TeacherDashboardRepository** — ✅ создан, `TeacherDashboardRoute` использует кеш для стартового dashboard snapshot.
+- **TeacherDashboardRepository** — ✅ создан, `TeacherDashboardRoute` использует кеш для стартового dashboard snapshot, выбранного журнала и списка учителей для access dialog.
 - **TeacherStudentCardRoute** — ✅ прямой `JournalApi` убран, маршрут расширен `lessonType`, карточка строится из кешируемого `JournalGrid`.
 - **TeacherVedRoute** — ✅ прямой `JournalApi` убран из Route; каталог периодов/групп/дисциплин кешируется через `TeacherVedRepository`, report actions disabled offline.
 - **MethodistRepository** — ✅ создан для `MethodistDashboardRoute`.
@@ -161,7 +161,7 @@ todos:
 - **MethodistJournalsRoute** — ✅ прямой `JournalApi` убран, добавлен `MethodistRepository.getJournals()` с cache snapshot и offline state.
 - **MethodistTemplatesRoute / JournalCreate** — ❌ прямой `JournalApi` остается; read-cache и online-only markers еще не сделаны.
 - **Admin screens read-cache** — ✅ dashboard, users, audit, journals, periods, access и problem students читают через `AdminRepository`/ViewModels; write/export/revoke операции остаются online-only.
-- **TeacherDashboard secondary flows** — ⚠️ стартовый snapshot кешируется, но интерактивные подгрузки выбранного журнала/access grant остаются online-only через `JournalApi`.
+- **TeacherDashboard secondary flows** — ✅ выбранный журнал и список учителей для access dialog читаются через `TeacherDashboardRepository` с cache fallback; сама операция access grant остается online-only и отключается offline.
 
 ### Этап 6 — Полировка
 
@@ -173,7 +173,7 @@ todos:
 
 ### Тесты
 
-- **Уже есть** — ✅ `NetworkBoundResourceTest`, `SessionRepositoryTest`, `StudentRepositoryTest`, `TeacherRepositoryTest`, `JournalRepositoryTest`, `TeacherDashboardRepositoryTest`, `TeacherVedRepositoryTest`, `MethodistRepositoryTest`, `AdminRepositoryTest`, `TeacherHomeViewModelTest`, `TeacherJournalViewModelTest`, `TeacherStudentCardViewModelTest`, `TeacherVedViewModelTest`, `MethodistJournalsViewModelTest`, `AdminUsersViewModelTest`, `AdminSecondaryViewModelsTest`, `BearerTokenInterceptorTest`, common tests для token/JWT.
+- **Уже есть** — ✅ `NetworkBoundResourceTest`, `SessionRepositoryTest`, `StudentRepositoryTest`, `TeacherRepositoryTest`, `JournalRepositoryTest`, `TeacherDashboardRepositoryTest`, `TeacherVedRepositoryTest`, `MethodistRepositoryTest`, `AdminRepositoryTest`, `TeacherHomeViewModelTest`, `TeacherJournalViewModelTest`, `TeacherStudentCardViewModelTest`, `TeacherVedViewModelTest`, `TeacherDashboardViewModelTest`, `MethodistJournalsViewModelTest`, `AdminUsersViewModelTest`, `AdminSecondaryViewModelsTest`, `BearerTokenInterceptorTest`, common tests для token/JWT.
 - **AuthRepository тесты** — ❌ нет.
 - **NetworkError classifier тесты** — ❌ нет.
 - **AppViewModel offline fallback / SessionExpired тесты** — ❌ нет.
@@ -186,8 +186,8 @@ todos:
 
 | Статус | Этапы | Комментарий |
 |---|---|---|
-| ✅ Выполнено | Stage 0 базово, Stage 1 частично, Stage 2 почти полностью, Student offline, Teacher Dashboard snapshot, TeacherStudentCard cache, TeacherVed catalog cache, Methodist Dashboard snapshot, Admin Dashboard/Admin secondary read-cache | Основной offline каркас работает |
-| ⚠️ Частично | SyncWorker conflict path, DELETE_GRADE, Session TTL UI, TeacherDashboard secondary flows | Нужны UX/edge-case доработки |
+| ✅ Выполнено | Stage 0 базово, Stage 1 частично, Stage 2 почти полностью, Student offline, Teacher Dashboard snapshot/secondary read-cache, TeacherStudentCard cache, TeacherVed catalog cache, Methodist Dashboard snapshot, Admin Dashboard/Admin secondary read-cache | Основной offline каркас работает |
+| ⚠️ Частично | SyncWorker conflict path, DELETE_GRADE, Session TTL UI, teacher access grant online-only UX | Нужны UX/edge-case доработки |
 | ❌ Не выполнено | Methodist Templates/Create read-cache, Conflict UI, online-only markers, часть unit/migration tests | Следующий основной пласт |
 
 ---
@@ -230,7 +230,7 @@ features/
 
 - **Нет Domain Layer.** Нет ни одного UseCase. ViewModels вызывают репозитории напрямую. `TeacherJournalViewModel` содержит бизнес-логику (coalescing, retry, conflict resolution), которая должна быть в Use Cases.
 
-- **Admin/Methodist/часть Teacher features импортируют `core:network` напрямую.** Admin secondary routes все еще держат online-only write/export/revoke операции через `JournalApi`; `MethodistTemplatesRoute`, `MethodistJournalCreateRoute` и secondary flows в `TeacherDashboardRoute` вызывают `JournalApi` напрямую, минуя репозитории/cache. `TeacherStudentCardRoute` уже переведен на `JournalRepository`, `TeacherVedRoute` — на `TeacherVedRepository`, admin secondary read — на `AdminRepository`, `MethodistJournalsRoute` — на `MethodistRepository`.
+- **Admin/Methodist/часть Teacher features импортируют `core:network` напрямую.** Admin secondary routes все еще держат online-only write/export/revoke операции через `JournalApi`; `MethodistTemplatesRoute` и `MethodistJournalCreateRoute` вызывают `JournalApi` напрямую, минуя репозитории/cache. `TeacherDashboardRoute` уже читает стартовый snapshot, выбранный журнал и список учителей через `TeacherDashboardRepository`, но access grant остается online-only; `TeacherStudentCardRoute` переведен на `JournalRepository`, `TeacherVedRoute` — на `TeacherVedRepository`, admin secondary read — на `AdminRepository`, `MethodistJournalsRoute` — на `MethodistRepository`.
 
 - **Нет UI управления `FAILED/CONFLICT` pending actions.** `SyncWorker` уже выставляет статусы, но пользователь не может увидеть детали, повторить или отбросить проблемное действие.
 
@@ -293,7 +293,7 @@ FSD — веб-методология (app -> pages -> widgets -> features -> en
 - Offline write journal: `JournalRepository` атомарно обновляет кеш и ставит pending action.
 - SyncWorker: после успешного replay pending удаляется, journal cache инвалидируется.
 - Student offline: schedule/dashboard/journal переведены на repositories/ViewModels и кеш.
-- Teacher Dashboard snapshot: стартовая сводка кешируется через `TeacherDashboardRepository`.
+- Teacher Dashboard snapshot/details: стартовая сводка, выбранный журнал и список учителей access dialog кешируются через `TeacherDashboardRepository`.
 - Methodist Dashboard snapshot: стартовая сводка кешируется через `MethodistRepository`.
 - Debug-mode: удален, дальнейшие проверки идут через Keycloak.
 
@@ -301,7 +301,7 @@ FSD — веб-методология (app -> pages -> widgets -> features -> en
 
 - Admin secondary screens (`audit`, `journals`, `periods`, `access`, `problem students`) уже читают через `AdminRepository` read-cache. `users` тоже читает через `AdminRepository`; write/export/revoke операции остаются online-only.
 - Methodist secondary screens (`journals`, `templates`, `journalcreate`) все еще используют `JournalApi` напрямую.
-- Secondary flows в `TeacherDashboardRoute` остаются online/direct API; `TeacherStudentCardRoute` уже использует кешируемый `JournalRepository`, `TeacherVedRoute` — кешируемый `TeacherVedRepository`.
+- Secondary read-flows в `TeacherDashboardRoute` переведены на `TeacherDashboardRepository`; access grant остается online-only. `TeacherStudentCardRoute` использует кешируемый `JournalRepository`, `TeacherVedRoute` — кешируемый `TeacherVedRepository`.
 - `DELETE_GRADE` локально применяется, но не синхронизируется с сервером из-за отсутствия endpoint.
 - Нет UI для просмотра/решения `FAILED` и `CONFLICT` pending actions.
 - Нет отдельного `SessionState.SessionExpired` и пользовательского TTL-сообщения.
@@ -379,7 +379,7 @@ fun Throwable.toNetworkError(): NetworkError = when (this) {
 
 - `StudentScheduleViewModel` — ✅ обёртка над `StudentRepository.getLessons()`, подключена в Route.
 - `StudentJournalViewModel` — ✅ обёртка над `StudentRepository.getSubjectCard()`, подключена в Route.
-- `TeacherDashboardViewModel` — ✅ создан для стартового dashboard snapshot.
+- `TeacherDashboardViewModel` — ✅ создан для стартового dashboard snapshot, выбранного журнала и списка учителей access dialog.
 - `MethodistDashboardViewModel` — ✅ создан для стартового dashboard snapshot.
 - `AdminProblemStudentsViewModel` — ✅ создан вместо прямого read-`JournalApi` в Route.
 - `AdminAuditViewModel`, `AdminJournalsViewModel`, `AdminPeriodsViewModel`, `AdminAccessViewModel` — ✅ созданы для secondary admin read-cache.
@@ -754,7 +754,7 @@ data class DashboardCacheEntity(
 
 ### 11.2 Новые репозитории для read-only данных
 
-- `TeacherDashboardRepository` — ✅ стартовый dashboard snapshot через `networkBoundResource`.
+- `TeacherDashboardRepository` — ✅ стартовый dashboard snapshot, выбранный журнал и список учителей access dialog через `networkBoundResource`.
 - `MethodistRepository` — ✅ dashboard snapshot через `networkBoundResource`; ❌ списки журналов/шаблонов еще нужно добавить.
 - `AdminRepository` — ⚠️ dashboard snapshot и users list через `networkBoundResource` готовы; журналы, аудит, периоды, доступ, problem students еще нужно добавить.
 
