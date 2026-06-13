@@ -3,13 +3,12 @@ package com.journal.app
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.journal.core.common.config.RoleSession
 import com.journal.core.common.config.StoredTokens
 import com.journal.core.common.config.TokenSession
 import com.journal.core.common.config.TokenStore
 import com.journal.core.data.repository.AuthRepository
 import com.journal.core.data.repository.SessionRepository
-import com.journal.core.data.util.NetworkError
-import com.journal.core.database.entity.SessionEntity
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,6 +22,7 @@ import javax.inject.Inject
 class AppViewModel @Inject constructor(
     private val tokenStore: TokenStore,
     private val tokenSession: TokenSession,
+    private val roleSession: RoleSession,
     private val authRepository: AuthRepository,
     private val sessionRepository: SessionRepository
 ) : ViewModel() {
@@ -31,7 +31,6 @@ class AppViewModel @Inject constructor(
         data object Checking : SessionState
         data object RequireBiometric : SessionState
         data class Authenticated(val role: String) : SessionState
-        data class OfflineAuthenticated(val role: String) : SessionState
         data object Unauthenticated : SessionState
     }
 
@@ -39,8 +38,6 @@ class AppViewModel @Inject constructor(
     val sessionState: StateFlow<SessionState> = _sessionState.asStateFlow()
 
     private var pendingTokens: StoredTokens? = null
-    private var pendingOfflineSession: SessionEntity? = null
-    private var pendingOfflineTokens: StoredTokens? = null
 
     init {
         viewModelScope.launch { checkSession() }
@@ -48,16 +45,10 @@ class AppViewModel @Inject constructor(
 
     private suspend fun checkSession() = withContext(Dispatchers.IO) {
         val stored = tokenStore.load()
-        val cachedSession = sessionRepository.getSession()
 
         if (stored == null) {
-            if (cachedSession != null && cachedSession.isOfflineAllowed()) {
-                Log.d(TAG, "No stored tokens, using cached offline session")
-                requestOfflineUnlock(cachedSession, null)
-            } else {
-                Log.d(TAG, "No stored tokens and no cached session")
-                _sessionState.value = SessionState.Unauthenticated
-            }
+            Log.d(TAG, "No stored tokens - Keycloak login required")
+            _sessionState.value = SessionState.Unauthenticated
             return@withContext
         }
 
@@ -67,14 +58,9 @@ class AppViewModel @Inject constructor(
         } else {
             val refreshToken = stored.refreshToken
             if (refreshToken.isNullOrBlank()) {
-                if (cachedSession != null && cachedSession.isOfflineAllowed()) {
-                    Log.d(TAG, "Token expired without refresh token, using cached offline session")
-                    requestOfflineUnlock(cachedSession, stored)
-                } else {
-                    Log.d(TAG, "Token expired without refresh token and no cached session")
-                    tokenStore.clear()
-                    _sessionState.value = SessionState.Unauthenticated
-                }
+                Log.d(TAG, "Token expired without refresh token - Keycloak login required")
+                clearStoredAuth()
+                _sessionState.value = SessionState.Unauthenticated
                 return@withContext
             }
 
@@ -90,37 +76,15 @@ class AppViewModel @Inject constructor(
                     )
                     Log.d(TAG, "Token refreshed, requesting biometric confirmation")
                 }
-            } catch (error: NetworkError) {
-                when (error) {
-                    is NetworkError.NetworkUnavailable,
-                    is NetworkError.ServerError -> {
-                        if (cachedSession != null && cachedSession.isOfflineAllowed()) {
-                            Log.w(TAG, "Refresh unavailable, using cached offline session")
-                            requestOfflineUnlock(cachedSession, stored)
-                        } else {
-                            Log.w(TAG, "Refresh unavailable and no cached session")
-                            _sessionState.value = SessionState.Unauthenticated
-                        }
-                    }
-                    is NetworkError.AuthError -> {
-                        Log.w(TAG, "Refresh rejected by auth server")
-                        clearStoredAuth()
-                        _sessionState.value = SessionState.Unauthenticated
-                    }
-                    is NetworkError.ValidationError,
-                    is NetworkError.ConflictError,
-                    is NetworkError.Unknown -> {
-                        Log.w(TAG, "Refresh failed: ${error.message}")
-                        _sessionState.value = SessionState.Unauthenticated
-                    }
-                }
+            } catch (error: Exception) {
+                Log.w(TAG, "Silent refresh failed - Keycloak login required", error)
+                clearStoredAuth()
+                _sessionState.value = SessionState.Unauthenticated
                 return@withContext
             }
         }
 
         pendingTokens = validTokens
-        pendingOfflineSession = null
-        pendingOfflineTokens = null
         _sessionState.value = SessionState.RequireBiometric
     }
 
@@ -128,6 +92,7 @@ class AppViewModel @Inject constructor(
         val tokens = pendingTokens
         if (tokens != null) {
             tokenSession.setTokens(tokens.accessToken, tokens.idToken, tokens.refreshToken)
+            roleSession.setRole(tokens.role)
             _sessionState.value = SessionState.Authenticated(tokens.role)
             viewModelScope.launch(Dispatchers.IO) {
                 val profile = authRepository.profileFromToken(tokens.accessToken)
@@ -137,16 +102,6 @@ class AppViewModel @Inject constructor(
                     fullName = profile.fullName
                 )
             }
-            clearPendingAuth()
-            return
-        }
-
-        val offlineSession = pendingOfflineSession
-        if (offlineSession != null) {
-            pendingOfflineTokens?.let {
-                tokenSession.setTokens(it.accessToken, it.idToken, it.refreshToken)
-            }
-            _sessionState.value = SessionState.OfflineAuthenticated(offlineSession.role)
             clearPendingAuth()
             return
         }
@@ -166,18 +121,6 @@ class AppViewModel @Inject constructor(
         }
     }
 
-    private fun requestOfflineUnlock(session: SessionEntity, tokens: StoredTokens?) {
-        pendingTokens = null
-        pendingOfflineSession = session
-        pendingOfflineTokens = tokens
-        _sessionState.value = SessionState.RequireBiometric
-    }
-
-    private fun SessionEntity.isOfflineAllowed(): Boolean {
-        val now = System.currentTimeMillis()
-        return offlineAllowedUntil == 0L || offlineAllowedUntil > now
-    }
-
     private fun clearStoredAuth() {
         tokenStore.clear()
         tokenSession.clear()
@@ -186,8 +129,6 @@ class AppViewModel @Inject constructor(
 
     private fun clearPendingAuth() {
         pendingTokens = null
-        pendingOfflineSession = null
-        pendingOfflineTokens = null
     }
 
     companion object {

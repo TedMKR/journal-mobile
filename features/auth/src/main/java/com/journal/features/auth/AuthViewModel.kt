@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.journal.core.common.config.AppConfig
+import com.journal.core.common.config.RoleSession
 import com.journal.core.common.config.TokenSession
 import com.journal.core.common.config.TokenStore
 import com.journal.core.data.repository.AuthRepository
@@ -39,6 +40,7 @@ import javax.net.ssl.X509TrustManager
 class AuthViewModel @Inject constructor(
     application: Application,
     private val appConfig: AppConfig,
+    private val roleSession: RoleSession,
     private val tokenSession: TokenSession,
     private val tokenStore: TokenStore,
     private val authRepository: AuthRepository,
@@ -125,6 +127,7 @@ class AuthViewModel @Inject constructor(
                     userId = profile.userId,
                     fullName = profile.fullName
                 )
+                roleSession.setRole(role)
                 _state.value = AuthUiState.Authenticated(role)
                 launch(Dispatchers.Main) {
                     onSuccess(role)

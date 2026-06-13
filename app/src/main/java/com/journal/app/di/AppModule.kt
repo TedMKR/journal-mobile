@@ -5,17 +5,18 @@ import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.journal.app.BuildConfig
 import com.journal.core.common.config.AppConfig
+import com.journal.core.common.config.RoleSession
 import com.journal.core.common.config.TokenSession
 import com.journal.core.common.config.TokenStore
 import com.journal.core.network.api.JournalApi
 import com.journal.core.network.interceptor.BearerTokenInterceptor
+import com.journal.core.network.interceptor.DebugRoleInterceptor
 import com.jakewharton.retrofit2.converter.kotlinx.serialization.asConverterFactory
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import java.net.URI
 import java.security.SecureRandom
 import java.security.cert.X509Certificate
 import javax.inject.Singleton
@@ -40,8 +41,14 @@ object AppModule {
         openApiUrl = BuildConfig.OPENAPI_URL,
         keycloakBaseUrl = BuildConfig.KEYCLOAK_BASE_URL,
         keycloakRealm = BuildConfig.KEYCLOAK_REALM,
-        keycloakClientId = BuildConfig.KEYCLOAK_CLIENT_ID
+        keycloakClientId = BuildConfig.KEYCLOAK_CLIENT_ID,
+        useDebugRole = BuildConfig.USE_DEBUG_ROLE,
+        debugRole = BuildConfig.DEBUG_ROLE
     )
+
+    @Provides
+    @Singleton
+    fun provideRoleSession(config: AppConfig): RoleSession = RoleSession(config.debugRole)
 
     @Provides
     @Singleton
@@ -67,13 +74,20 @@ object AppModule {
     @Singleton
     fun provideOkHttp(
         tokenSession: TokenSession,
-        config: AppConfig
+        config: AppConfig,
+        roleSession: RoleSession
     ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply { level = HttpLoggingInterceptor.Level.BODY }
+        val trustAllManager = TrustAllManager()
+        val sslContext = SSLContext.getInstance("TLS").apply {
+            init(null, arrayOf(trustAllManager), SecureRandom())
+        }
 
         return OkHttpClient.Builder()
-            .applyTestTlsBypass(config.apiBaseUrl)
-            .addInterceptor(BearerTokenInterceptor(tokenSession))
+            .sslSocketFactory(sslContext.socketFactory, trustAllManager)
+            .hostnameVerifier(HostnameVerifier { _, _ -> true })
+            .addInterceptor(DebugRoleInterceptor(config.useDebugRole) { roleSession.role.value })
+            .addInterceptor(BearerTokenInterceptor(tokenSession, enabled = !config.useDebugRole))
             .addInterceptor(logging)
             .build()
     }
@@ -99,19 +113,6 @@ object AppModule {
     @Provides
     @Singleton
     fun provideJournalApi(retrofit: Retrofit): JournalApi = retrofit.create(JournalApi::class.java)
-}
-
-private fun OkHttpClient.Builder.applyTestTlsBypass(baseUrl: String): OkHttpClient.Builder {
-    val host = runCatching { URI(baseUrl).host }.getOrNull()?.takeIf { it.isNotBlank() }
-        ?: return this
-    val trustAllManager = TrustAllManager()
-    val sslContext = SSLContext.getInstance("TLS").apply {
-        init(null, arrayOf(trustAllManager), SecureRandom())
-    }
-
-    // Temporary test-contour bypass until edge/auth reverse proxies serve an Android-trusted chain.
-    return sslSocketFactory(sslContext.socketFactory, trustAllManager)
-        .hostnameVerifier(HostnameVerifier { hostname, _ -> hostname.equals(host, ignoreCase = true) })
 }
 
 private class TrustAllManager : X509TrustManager {

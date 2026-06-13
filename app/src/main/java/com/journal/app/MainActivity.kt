@@ -89,16 +89,6 @@ class MainActivity : FragmentActivity() {
                             )
                         }
 
-                        is AppViewModel.SessionState.OfflineAuthenticated -> {
-                            JournalNavHost(
-                                journalApi = journalApi,
-                                appConfig = appConfig,
-                                tokenSession = tokenSession,
-                                initialRole = state.role,
-                                onClearSession = { appViewModel.clearSession() }
-                            )
-                        }
-
                         is AppViewModel.SessionState.Unauthenticated -> {
                             JournalNavHost(
                                 journalApi = journalApi,

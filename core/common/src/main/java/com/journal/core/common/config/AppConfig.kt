@@ -5,5 +5,7 @@ data class AppConfig(
     val openApiUrl: String,
     val keycloakBaseUrl: String,
     val keycloakRealm: String,
-    val keycloakClientId: String
+    val keycloakClientId: String,
+    val useDebugRole: Boolean,
+    val debugRole: String
 )
