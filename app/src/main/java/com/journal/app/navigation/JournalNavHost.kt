@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,6 +31,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -476,9 +478,7 @@ private fun AnimatedVisibilityScope.RightSideMenu(
             if (showSettings) {
                 SettingsMenuContent(
                     gradeNotificationsEnabled = gradeNotificationsEnabled,
-                    onToggleNotifications = {
-                        onGradeNotificationsEnabledChange(!gradeNotificationsEnabled)
-                    },
+                    onNotificationsEnabledChange = onGradeNotificationsEnabledChange,
                     onLogout = onLogout
                 )
             } else {
@@ -537,7 +537,7 @@ private fun ColumnScope.MainMenuContent(
 @Composable
 private fun ColumnScope.SettingsMenuContent(
     gradeNotificationsEnabled: Boolean,
-    onToggleNotifications: () -> Unit,
+    onNotificationsEnabledChange: (Boolean) -> Unit,
     onLogout: () -> Unit
 ) {
     Column {
@@ -549,13 +549,9 @@ private fun ColumnScope.SettingsMenuContent(
         )
     }
 
-    MenuActionRow(
-        text = if (gradeNotificationsEnabled) {
-            "Отключить уведомления"
-        } else {
-            "Включить уведомления"
-        },
-        onClick = onToggleNotifications
+    NotificationSwitchRow(
+        checked = gradeNotificationsEnabled,
+        onCheckedChange = onNotificationsEnabledChange
     )
 
     Text(
@@ -570,6 +566,31 @@ private fun ColumnScope.SettingsMenuContent(
 
     Spacer(modifier = Modifier.weight(1f))
     LogoutRow(onClick = onLogout)
+}
+
+@Composable
+private fun NotificationSwitchRow(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MenuItemBackground, RoundedCornerShape(14.dp))
+            .padding(horizontal = 14.dp, vertical = 8.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = "Уведомления",
+            color = MenuPrimary,
+            fontWeight = FontWeight.SemiBold
+        )
+        Switch(
+            checked = checked,
+            onCheckedChange = onCheckedChange
+        )
+    }
 }
 
 @Composable
