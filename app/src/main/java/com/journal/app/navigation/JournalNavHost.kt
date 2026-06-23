@@ -47,6 +47,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
@@ -88,6 +89,10 @@ import com.journal.features.teacher.journal.TeacherJournalRoute
 import com.journal.features.teacher.studentcard.TeacherStudentCardRoute
 import com.journal.features.teacher.ved.TeacherVedRoute
 import com.journal.shared.navigation.Routes
+import kotlin.math.PI
+import kotlin.math.cos
+import kotlin.math.min
+import kotlin.math.sin
 
 private val MenuBackground = Color.White
 private val MenuPrimary = Color(0xFF223268)
@@ -489,19 +494,24 @@ private fun AnimatedVisibilityScope.RightSideMenu(
                 MainMenuContent(
                     role = role,
                     currentRoute = currentRoute,
-                    onNavigate = onNavigate,
-                    onOpenSettings = { showSettings = true }
+                    onNavigate = onNavigate
                 )
             }
         }
 
-        HeaderIconButton(
+        Row(
             modifier = Modifier
                 .align(Alignment.TopEnd)
                 .padding(top = 12.dp, end = 16.dp),
-            onClick = onDismiss
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            CloseIcon()
+            HeaderIconButton(onClick = { showSettings = !showSettings }) {
+                GearIcon()
+            }
+            HeaderIconButton(onClick = onDismiss) {
+                CloseIcon()
+            }
         }
     }
 }
@@ -510,8 +520,7 @@ private fun AnimatedVisibilityScope.RightSideMenu(
 private fun ColumnScope.MainMenuContent(
     role: String,
     currentRoute: String,
-    onNavigate: (String) -> Unit,
-    onOpenSettings: () -> Unit
+    onNavigate: (String) -> Unit
 ) {
     Column {
         Text(
@@ -535,7 +544,6 @@ private fun ColumnScope.MainMenuContent(
     }
 
     Spacer(modifier = Modifier.weight(1f))
-    SettingsRow(onClick = onOpenSettings)
 }
 
 @Composable
@@ -646,31 +654,6 @@ private fun ProjectSwitch(
 }
 
 @Composable
-private fun SettingsRow(onClick: () -> Unit) {
-    MenuActionRow(
-        text = "Настройки",
-        onClick = onClick
-    )
-}
-
-@Composable
-private fun MenuActionRow(
-    text: String,
-    onClick: () -> Unit
-) {
-    Text(
-        text = text,
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(MenuItemBackground, RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp, vertical = 13.dp),
-        color = MenuPrimary,
-        fontWeight = FontWeight.SemiBold
-    )
-}
-
-@Composable
 private fun LogoutRow(onClick: () -> Unit) {
     Text(
         text = "Выйти из аккаунта",
@@ -775,6 +758,47 @@ private fun CloseIcon() {
             end = Offset(size.width * 0.25f, size.height * 0.75f),
             strokeWidth = strokeWidth,
             cap = StrokeCap.Round
+        )
+    }
+}
+
+@Composable
+private fun GearIcon() {
+    Canvas(modifier = Modifier.size(24.dp)) {
+        val strokeWidth = 2.dp.toPx()
+        val center = Offset(size.width / 2f, size.height / 2f)
+        val outerRadius = min(size.width, size.height) * 0.38f
+        val innerRadius = min(size.width, size.height) * 0.25f
+        val toothInnerRadius = min(size.width, size.height) * 0.32f
+        val toothOuterRadius = min(size.width, size.height) * 0.45f
+
+        repeat(8) { index ->
+            val angle = (PI / 4.0 * index).toFloat()
+            drawLine(
+                color = MenuPrimary,
+                start = Offset(
+                    x = center.x + cos(angle) * toothInnerRadius,
+                    y = center.y + sin(angle) * toothInnerRadius
+                ),
+                end = Offset(
+                    x = center.x + cos(angle) * toothOuterRadius,
+                    y = center.y + sin(angle) * toothOuterRadius
+                ),
+                strokeWidth = strokeWidth,
+                cap = StrokeCap.Round
+            )
+        }
+        drawCircle(
+            color = MenuPrimary,
+            radius = outerRadius,
+            center = center,
+            style = Stroke(width = strokeWidth)
+        )
+        drawCircle(
+            color = MenuPrimary,
+            radius = innerRadius,
+            center = center,
+            style = Stroke(width = strokeWidth)
         )
     }
 }
