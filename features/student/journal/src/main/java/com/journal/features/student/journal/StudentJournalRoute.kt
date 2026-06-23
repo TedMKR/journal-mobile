@@ -37,6 +37,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -54,8 +55,10 @@ import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppLessonBackground
 import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppSecondaryText
+import com.journal.core.ui.AppSecondaryButton
 import com.journal.core.ui.AppSuccess
 import com.journal.core.ui.AppWarning
+import com.journal.core.ui.shareTextFile
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -141,6 +144,7 @@ private fun StudentOfflineBanner(modifier: Modifier = Modifier) {
 
 @Composable
 private fun StudentJournalContent(card: StudentSubjectCard) {
+    val context = LocalContext.current
     val hScroll = rememberScrollState()
     val studentName = PersonNameFormatter.formatFullName(card.student?.fullName)
 
@@ -168,6 +172,18 @@ private fun StudentJournalContent(card: StudentSubjectCard) {
                         JournalTag(PersonNameFormatter.formatFullName(it))
                     }
                     JournalTag(card.groupName)
+                    AppSecondaryButton(
+                        text = "Экспорт CSV",
+                        onClick = {
+                            shareTextFile(
+                                context = context,
+                                text = buildStudentJournalCsv(card, studentName),
+                                fileName = "student-journal-${card.disciplineId.takeLast(8)}.csv",
+                                chooserTitle = "Экспорт журнала"
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
             }
         }
@@ -203,6 +219,45 @@ private fun StudentJournalContent(card: StudentSubjectCard) {
             StudentStatsCard(card)
         }
     }
+}
+
+private fun buildStudentJournalCsv(card: StudentSubjectCard, studentName: String): String {
+    val rows = mutableListOf<List<String>>()
+    rows += listOf("Раздел", "Дата", "Название", "Тип", "Значение", "Комментарий")
+    card.journalLessons.forEach { lesson ->
+        rows += listOf(
+            "Посещаемость",
+            lesson.date,
+            lesson.topic.orEmpty(),
+            lesson.lessonType,
+            lesson.attendanceStatus.orEmpty(),
+            lesson.attendanceComment.orEmpty()
+        )
+    }
+    card.journalGrades.forEach { grade ->
+        rows += listOf(
+            "Оценка",
+            grade.date,
+            grade.title,
+            grade.type,
+            grade.value.orEmpty(),
+            grade.comment.orEmpty()
+        )
+    }
+    val header = listOf(
+        listOf("Студент", studentName),
+        listOf("Дисциплина", card.disciplineName),
+        listOf("Группа", card.groupName),
+        emptyList()
+    )
+    return (header + rows).joinToString("\n") { row ->
+        row.joinToString(";") { cell -> csvCell(cell) }
+    }
+}
+
+private fun csvCell(value: String): String {
+    val escaped = value.replace("\"", "\"\"")
+    return "\"$escaped\""
 }
 
 // ── Tag / StatSmallCard (TeacherStudentCard style) ─────────────────────────────

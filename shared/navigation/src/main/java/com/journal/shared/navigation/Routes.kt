@@ -5,6 +5,7 @@ object Routes {
     const val TEACHER_HOME = "teacher_home"
     const val TEACHER_DASHBOARD = "teacher_dashboard"
     const val TEACHER_VED = "teacher_ved"
+    const val TEACHER_ARCHIVE = "teacher_archive"
     const val TEACHER_JOURNAL = "teacher_journal/{groupId}/{disciplineId}/{periodId}/{lessonType}?teacherId={teacherId}"
     const val TEACHER_STUDENT_CARD = "teacher_student_card/{groupId}/{disciplineId}/{periodId}/{lessonType}/{studentId}"
     const val STUDENT_SCHEDULE = "student_schedule"
@@ -20,6 +21,9 @@ object Routes {
     const val ADMIN_JOURNALS = "admin_journals"
     const val ADMIN_PERIODS = "admin_periods"
     const val ADMIN_ACCESS = "admin_access"
+    const val ADMIN_DOCUMENTS = "admin_documents"
+    const val ADMIN_IMPORTS = "admin_imports"
+    const val ADMIN_SYSTEM = "admin_system"
     const val ADMIN_PROBLEM_STUDENTS = "admin_problem_students"
 
     fun teacherJournal(

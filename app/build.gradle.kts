@@ -86,6 +86,7 @@ dependencies {
     implementation(project(":features:teacher:studentcard"))
     implementation(project(":features:teacher:dashboard"))
     implementation(project(":features:teacher:ved"))
+    implementation(project(":features:teacher:archive"))
     implementation(project(":features:student:home"))
     implementation(project(":features:student:journal"))
     implementation(project(":features:methodist:dashboard"))
@@ -98,6 +99,9 @@ dependencies {
     implementation(project(":features:admin:journals"))
     implementation(project(":features:admin:periods"))
     implementation(project(":features:admin:access"))
+    implementation(project(":features:admin:documents"))
+    implementation(project(":features:admin:imports"))
+    implementation(project(":features:admin:system"))
     implementation(project(":features:admin:problemstudents"))
 
     implementation("androidx.security:security-crypto:1.1.0-alpha06")

@@ -15,6 +15,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -24,6 +25,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -54,9 +56,12 @@ import com.journal.core.network.api.JournalApi
 import com.journal.features.admin.dashboard.AdminDashboardRoute
 import com.journal.features.admin.access.AdminAccessRoute
 import com.journal.features.admin.audit.AdminAuditRoute
+import com.journal.features.admin.documents.AdminDocumentsRoute
+import com.journal.features.admin.imports.AdminImportsRoute
 import com.journal.features.admin.journals.AdminJournalsRoute
 import com.journal.features.admin.periods.AdminPeriodsRoute
 import com.journal.features.admin.problemstudents.AdminProblemStudentsRoute
+import com.journal.features.admin.system.AdminSystemRoute
 import com.journal.features.admin.users.AdminUsersRoute
 import com.journal.features.auth.AuthRoute
 import com.journal.features.methodist.dashboard.MethodistDashboardRoute
@@ -66,6 +71,7 @@ import com.journal.features.methodist.templates.MethodistTemplatesRoute
 import com.journal.features.student.home.StudentDashboardRoute
 import com.journal.features.student.home.StudentScheduleRoute
 import com.journal.features.student.journal.StudentJournalRoute
+import com.journal.features.teacher.archive.TeacherArchiveRoute
 import com.journal.features.teacher.dashboard.TeacherDashboardRoute
 import com.journal.features.teacher.home.TeacherHomeRoute
 import com.journal.features.teacher.journal.TeacherJournalRoute
@@ -139,6 +145,9 @@ fun JournalNavHost(
                     onOpenJournals = { navController.navigate(Routes.ADMIN_JOURNALS) },
                     onOpenPeriods = { navController.navigate(Routes.ADMIN_PERIODS) },
                     onOpenAccess = { navController.navigate(Routes.ADMIN_ACCESS) },
+                    onOpenDocuments = { navController.navigate(Routes.ADMIN_DOCUMENTS) },
+                    onOpenImports = { navController.navigate(Routes.ADMIN_IMPORTS) },
+                    onOpenSystem = { navController.navigate(Routes.ADMIN_SYSTEM) },
                     onOpenProblemStudents = { navController.navigate(Routes.ADMIN_PROBLEM_STUDENTS) }
                 )
             }
@@ -156,6 +165,15 @@ fun JournalNavHost(
             }
             composable(Routes.ADMIN_ACCESS) {
                 AdminAccessRoute(journalApi = journalApi)
+            }
+            composable(Routes.ADMIN_DOCUMENTS) {
+                AdminDocumentsRoute(journalApi = journalApi)
+            }
+            composable(Routes.ADMIN_IMPORTS) {
+                AdminImportsRoute(journalApi = journalApi)
+            }
+            composable(Routes.ADMIN_SYSTEM) {
+                AdminSystemRoute(journalApi = journalApi)
             }
             composable(Routes.ADMIN_PROBLEM_STUDENTS) {
                 AdminProblemStudentsRoute(journalApi = journalApi)
@@ -198,6 +216,22 @@ fun JournalNavHost(
             }
             composable(Routes.TEACHER_VED) {
                 TeacherVedRoute()
+            }
+            composable(Routes.TEACHER_ARCHIVE) {
+                TeacherArchiveRoute(
+                    journalApi = journalApi,
+                    onOpenJournal = { target ->
+                        navController.navigate(
+                            Routes.teacherJournal(
+                                groupId = target.groupId,
+                                disciplineId = target.disciplineId,
+                                periodId = target.periodId,
+                                lessonType = target.lessonType,
+                                teacherId = target.teacherId
+                            )
+                        )
+                    }
+                )
             }
             composable(Routes.STUDENT_SCHEDULE) {
                 StudentScheduleRoute(
@@ -430,6 +464,7 @@ private fun AnimatedVisibilityScope.RightSideMenu(
             }
                 .background(MenuBackground)
                 .clickable(enabled = false) {}
+                .verticalScroll(rememberScrollState())
                 .padding(horizontal = 18.dp, vertical = 28.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
@@ -460,12 +495,19 @@ private fun AnimatedVisibilityScope.RightSideMenu(
                     MenuItem("Личный кабинет", Routes.ADMIN_DASHBOARD),
                     MenuItem("Пользователи", Routes.ADMIN_USERS),
                     MenuItem("Аудит", Routes.ADMIN_AUDIT),
+                    MenuItem("Журналы", Routes.ADMIN_JOURNALS),
+                    MenuItem("Периоды", Routes.ADMIN_PERIODS),
+                    MenuItem("Доступы", Routes.ADMIN_ACCESS),
+                    MenuItem("Документы", Routes.ADMIN_DOCUMENTS),
+                    MenuItem("Импорт", Routes.ADMIN_IMPORTS),
+                    MenuItem("Система", Routes.ADMIN_SYSTEM),
                     MenuItem("Проблемные студенты", Routes.ADMIN_PROBLEM_STUDENTS)
                 )
                 else -> listOf(
                     MenuItem("Расписание", Routes.TEACHER_HOME),
                     MenuItem("Личный кабинет", Routes.TEACHER_DASHBOARD),
-                    MenuItem("Ведомости", Routes.TEACHER_VED)
+                    MenuItem("Ведомости", Routes.TEACHER_VED),
+                    MenuItem("Архив", Routes.TEACHER_ARCHIVE)
                 )
             }
 
@@ -560,6 +602,7 @@ private fun screenTitle(route: String): String = when {
     route == Routes.TEACHER_HOME -> "Расписание занятий"
     route == Routes.TEACHER_DASHBOARD -> "Личный кабинет"
     route == Routes.TEACHER_VED -> "Ведомости"
+    route == Routes.TEACHER_ARCHIVE -> "Архив журналов"
     route.startsWith("teacher_journal") -> "Журнал занятий"
     route.startsWith("teacher_student_card") -> "Карточка студента"
     route == Routes.STUDENT_SCHEDULE -> "Расписание занятий"
@@ -575,6 +618,9 @@ private fun screenTitle(route: String): String = when {
     route == Routes.ADMIN_JOURNALS -> "Журналы"
     route == Routes.ADMIN_PERIODS -> "Учебные периоды"
     route == Routes.ADMIN_ACCESS -> "Доступы"
+    route == Routes.ADMIN_DOCUMENTS -> "Документы"
+    route == Routes.ADMIN_IMPORTS -> "Импорт"
+    route == Routes.ADMIN_SYSTEM -> "Система"
     route == Routes.ADMIN_PROBLEM_STUDENTS -> "Проблемные студенты"
     else -> "Электронный журнал"
 }

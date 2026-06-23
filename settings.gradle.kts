@@ -32,6 +32,7 @@ include(
     ":features:teacher:studentcard",
     ":features:teacher:dashboard",
     ":features:teacher:ved",
+    ":features:teacher:archive",
     ":features:student:home",
     ":features:student:journal",
     ":features:methodist:dashboard",
@@ -44,5 +45,8 @@ include(
     ":features:admin:journals",
     ":features:admin:periods",
     ":features:admin:access",
+    ":features:admin:documents",
+    ":features:admin:imports",
+    ":features:admin:system",
     ":features:admin:problemstudents"
 )

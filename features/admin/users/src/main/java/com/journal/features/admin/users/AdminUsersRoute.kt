@@ -94,6 +94,7 @@ import com.journal.core.ui.AppMutedText
 import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppSuccess
 import com.journal.core.ui.AppSuccessLight
+import com.journal.core.ui.shareTextFile
 import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -229,6 +230,7 @@ fun AdminUsersRoute(
     viewModel: AdminUsersViewModel = hiltViewModel()
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     var actionError by remember { mutableStateOf<String?>(null) }
@@ -265,6 +267,15 @@ fun AdminUsersRoute(
 
     val totalPages = maxOf(1, (uiState.total + USERS_PAGE_SIZE - 1) / USERS_PAGE_SIZE)
     val currentError = actionError ?: uiState.error
+
+    fun exportUsers() {
+        shareTextFile(
+            context = context,
+            text = buildUsersCsv(uiState.users),
+            fileName = "admin-users.csv",
+            chooserTitle = "Экспорт пользователей"
+        )
+    }
 
     // Block/unblock confirmation dialog
     blockingUser?.let { user ->
@@ -434,6 +445,11 @@ fun AdminUsersRoute(
                     modifier = Modifier.weight(1f)
                 )
             }
+            SecondaryButton(
+                text = "Экспорт CSV",
+                onClick = ::exportUsers,
+                modifier = Modifier.fillMaxWidth()
+            )
         }
 
         // Content
@@ -650,6 +666,29 @@ private fun AdminUser.displayName(): String =
             username = username ?: email
         )
     ).ifBlank { email ?: "Без имени" }
+
+private fun buildUsersCsv(users: List<AdminUser>): String {
+    val rows = mutableListOf<List<String>>()
+    rows += listOf("ID", "ФИО", "Роль", "Email", "Логин", "Группа", "Статус", "Создан")
+    users.forEach { user ->
+        rows += listOf(
+            user.id,
+            user.displayName(),
+            user.userType.orEmpty(),
+            user.email.orEmpty(),
+            user.username.orEmpty(),
+            user.groupName.orEmpty(),
+            user.status.orEmpty(),
+            user.createdAt.orEmpty()
+        )
+    }
+    return rows.joinToString("\n") { row ->
+        row.joinToString(";") { cell -> csvCell(cell) }
+    }
+}
+
+private fun csvCell(value: String): String =
+    "\"${value.replace("\"", "\"\"")}\""
 
 // ─── 3. Admin Audit ───────────────────────────────────────────────────────────
 

@@ -243,6 +243,9 @@ fun AdminDashboardRoute(
     onOpenJournals: () -> Unit,
     onOpenPeriods: () -> Unit,
     onOpenAccess: () -> Unit,
+    onOpenDocuments: () -> Unit,
+    onOpenImports: () -> Unit,
+    onOpenSystem: () -> Unit,
     onOpenProblemStudents: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
@@ -506,6 +509,84 @@ fun AdminDashboardRoute(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 PrimaryButton("Открыть", onOpenAccess)
+            }
+        }
+
+        SectionCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Документы",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = PrimaryBlue
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "История формирования документов и скачивание готовых файлов",
+                        fontSize = 13.sp,
+                        color = SecondaryText,
+                        lineHeight = 18.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                PrimaryButton("Открыть", onOpenDocuments)
+            }
+        }
+
+        SectionCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Импорт",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = PrimaryBlue
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Шаблоны, история загрузок, применение и отмена импортов",
+                        fontSize = 13.sp,
+                        color = SecondaryText,
+                        lineHeight = 18.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                PrimaryButton("Открыть", onOpenImports)
+            }
+        }
+
+        SectionCard {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        "Система",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 18.sp,
+                        color = PrimaryBlue
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        "Ссылка на Android-приложение и операции с резервными копиями",
+                        fontSize = 13.sp,
+                        color = SecondaryText,
+                        lineHeight = 18.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                PrimaryButton("Открыть", onOpenSystem)
             }
         }
 

@@ -71,15 +71,21 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import com.journal.core.common.config.userFacingMessage
+import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AdminAccessBinding
 import com.journal.core.model.teacher.AdminActionRequest
+import com.journal.core.model.teacher.AdminCreateAccessBindingRequest
+import com.journal.core.model.teacher.AdminCreateTeachingAssignmentRequest
 import com.journal.core.model.teacher.AdminJournalContext
 import com.journal.core.model.teacher.AdminPeriod
+import com.journal.core.model.teacher.AdminTeachingAssignment
 import com.journal.core.model.teacher.AdminUpdateUserRequest
 import com.journal.core.model.teacher.AdminUser
 import com.journal.core.model.teacher.AuditEvent
+import com.journal.core.model.teacher.Discipline
 import com.journal.core.model.teacher.ProblemStudentEntry
 import com.journal.core.model.teacher.ProblemStudentsMeta
+import com.journal.core.model.teacher.TeacherProfile
 import com.journal.core.network.api.JournalApi
 import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppBarBackground
@@ -106,7 +112,7 @@ import com.journal.core.ui.AppErrorCard as ErrorCard
 import com.journal.core.ui.AppLoadingCard as LoadingCard
 import com.journal.core.ui.AppPaginationRow as AdminPaginationRow
 
-// ─── Colors ───────────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Colors в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 private val BackgroundColor = AppBackground
 private val CardBackground = Color.White
@@ -123,10 +129,10 @@ private val AccentBadge = AppHeaderBackground
 private val BarBackground = AppBarBackground
 private val WarningLight = Color(0xFFFEF3C7)
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 private fun formatDateTime(value: String?): String {
-    if (value.isNullOrBlank()) return "—"
+    if (value.isNullOrBlank()) return "вЂ”"
     return try {
         val dt = OffsetDateTime.parse(value)
         dt.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
@@ -136,21 +142,21 @@ private fun formatDateTime(value: String?): String {
 }
 
 private fun adminActionLabel(action: String?): String = when (action) {
-    "JOURNAL_LOCKED" -> "Журнал заморожен"
-    "JOURNAL_UNLOCKED" -> "Журнал разморожен"
-    "JOURNAL_ARCHIVED" -> "Журнал в архиве"
-    "JOURNAL_RESTORED" -> "Журнал восстановлен"
-    "PERIOD_CLOSED" -> "Период закрыт"
-    "PERIOD_REOPENED" -> "Период открыт"
-    "ACCESS_BINDING_CREATED" -> "Доступ выдан"
-    "ACCESS_BINDING_REVOKED" -> "Доступ отозван"
-    "AUDIT_EXPORTED" -> "Экспорт аудита"
-    "USER_BLOCKED" -> "Пользователь заблокирован"
-    "USER_UNBLOCKED" -> "Пользователь разблокирован"
-    else -> action ?: "—"
+    "JOURNAL_LOCKED" -> "Р–СѓСЂРЅР°Р» Р·Р°РјРѕСЂРѕР¶РµРЅ"
+    "JOURNAL_UNLOCKED" -> "Р–СѓСЂРЅР°Р» СЂР°Р·РјРѕСЂРѕР¶РµРЅ"
+    "JOURNAL_ARCHIVED" -> "Р–СѓСЂРЅР°Р» РІ Р°СЂС…РёРІРµ"
+    "JOURNAL_RESTORED" -> "Р–СѓСЂРЅР°Р» РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅ"
+    "PERIOD_CLOSED" -> "РџРµСЂРёРѕРґ Р·Р°РєСЂС‹С‚"
+    "PERIOD_REOPENED" -> "РџРµСЂРёРѕРґ РѕС‚РєСЂС‹С‚"
+    "ACCESS_BINDING_CREATED" -> "Р”РѕСЃС‚СѓРї РІС‹РґР°РЅ"
+    "ACCESS_BINDING_REVOKED" -> "Р”РѕСЃС‚СѓРї РѕС‚РѕР·РІР°РЅ"
+    "AUDIT_EXPORTED" -> "Р­РєСЃРїРѕСЂС‚ Р°СѓРґРёС‚Р°"
+    "USER_BLOCKED" -> "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ"
+    "USER_UNBLOCKED" -> "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЂР°Р·Р±Р»РѕРєРёСЂРѕРІР°РЅ"
+    else -> action ?: "вЂ”"
 }
 
-// ─── Shared UI components ─────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Shared UI components в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 @Composable
 private fun ReasonDialog(
@@ -180,7 +186,7 @@ private fun ReasonDialog(
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    "×",
+                    "Г—",
                     modifier = Modifier
                         .clickable(onClick = onDismiss)
                         .padding(4.dp),
@@ -191,7 +197,7 @@ private fun ReasonDialog(
             OutlinedTextField(
                 value = reason,
                 onValueChange = { reason = it },
-                label = { Text("Причина") },
+                label = { Text("РџСЂРёС‡РёРЅР°") },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = InputTextColor,
@@ -206,10 +212,10 @@ private fun ReasonDialog(
                 horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
             ) {
                 TextButton(onClick = onDismiss) {
-                    Text("Отмена", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                    Text("РћС‚РјРµРЅР°", color = SecondaryText, fontWeight = FontWeight.SemiBold)
                 }
                 PrimaryButton(
-                    text = "Подтвердить",
+                    text = "РџРѕРґС‚РІРµСЂРґРёС‚СЊ",
                     onClick = { if (reason.isNotBlank()) onConfirm(reason.trim()) }
                 )
             }
@@ -217,10 +223,10 @@ private fun ReasonDialog(
     }
 }
 
-// ─── 1. Admin Dashboard ───────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ 1. Admin Dashboard в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 private fun shortenId(id: String): String =
-    if (id.length > 16) "…${id.takeLast(12)}" else id
+    if (id.length > 16) "вЂ¦${id.takeLast(12)}" else id
 @Composable
 fun AdminAccessRoute(
     journalApi: JournalApi,
@@ -232,13 +238,39 @@ fun AdminAccessRoute(
     var actionError by remember { mutableStateOf<String?>(null) }
     var showRevoked by remember { mutableStateOf(false) }
     var revokingId by remember { mutableStateOf<String?>(null) }
+    var teachers by remember { mutableStateOf<List<TeacherProfile>>(emptyList()) }
+    var groups by remember { mutableStateOf<List<AcademicGroup>>(emptyList()) }
+    var disciplines by remember { mutableStateOf<List<Discipline>>(emptyList()) }
+    var periods by remember { mutableStateOf<List<AdminPeriod>>(emptyList()) }
+    var assignments by remember { mutableStateOf<List<AdminTeachingAssignment>>(emptyList()) }
+    var showAccessDialog by remember { mutableStateOf(false) }
+    var showAssignmentDialog by remember { mutableStateOf(false) }
+    var revokingAssignmentId by remember { mutableStateOf<String?>(null) }
 
-    fun loadBindings() {
+    fun loadAccessData() {
         actionError = null
         viewModel.loadBindings(activeOnly = !showRevoked)
+        scope.launch {
+            runCatching {
+                val teacherData = journalApi.getTeachers(limit = 500).data
+                val groupData = journalApi.getGroups(limit = 500).data
+                val disciplineData = journalApi.getDisciplines(limit = 500).data
+                val periodData = journalApi.getAdminPeriods(includeClosed = true).data
+                val assignmentData = journalApi.getAdminTeachingAssignments(activeOnly = !showRevoked).data
+                CatalogBundle(teacherData, groupData, disciplineData, periodData, assignmentData)
+            }.onSuccess { bundle ->
+                teachers = bundle.teachers
+                groups = bundle.groups
+                disciplines = bundle.disciplines
+                periods = bundle.periods
+                assignments = bundle.assignments
+            }.onFailure {
+                actionError = it.userFacingMessage("Не удалось загрузить справочники доступов")
+            }
+        }
     }
 
-    LaunchedEffect(showRevoked) { loadBindings() }
+    LaunchedEffect(showRevoked) { loadAccessData() }
 
     revokingId?.let { id ->
         Dialog(onDismissRequest = { revokingId = null }) {
@@ -255,7 +287,7 @@ fun AdminAccessRoute(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
-                        "�������� ������?",
+                        "Отозвать доступ?",
                         fontWeight = FontWeight.Bold,
                         color = PrimaryBlue,
                         fontSize = 17.sp,
@@ -270,22 +302,110 @@ fun AdminAccessRoute(
                         fontSize = 22.sp
                     )
                 }
-                Text("��� �������� ������ ��������.", color = SecondaryText, fontSize = 14.sp)
+                Text("Это действие нельзя отменить.", color = SecondaryText, fontSize = 14.sp)
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
                 ) {
                     TextButton(onClick = { revokingId = null }) {
-                        Text("������", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                        Text("Отмена", color = SecondaryText, fontWeight = FontWeight.SemiBold)
                     }
                     DangerButton(
-                        text = "��������",
+                        text = "Отозвать",
                         onClick = {
                             scope.launch {
                                 runCatching { journalApi.revokeAdminAccessBinding(id) }
-                                    .onFailure { actionError = it.userFacingMessage("�� ������� �������� ������") }
+                                    .onFailure { actionError = it.userFacingMessage("Не удалось отозвать доступ") }
                                 revokingId = null
-                                loadBindings()
+                                loadAccessData()
+                            }
+                        }
+                    )
+                }
+            }
+        }
+    }
+
+    if (showAccessDialog) {
+        AccessBindingDialog(
+            teachers = teachers,
+            groups = groups,
+            disciplines = disciplines,
+            periods = periods,
+            onDismiss = { showAccessDialog = false },
+            onSave = { granterId, granteeId, disciplineId, groupId, periodId, accessLevel ->
+                scope.launch {
+                    runCatching {
+                        journalApi.createAdminAccessBinding(
+                            AdminCreateAccessBindingRequest(
+                                granterId = granterId,
+                                granteeId = granteeId,
+                                disciplineId = disciplineId,
+                                groupId = groupId,
+                                periodId = periodId,
+                                accessLevel = accessLevel
+                            )
+                        )
+                    }.onFailure { actionError = it.userFacingMessage("Не удалось выдать доступ") }
+                    showAccessDialog = false
+                    loadAccessData()
+                }
+            }
+        )
+    }
+
+    if (showAssignmentDialog) {
+        TeachingAssignmentDialog(
+            teachers = teachers,
+            groups = groups,
+            disciplines = disciplines,
+            periods = periods,
+            onDismiss = { showAssignmentDialog = false },
+            onSave = { teacherId, disciplineId, groupId, periodId ->
+                scope.launch {
+                    runCatching {
+                        journalApi.createAdminTeachingAssignment(
+                            AdminCreateTeachingAssignmentRequest(
+                                teacherId = teacherId,
+                                disciplineId = disciplineId,
+                                groupId = groupId,
+                                periodId = periodId
+                            )
+                        )
+                    }.onFailure { actionError = it.userFacingMessage("Не удалось создать назначение") }
+                    showAssignmentDialog = false
+                    loadAccessData()
+                }
+            }
+        )
+    }
+
+    revokingAssignmentId?.let { id ->
+        Dialog(onDismissRequest = { revokingAssignmentId = null }) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(Color.White, RoundedCornerShape(16.dp))
+                    .padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Text("Отозвать назначение?", fontWeight = FontWeight.Bold, color = PrimaryBlue, fontSize = 17.sp)
+                Text("Преподаватель потеряет назначение на эту группу и дисциплину.", color = SecondaryText, fontSize = 14.sp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
+                ) {
+                    TextButton(onClick = { revokingAssignmentId = null }) {
+                        Text("Отмена", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                    }
+                    DangerButton(
+                        text = "Отозвать",
+                        onClick = {
+                            scope.launch {
+                                runCatching { journalApi.revokeAdminTeachingAssignment(id) }
+                                    .onFailure { actionError = it.userFacingMessage("Не удалось отозвать назначение") }
+                                revokingAssignmentId = null
+                                loadAccessData()
                             }
                         }
                     )
@@ -309,12 +429,31 @@ fun AdminAccessRoute(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("����������:", color = PrimaryBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text("Показывать:", color = PrimaryBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             AdminDropdown(
-                label = "��������",
+                label = "Активные",
                 selected = if (showRevoked) "all" else "active",
-                options = listOf("��������" to "active", "���" to "all"),
+                options = listOf("Активные" to "active", "Все" to "all"),
                 onSelected = { showRevoked = it == "all" },
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(CardBackground)
+                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            PrimaryButton(
+                text = "Выдать доступ",
+                onClick = { showAccessDialog = true },
+                enabled = teachers.isNotEmpty() && groups.isNotEmpty() && disciplines.isNotEmpty() && periods.isNotEmpty(),
+                modifier = Modifier.weight(1f)
+            )
+            SecondaryButton(
+                text = "Назначить",
+                onClick = { showAssignmentDialog = true },
                 modifier = Modifier.weight(1f)
             )
         }
@@ -324,17 +463,45 @@ fun AdminAccessRoute(
                 CircularProgressIndicator(color = PrimaryBlue)
             }
             currentError != null -> Column(Modifier.padding(16.dp)) { ErrorCard(currentError) }
-            uiState.bindings.isEmpty() -> Box(
+            uiState.bindings.isEmpty() && assignments.isEmpty() -> Box(
                 Modifier.fillMaxSize().padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("������� �� �������", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                Text("Доступы не найдены", color = SecondaryText, fontWeight = FontWeight.SemiBold)
             }
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                if (assignments.isNotEmpty()) {
+                    item {
+                        Text(
+                            "Назначения преподавателей",
+                            color = PrimaryBlue,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            modifier = Modifier.padding(vertical = 6.dp)
+                        )
+                    }
+                    items(assignments) { assignment ->
+                        TeachingAssignmentRow(
+                            assignment = assignment,
+                            onRevoke = { revokingAssignmentId = assignment.id }
+                        )
+                    }
+                }
+                if (uiState.bindings.isNotEmpty()) {
+                    item {
+                        Text(
+                            "Делегированные доступы",
+                            color = PrimaryBlue,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 16.sp,
+                            modifier = Modifier.padding(vertical = 6.dp)
+                        )
+                    }
+                }
                 items(uiState.bindings) { binding ->
                     AccessBindingRow(
                         binding = binding,
@@ -345,13 +512,125 @@ fun AdminAccessRoute(
         }
     }
 }
+
+private data class CatalogBundle(
+    val teachers: List<TeacherProfile>,
+    val groups: List<AcademicGroup>,
+    val disciplines: List<Discipline>,
+    val periods: List<AdminPeriod>,
+    val assignments: List<AdminTeachingAssignment>
+)
+
 @Composable
-private fun AccessBindingRow(
-    binding: AdminAccessBinding,
+private fun AccessBindingDialog(
+    teachers: List<TeacherProfile>,
+    groups: List<AcademicGroup>,
+    disciplines: List<Discipline>,
+    periods: List<AdminPeriod>,
+    onDismiss: () -> Unit,
+    onSave: (granterId: String, granteeId: String, disciplineId: String, groupId: String, periodId: String, accessLevel: String) -> Unit
+) {
+    var granterId by remember(teachers) { mutableStateOf(teachers.firstOrNull()?.id.orEmpty()) }
+    var granteeId by remember(teachers) { mutableStateOf(teachers.drop(1).firstOrNull()?.id ?: teachers.firstOrNull()?.id.orEmpty()) }
+    var disciplineId by remember(disciplines) { mutableStateOf(disciplines.firstOrNull()?.id.orEmpty()) }
+    var groupId by remember(groups) { mutableStateOf(groups.firstOrNull()?.id.orEmpty()) }
+    var periodId by remember(periods) { mutableStateOf(periods.firstOrNull { it.isActive == true }?.id ?: periods.firstOrNull()?.id.orEmpty()) }
+    var accessLevel by remember { mutableStateOf("read") }
+    val canSave = granterId.isNotBlank() && granteeId.isNotBlank() && disciplineId.isNotBlank() && groupId.isNotBlank() && periodId.isNotBlank()
+
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White, RoundedCornerShape(16.dp))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Выдать доступ", fontWeight = FontWeight.Bold, color = PrimaryBlue, fontSize = 17.sp)
+            CatalogDropdown("Кто выдаёт", granterId, teachers.map { it.fullName to it.id }, { granterId = it })
+            CatalogDropdown("Кому", granteeId, teachers.map { it.fullName to it.id }, { granteeId = it })
+            CatalogDropdown("Дисциплина", disciplineId, disciplines.map { it.name to it.id }, { disciplineId = it })
+            CatalogDropdown("Группа", groupId, groups.map { it.name to it.id }, { groupId = it })
+            CatalogDropdown("Период", periodId, periods.map { (it.name ?: it.id) to it.id }, { periodId = it })
+            CatalogDropdown("Уровень", accessLevel, listOf("Чтение" to "read", "Запись" to "write"), { accessLevel = it })
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)) {
+                TextButton(onClick = onDismiss) {
+                    Text("Отмена", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                }
+                PrimaryButton(
+                    text = "Сохранить",
+                    enabled = canSave,
+                    onClick = { onSave(granterId, granteeId, disciplineId, groupId, periodId, accessLevel) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun TeachingAssignmentDialog(
+    teachers: List<TeacherProfile>,
+    groups: List<AcademicGroup>,
+    disciplines: List<Discipline>,
+    periods: List<AdminPeriod>,
+    onDismiss: () -> Unit,
+    onSave: (teacherId: String, disciplineId: String, groupId: String, periodId: String) -> Unit
+) {
+    var teacherId by remember(teachers) { mutableStateOf(teachers.firstOrNull()?.id.orEmpty()) }
+    var disciplineId by remember(disciplines) { mutableStateOf(disciplines.firstOrNull()?.id.orEmpty()) }
+    var groupId by remember(groups) { mutableStateOf(groups.firstOrNull()?.id.orEmpty()) }
+    var periodId by remember(periods) { mutableStateOf(periods.firstOrNull { it.isActive == true }?.id ?: periods.firstOrNull()?.id.orEmpty()) }
+    val canSave = teacherId.isNotBlank() && disciplineId.isNotBlank() && groupId.isNotBlank() && periodId.isNotBlank()
+
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White, RoundedCornerShape(16.dp))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Назначить преподавателя", fontWeight = FontWeight.Bold, color = PrimaryBlue, fontSize = 17.sp)
+            CatalogDropdown("Преподаватель", teacherId, teachers.map { it.fullName to it.id }, { teacherId = it })
+            CatalogDropdown("Дисциплина", disciplineId, disciplines.map { it.name to it.id }, { disciplineId = it })
+            CatalogDropdown("Группа", groupId, groups.map { it.name to it.id }, { groupId = it })
+            CatalogDropdown("Период", periodId, periods.map { (it.name ?: it.id) to it.id }, { periodId = it })
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)) {
+                TextButton(onClick = onDismiss) {
+                    Text("Отмена", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                }
+                PrimaryButton(
+                    text = "Сохранить",
+                    enabled = canSave,
+                    onClick = { onSave(teacherId, disciplineId, groupId, periodId) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun CatalogDropdown(
+    label: String,
+    selected: String,
+    options: List<Pair<String, String>>,
+    onSelected: (String) -> Unit
+) {
+    AdminDropdown(
+        label = label,
+        selected = selected,
+        options = options.ifEmpty { listOf("Нет данных" to "") },
+        onSelected = onSelected,
+        modifier = Modifier.fillMaxWidth()
+    )
+}
+
+@Composable
+private fun TeachingAssignmentRow(
+    assignment: AdminTeachingAssignment,
     onRevoke: () -> Unit
 ) {
-    val isRevoked = binding.revokedAt != null
-    val accessLabel = if (binding.accessLevel == "write") "Запись" else "Чтение"
+    val isRevoked = assignment.revokedAt != null
 
     Column(
         modifier = Modifier
@@ -368,29 +647,75 @@ private fun AccessBindingRow(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Получатель: ${shortenId(binding.granteeId ?: "—")}",
+                    text = assignment.teacherName ?: shortenId(assignment.teacherId ?: "—"),
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryBlue,
+                    fontSize = 14.sp
+                )
+                Text("Дисциплина: ${assignment.disciplineName ?: shortenId(assignment.disciplineId ?: "—")}", color = SecondaryText, fontSize = 12.sp)
+                Text("Группа: ${assignment.groupName ?: shortenId(assignment.groupId ?: "—")}", color = SecondaryText, fontSize = 12.sp)
+                Text("Период: ${assignment.periodName ?: shortenId(assignment.periodId ?: "—")}", color = SecondaryText, fontSize = 12.sp)
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            AdminBadge(
+                text = if (isRevoked) "Отозвано" else "Активно",
+                color = if (isRevoked) DangerColor else GreenColor,
+                background = if (isRevoked) DangerLight else GreenLight
+            )
+        }
+        if (!isRevoked) {
+            Spacer(modifier = Modifier.height(10.dp))
+            DangerButton("Отозвать", onClick = onRevoke)
+        }
+    }
+}
+
+@Composable
+private fun AccessBindingRow(
+    binding: AdminAccessBinding,
+    onRevoke: () -> Unit
+) {
+    val isRevoked = binding.revokedAt != null
+    val accessLabel = if (binding.accessLevel == "write") "Р—Р°РїРёСЃСЊ" else "Р§С‚РµРЅРёРµ"
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(CardBackground)
+            .border(1.dp, LightBlue, RoundedCornerShape(16.dp))
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.Top,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "РџРѕР»СѓС‡Р°С‚РµР»СЊ: ${shortenId(binding.granteeId ?: "вЂ”")}",
                     fontWeight = FontWeight.Bold,
                     color = PrimaryBlue,
                     fontSize = 14.sp
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Выдал: ${shortenId(binding.granterId ?: "—")}",
+                    text = "Р’С‹РґР°Р»: ${shortenId(binding.granterId ?: "вЂ”")}",
                     color = SecondaryText,
                     fontSize = 12.sp
                 )
                 Text(
-                    text = "Дисциплина: ${shortenId(binding.disciplineId ?: "—")}",
+                    text = "Р”РёСЃС†РёРїР»РёРЅР°: ${shortenId(binding.disciplineId ?: "вЂ”")}",
                     color = SecondaryText,
                     fontSize = 12.sp
                 )
                 Text(
-                    text = "Группа: ${shortenId(binding.groupId ?: "—")}",
+                    text = "Р“СЂСѓРїРїР°: ${shortenId(binding.groupId ?: "вЂ”")}",
                     color = SecondaryText,
                     fontSize = 12.sp
                 )
                 Text(
-                    text = "Выдан: ${formatDateTime(binding.grantedAt)}",
+                    text = "Р’С‹РґР°РЅ: ${formatDateTime(binding.grantedAt)}",
                     color = SecondaryText,
                     fontSize = 11.sp
                 )
@@ -402,7 +727,7 @@ private fun AccessBindingRow(
             ) {
                 AdminBadge(accessLabel, PrimaryBlue, AccentBadge)
                 AdminBadge(
-                    text = if (isRevoked) "Отозван" else "Активен",
+                    text = if (isRevoked) "РћС‚РѕР·РІР°РЅ" else "РђРєС‚РёРІРµРЅ",
                     color = if (isRevoked) DangerColor else GreenColor,
                     background = if (isRevoked) DangerLight else GreenLight
                 )
@@ -410,14 +735,14 @@ private fun AccessBindingRow(
         }
         if (!isRevoked) {
             Spacer(modifier = Modifier.height(10.dp))
-            DangerButton("Отозвать", onClick = onRevoke)
+            DangerButton("РћС‚РѕР·РІР°С‚СЊ", onClick = onRevoke)
         }
     }
 }
 
-// ─── Shared pagination row ────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Shared pagination row в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
-// ─── 7. Admin Problem Students ────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ 7. Admin Problem Students в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 private const val PROBLEM_STUDENTS_PAGE_SIZE = 10
 

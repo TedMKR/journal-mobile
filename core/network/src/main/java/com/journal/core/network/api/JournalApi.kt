@@ -3,18 +3,29 @@ package com.journal.core.network.api
 import com.journal.core.model.teacher.AcademicGroup
 import com.journal.core.model.teacher.AcademicPeriodsResponse
 import com.journal.core.model.teacher.AdminAccessBinding
+import com.journal.core.model.teacher.AdminAccessBindingResponse
 import com.journal.core.model.teacher.AdminAccessBindingsResponse
-import com.journal.core.model.teacher.ProblemStudentsResponse
 import com.journal.core.model.teacher.AdminActionRequest
 import com.journal.core.model.teacher.AdminAuditResponse
+import com.journal.core.model.teacher.AdminBackupsResponse
+import com.journal.core.model.teacher.AdminCreateAccessBindingRequest
+import com.journal.core.model.teacher.AdminCreatePeriodRequest
+import com.journal.core.model.teacher.AdminCreateTeachingAssignmentRequest
 import com.journal.core.model.teacher.AdminDocumentsResponse
+import com.journal.core.model.teacher.AdminImportBatch
+import com.journal.core.model.teacher.AdminImportsResponse
 import com.journal.core.model.teacher.AdminJournalContext
 import com.journal.core.model.teacher.AdminJournalsResponse
 import com.journal.core.model.teacher.AdminPeriod
 import com.journal.core.model.teacher.AdminPeriodsResponse
+import com.journal.core.model.teacher.AdminTeachingAssignment
+import com.journal.core.model.teacher.AdminTeachingAssignmentResponse
+import com.journal.core.model.teacher.AdminTeachingAssignmentsResponse
 import com.journal.core.model.teacher.AdminUpdateUserRequest
+import com.journal.core.model.teacher.AdminUpdatePeriodRequest
 import com.journal.core.model.teacher.AdminUser
 import com.journal.core.model.teacher.AdminUsersResponse
+import com.journal.core.model.teacher.ArchivedJournalsResponse
 import com.journal.core.model.teacher.AssignLessonTemplateRequest
 import com.journal.core.model.teacher.CatalogResponse
 import com.journal.core.model.teacher.CreateAssessmentFormRequest
@@ -33,11 +44,13 @@ import com.journal.core.model.teacher.JournalsResponse
 import com.journal.core.model.teacher.JobAccepted
 import com.journal.core.model.teacher.LessonTemplate
 import com.journal.core.model.teacher.LessonTemplateDetail
+import com.journal.core.model.teacher.MobileAppDownloadResponse
 import com.journal.core.model.teacher.LessonsResponse
 import com.journal.core.model.teacher.BulkAttendanceResponse
 import com.journal.core.model.teacher.BulkMarkAttendanceRequest
 import com.journal.core.model.teacher.MarkAttendanceRequest
 import com.journal.core.model.teacher.DocumentTask
+import com.journal.core.model.teacher.ProblemStudentsResponse
 import com.journal.core.model.teacher.RequestReportPayload
 import com.journal.core.model.teacher.StudentJournalData
 import com.journal.core.model.teacher.StudentLessonsResponse
@@ -48,6 +61,7 @@ import com.journal.core.model.teacher.TeacherProfile
 import com.journal.core.model.teacher.TeacherStats
 import com.journal.core.model.teacher.TopicPayload
 import com.journal.core.model.teacher.AttendanceSummaryResponse
+import com.journal.core.model.teacher.UpdateMobileAppDownloadRequest
 import com.journal.core.model.teacher.UpdateAssessmentFormRequest
 import com.journal.core.model.teacher.UpdateGradeRequest
 import com.journal.core.model.teacher.UpdateLessonTemplateRequest
@@ -57,6 +71,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.Header
+import retrofit2.http.HTTP
 import retrofit2.http.PATCH
 import retrofit2.http.POST
 import retrofit2.http.PUT
@@ -266,6 +281,13 @@ interface JournalApi {
         @Query("offset") offset: Int? = null
     ): JournalsResponse
 
+    @GET("journals/archive")
+    suspend fun getArchivedJournals(
+        @Query("period_id") periodId: String? = null,
+        @Query("limit") limit: Int = 20,
+        @Query("offset") offset: Int = 0
+    ): ArchivedJournalsResponse
+
     @GET("lesson-templates")
     suspend fun getLessonTemplates(
         @Query("discipline_id") disciplineId: String? = null,
@@ -361,6 +383,14 @@ interface JournalApi {
         @Query("to") to: String? = null
     ): AdminAuditResponse
 
+    @GET("admin/audit/export")
+    suspend fun exportAdminAudit(
+        @Query("action") action: String? = null,
+        @Query("entity_type") entityType: String? = null,
+        @Query("from") from: String? = null,
+        @Query("to") to: String? = null
+    ): ResponseBody
+
     @GET("admin/journals")
     suspend fun getAdminJournals(
         @Query("page") page: Int? = null,
@@ -389,6 +419,23 @@ interface JournalApi {
         @Query("include_closed") includeClosed: Boolean = true
     ): AdminPeriodsResponse
 
+    @POST("admin/periods")
+    suspend fun createAdminPeriod(
+        @Body request: AdminCreatePeriodRequest
+    ): AdminPeriod
+
+    @PATCH("admin/periods/{id}")
+    suspend fun updateAdminPeriod(
+        @Path("id") periodId: String,
+        @Body request: AdminUpdatePeriodRequest
+    ): AdminPeriod
+
+    @HTTP(method = "DELETE", path = "admin/periods/{id}", hasBody = true)
+    suspend fun deleteAdminPeriod(
+        @Path("id") periodId: String,
+        @Body request: AdminActionRequest
+    )
+
     @POST("admin/periods/{id}/close")
     suspend fun closeAdminPeriod(
         @Path("id") periodId: String,
@@ -404,17 +451,95 @@ interface JournalApi {
     @GET("admin/documents")
     suspend fun getAdminDocuments(
         @Query("page") page: Int? = null,
-        @Query("page_size") pageSize: Int? = null
+        @Query("page_size") pageSize: Int? = null,
+        @Query("status") status: String? = null
     ): AdminDocumentsResponse
+
+    @GET("admin/documents/{id}/file")
+    suspend fun downloadAdminDocument(
+        @Path("id") documentId: String
+    ): ResponseBody
+
+    @GET("admin/imports")
+    suspend fun getAdminImports(
+        @Query("page") page: Int? = null,
+        @Query("page_size") pageSize: Int? = null,
+        @Query("status") status: String? = null,
+        @Query("group_id") groupId: String? = null,
+        @Query("period_id") periodId: String? = null,
+        @Query("started_by") startedBy: String? = null,
+        @Query("import_mode") importMode: String? = null
+    ): AdminImportsResponse
+
+    @GET("admin/import-templates/{id}")
+    suspend fun downloadAdminImportTemplate(
+        @Path("id") templateId: Int
+    ): ResponseBody
+
+    @POST("admin/imports/{id}/apply")
+    suspend fun applyAdminImport(
+        @Path("id") batchId: String
+    ): AdminImportBatch
+
+    @DELETE("admin/imports/{id}")
+    suspend fun cancelAdminImport(
+        @Path("id") batchId: String
+    )
+
+    @GET("mobile/app-download")
+    suspend fun getMobileAppDownload(): MobileAppDownloadResponse
+
+    @PUT("admin/mobile/app-download")
+    suspend fun updateAdminMobileAppDownload(
+        @Body request: UpdateMobileAppDownloadRequest
+    ): MobileAppDownloadResponse
+
+    @GET("admin/backups")
+    suspend fun getAdminBackups(): AdminBackupsResponse
+
+    @POST("admin/backups")
+    suspend fun createAdminBackup(
+        @Body request: Map<String, String> = mapOf("component" to "database")
+    ): com.journal.core.model.teacher.BackupArtifact
+
+    @GET("admin/backups/{id}/file")
+    suspend fun downloadAdminBackup(
+        @Path("id") artifactId: String
+    ): ResponseBody
+
+    @POST("admin/backups/{id}/restore-check")
+    suspend fun checkAdminBackupRestore(
+        @Path("id") artifactId: String
+    ): com.journal.core.model.teacher.BackupArtifact
 
     @GET("admin/access-bindings")
     suspend fun getAdminAccessBindings(
         @Query("active_only") activeOnly: Boolean = false
     ): AdminAccessBindingsResponse
 
+    @POST("admin/access-bindings")
+    suspend fun createAdminAccessBinding(
+        @Body request: AdminCreateAccessBindingRequest
+    ): AdminAccessBindingResponse
+
     @DELETE("admin/access-bindings/{id}")
     suspend fun revokeAdminAccessBinding(
         @Path("id") bindingId: String
+    )
+
+    @GET("admin/access-bindings/teaching-assignments")
+    suspend fun getAdminTeachingAssignments(
+        @Query("active_only") activeOnly: Boolean = false
+    ): AdminTeachingAssignmentsResponse
+
+    @POST("admin/access-bindings/teaching-assignments")
+    suspend fun createAdminTeachingAssignment(
+        @Body request: AdminCreateTeachingAssignmentRequest
+    ): AdminTeachingAssignmentResponse
+
+    @DELETE("admin/access-bindings/teaching-assignments/{id}")
+    suspend fun revokeAdminTeachingAssignment(
+        @Path("id") assignmentId: String
     )
 
     @GET("analytics/problem-students")

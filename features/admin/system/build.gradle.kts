@@ -5,10 +5,13 @@ plugins {
 }
 
 android {
-    namespace = "com.journal.features.admin.imports"
+    namespace = "com.journal.features.admin.system"
     compileSdk = 34
+
     defaultConfig { minSdk = 26 }
+
     buildFeatures { compose = true }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

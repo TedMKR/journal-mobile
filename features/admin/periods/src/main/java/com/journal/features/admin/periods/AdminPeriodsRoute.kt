@@ -73,8 +73,10 @@ import androidx.compose.ui.window.Dialog
 import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.AdminAccessBinding
 import com.journal.core.model.teacher.AdminActionRequest
+import com.journal.core.model.teacher.AdminCreatePeriodRequest
 import com.journal.core.model.teacher.AdminJournalContext
 import com.journal.core.model.teacher.AdminPeriod
+import com.journal.core.model.teacher.AdminUpdatePeriodRequest
 import com.journal.core.model.teacher.AdminUpdateUserRequest
 import com.journal.core.model.teacher.AdminUser
 import com.journal.core.model.teacher.AuditEvent
@@ -106,7 +108,7 @@ import com.journal.core.ui.AppErrorCard as ErrorCard
 import com.journal.core.ui.AppLoadingCard as LoadingCard
 import com.journal.core.ui.AppPaginationRow as AdminPaginationRow
 
-// ─── Colors ───────────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Colors в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 private val BackgroundColor = AppBackground
 private val CardBackground = Color.White
@@ -123,10 +125,10 @@ private val AccentBadge = AppHeaderBackground
 private val BarBackground = AppBarBackground
 private val WarningLight = Color(0xFFFEF3C7)
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 private fun formatDateTime(value: String?): String {
-    if (value.isNullOrBlank()) return "—"
+    if (value.isNullOrBlank()) return "вЂ”"
     return try {
         val dt = OffsetDateTime.parse(value)
         dt.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
@@ -136,21 +138,21 @@ private fun formatDateTime(value: String?): String {
 }
 
 private fun adminActionLabel(action: String?): String = when (action) {
-    "JOURNAL_LOCKED" -> "Журнал заморожен"
-    "JOURNAL_UNLOCKED" -> "Журнал разморожен"
-    "JOURNAL_ARCHIVED" -> "Журнал в архиве"
-    "JOURNAL_RESTORED" -> "Журнал восстановлен"
-    "PERIOD_CLOSED" -> "Период закрыт"
-    "PERIOD_REOPENED" -> "Период открыт"
-    "ACCESS_BINDING_CREATED" -> "Доступ выдан"
-    "ACCESS_BINDING_REVOKED" -> "Доступ отозван"
-    "AUDIT_EXPORTED" -> "Экспорт аудита"
-    "USER_BLOCKED" -> "Пользователь заблокирован"
-    "USER_UNBLOCKED" -> "Пользователь разблокирован"
-    else -> action ?: "—"
+    "JOURNAL_LOCKED" -> "Р–СѓСЂРЅР°Р» Р·Р°РјРѕСЂРѕР¶РµРЅ"
+    "JOURNAL_UNLOCKED" -> "Р–СѓСЂРЅР°Р» СЂР°Р·РјРѕСЂРѕР¶РµРЅ"
+    "JOURNAL_ARCHIVED" -> "Р–СѓСЂРЅР°Р» РІ Р°СЂС…РёРІРµ"
+    "JOURNAL_RESTORED" -> "Р–СѓСЂРЅР°Р» РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅ"
+    "PERIOD_CLOSED" -> "РџРµСЂРёРѕРґ Р·Р°РєСЂС‹С‚"
+    "PERIOD_REOPENED" -> "РџРµСЂРёРѕРґ РѕС‚РєСЂС‹С‚"
+    "ACCESS_BINDING_CREATED" -> "Р”РѕСЃС‚СѓРї РІС‹РґР°РЅ"
+    "ACCESS_BINDING_REVOKED" -> "Р”РѕСЃС‚СѓРї РѕС‚РѕР·РІР°РЅ"
+    "AUDIT_EXPORTED" -> "Р­РєСЃРїРѕСЂС‚ Р°СѓРґРёС‚Р°"
+    "USER_BLOCKED" -> "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ"
+    "USER_UNBLOCKED" -> "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЂР°Р·Р±Р»РѕРєРёСЂРѕРІР°РЅ"
+    else -> action ?: "вЂ”"
 }
 
-// ─── Shared UI components ─────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Shared UI components в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 @Composable
 private fun ReasonDialog(
@@ -180,7 +182,7 @@ private fun ReasonDialog(
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    "×",
+                    "Г—",
                     modifier = Modifier
                         .clickable(onClick = onDismiss)
                         .padding(4.dp),
@@ -191,7 +193,7 @@ private fun ReasonDialog(
             OutlinedTextField(
                 value = reason,
                 onValueChange = { reason = it },
-                label = { Text("Причина") },
+                label = { Text("РџСЂРёС‡РёРЅР°") },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = InputTextColor,
@@ -206,10 +208,10 @@ private fun ReasonDialog(
                 horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
             ) {
                 TextButton(onClick = onDismiss) {
-                    Text("Отмена", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                    Text("РћС‚РјРµРЅР°", color = SecondaryText, fontWeight = FontWeight.SemiBold)
                 }
                 PrimaryButton(
-                    text = "Подтвердить",
+                    text = "РџРѕРґС‚РІРµСЂРґРёС‚СЊ",
                     onClick = { if (reason.isNotBlank()) onConfirm(reason.trim()) }
                 )
             }
@@ -217,10 +219,10 @@ private fun ReasonDialog(
     }
 }
 
-// ─── 1. Admin Dashboard ───────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ 1. Admin Dashboard в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 private fun formatDate(value: String?): String {
-    if (value.isNullOrBlank()) return "—"
+    if (value.isNullOrBlank()) return "вЂ”"
     return try {
         val dt = OffsetDateTime.parse(value)
         dt.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
@@ -240,6 +242,9 @@ fun AdminPeriodsRoute(
 
     data class PendingToggle(val period: AdminPeriod, val closing: Boolean)
     var pendingToggle by remember { mutableStateOf<PendingToggle?>(null) }
+    var showCreateDialog by remember { mutableStateOf(false) }
+    var editingPeriod by remember { mutableStateOf<AdminPeriod?>(null) }
+    var deletingPeriod by remember { mutableStateOf<AdminPeriod?>(null) }
 
     fun loadPeriods() {
         actionError = null
@@ -250,7 +255,7 @@ fun AdminPeriodsRoute(
 
     pendingToggle?.let { pt ->
         ReasonDialog(
-            title = if (pt.closing) "������� ������?" else "������� ������?",
+            title = if (pt.closing) "Закрыть период?" else "Открыть период?",
             onConfirm = { reason ->
                 scope.launch {
                     runCatching {
@@ -259,12 +264,77 @@ fun AdminPeriodsRoute(
                         } else {
                             journalApi.reopenAdminPeriod(pt.period.id, AdminActionRequest(reason))
                         }
-                    }.onFailure { actionError = it.userFacingMessage("�� ������� �������� ������") }
+                    }.onFailure { actionError = it.userFacingMessage("Не удалось изменить период") }
                     pendingToggle = null
                     loadPeriods()
                 }
             },
             onDismiss = { pendingToggle = null }
+        )
+    }
+
+    if (showCreateDialog) {
+        PeriodFormDialog(
+            title = "Создать период",
+            period = null,
+            onDismiss = { showCreateDialog = false },
+            onSave = { name, startsAt, endsAt, isActive, _ ->
+                scope.launch {
+                    runCatching {
+                        journalApi.createAdminPeriod(
+                            AdminCreatePeriodRequest(
+                                name = name,
+                                startsAt = startsAt,
+                                endsAt = endsAt,
+                                isActive = isActive
+                            )
+                        )
+                    }.onFailure { actionError = it.userFacingMessage("Не удалось создать период") }
+                    showCreateDialog = false
+                    loadPeriods()
+                }
+            }
+        )
+    }
+
+    editingPeriod?.let { period ->
+        PeriodFormDialog(
+            title = "Редактировать период",
+            period = period,
+            onDismiss = { editingPeriod = null },
+            onSave = { name, startsAt, endsAt, isActive, reason ->
+                scope.launch {
+                    runCatching {
+                        journalApi.updateAdminPeriod(
+                            period.id,
+                            AdminUpdatePeriodRequest(
+                                name = name,
+                                startsAt = startsAt,
+                                endsAt = endsAt,
+                                isActive = isActive,
+                                reason = reason.ifBlank { null }
+                            )
+                        )
+                    }.onFailure { actionError = it.userFacingMessage("Не удалось обновить период") }
+                    editingPeriod = null
+                    loadPeriods()
+                }
+            }
+        )
+    }
+
+    deletingPeriod?.let { period ->
+        ReasonDialog(
+            title = "Удалить период?",
+            onConfirm = { reason ->
+                scope.launch {
+                    runCatching { journalApi.deleteAdminPeriod(period.id, AdminActionRequest(reason)) }
+                        .onFailure { actionError = it.userFacingMessage("Не удалось удалить период") }
+                    deletingPeriod = null
+                    loadPeriods()
+                }
+            },
+            onDismiss = { deletingPeriod = null }
         )
     }
 
@@ -275,6 +345,16 @@ fun AdminPeriodsRoute(
             .fillMaxSize()
             .background(BackgroundColor)
     ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(CardBackground)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            PrimaryButton("Создать период", onClick = { showCreateDialog = true })
+        }
+
         when {
             uiState.isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator(color = PrimaryBlue)
@@ -284,7 +364,7 @@ fun AdminPeriodsRoute(
                 Modifier.fillMaxSize().padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("������� �� �������", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                Text("Периоды не найдены", color = SecondaryText, fontWeight = FontWeight.SemiBold)
             }
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -294,15 +374,92 @@ fun AdminPeriodsRoute(
                 items(uiState.periods) { period ->
                     PeriodAdminRow(
                         period = period,
-                        onToggle = { pendingToggle = PendingToggle(period, !(period.isClosed ?: false)) }
+                        onToggle = { pendingToggle = PendingToggle(period, !(period.isClosed ?: false)) },
+                        onEdit = { editingPeriod = period },
+                        onDelete = { deletingPeriod = period }
                     )
                 }
             }
         }
     }
 }
+
 @Composable
-private fun PeriodAdminRow(period: AdminPeriod, onToggle: () -> Unit) {
+private fun PeriodFormDialog(
+    title: String,
+    period: AdminPeriod?,
+    onDismiss: () -> Unit,
+    onSave: (name: String, startsAt: String, endsAt: String, isActive: Boolean, reason: String) -> Unit
+) {
+    var name by remember(period) { mutableStateOf(period?.name.orEmpty()) }
+    var startsAt by remember(period) { mutableStateOf(period?.startsAt.orEmpty().take(10)) }
+    var endsAt by remember(period) { mutableStateOf(period?.endsAt.orEmpty().take(10)) }
+    var isActive by remember(period) { mutableStateOf(period?.isActive ?: false) }
+    var reason by remember(period) { mutableStateOf("") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White, RoundedCornerShape(16.dp))
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(title, fontWeight = FontWeight.Bold, color = PrimaryBlue, fontSize = 17.sp)
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Название") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = startsAt,
+                onValueChange = { startsAt = it },
+                label = { Text("Дата начала, YYYY-MM-DD") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = endsAt,
+                onValueChange = { endsAt = it },
+                label = { Text("Дата окончания, YYYY-MM-DD") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Checkbox(checked = isActive, onCheckedChange = { isActive = it })
+                Text("Активный период", color = PrimaryBlue, fontWeight = FontWeight.SemiBold)
+            }
+            if (period != null) {
+                OutlinedTextField(
+                    value = reason,
+                    onValueChange = { reason = it },
+                    label = { Text("Причина изменения") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
+            ) {
+                TextButton(onClick = onDismiss) {
+                    Text("Отмена", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                }
+                PrimaryButton(
+                    text = "Сохранить",
+                    enabled = name.isNotBlank() && startsAt.isNotBlank() && endsAt.isNotBlank(),
+                    onClick = { onSave(name.trim(), startsAt.trim(), endsAt.trim(), isActive, reason.trim()) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PeriodAdminRow(
+    period: AdminPeriod,
+    onToggle: () -> Unit,
+    onEdit: () -> Unit,
+    onDelete: () -> Unit
+) {
     val isClosed = period.isClosed ?: false
     val isActive = period.isActive ?: false
 
@@ -321,14 +478,14 @@ private fun PeriodAdminRow(period: AdminPeriod, onToggle: () -> Unit) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = period.name ?: "—",
+                    text = period.name ?: "вЂ”",
                     fontWeight = FontWeight.Bold,
                     color = PrimaryBlue,
                     fontSize = 15.sp
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "${formatDate(period.startsAt)} — ${formatDate(period.endsAt)}",
+                    text = "${formatDate(period.startsAt)} вЂ” ${formatDate(period.endsAt)}",
                     color = SecondaryText,
                     fontSize = 13.sp
                 )
@@ -339,23 +496,30 @@ private fun PeriodAdminRow(period: AdminPeriod, onToggle: () -> Unit) {
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 if (isActive) {
-                    AdminBadge("Активный", PrimaryBlue, AccentBadge)
+                    AdminBadge("РђРєС‚РёРІРЅС‹Р№", PrimaryBlue, AccentBadge)
                 }
                 AdminBadge(
-                    text = if (isClosed) "Закрыт" else "Открыт",
+                    text = if (isClosed) "Р—Р°РєСЂС‹С‚" else "РћС‚РєСЂС‹С‚",
                     color = if (isClosed) DangerColor else GreenColor,
                     background = if (isClosed) DangerLight else GreenLight
                 )
             }
         }
         Spacer(modifier = Modifier.height(10.dp))
-        if (isClosed) {
-            PrimaryButton("Открыть", onClick = onToggle)
-        } else {
-            DangerButton("Закрыть", onClick = onToggle)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            SecondaryButton("Изменить", onClick = onEdit, modifier = Modifier.weight(1f))
+            if (isClosed) {
+                PrimaryButton("Открыть", onClick = onToggle, modifier = Modifier.weight(1f))
+            } else {
+                DangerButton("Закрыть", onClick = onToggle, modifier = Modifier.weight(1f))
+            }
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+        if (!isActive) {
+            DangerButton("Удалить", onClick = onDelete, modifier = Modifier.fillMaxWidth())
         }
     }
 }
 
-// ─── 6. Admin Access Bindings ─────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ 6. Admin Access Bindings в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 

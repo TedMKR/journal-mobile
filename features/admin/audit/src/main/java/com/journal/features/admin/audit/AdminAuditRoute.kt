@@ -92,6 +92,7 @@ import com.journal.core.ui.AppMutedText
 import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppSuccess
 import com.journal.core.ui.AppSuccessLight
+import com.journal.core.ui.shareBytesFile
 import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -106,7 +107,7 @@ import com.journal.core.ui.AppErrorCard as ErrorCard
 import com.journal.core.ui.AppLoadingCard as LoadingCard
 import com.journal.core.ui.AppPaginationRow as AdminPaginationRow
 
-// ─── Colors ───────────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Colors в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 private val BackgroundColor = AppBackground
 private val CardBackground = Color.White
@@ -123,12 +124,12 @@ private val AccentBadge = AppHeaderBackground
 private val BarBackground = AppBarBackground
 private val WarningLight = Color(0xFFFEF3C7)
 
-// ─── Helpers ──────────────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 
 private const val AUDIT_PAGE_SIZE = 20
 private fun formatDateTime(value: String?): String {
-    if (value.isNullOrBlank()) return "—"
+    if (value.isNullOrBlank()) return "вЂ”"
     return try {
         val dt = OffsetDateTime.parse(value)
         dt.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
@@ -138,21 +139,21 @@ private fun formatDateTime(value: String?): String {
 }
 
 private fun adminActionLabel(action: String?): String = when (action) {
-    "JOURNAL_LOCKED" -> "Журнал заморожен"
-    "JOURNAL_UNLOCKED" -> "Журнал разморожен"
-    "JOURNAL_ARCHIVED" -> "Журнал в архиве"
-    "JOURNAL_RESTORED" -> "Журнал восстановлен"
-    "PERIOD_CLOSED" -> "Период закрыт"
-    "PERIOD_REOPENED" -> "Период открыт"
-    "ACCESS_BINDING_CREATED" -> "Доступ выдан"
-    "ACCESS_BINDING_REVOKED" -> "Доступ отозван"
-    "AUDIT_EXPORTED" -> "Экспорт аудита"
-    "USER_BLOCKED" -> "Пользователь заблокирован"
-    "USER_UNBLOCKED" -> "Пользователь разблокирован"
-    else -> action ?: "—"
+    "JOURNAL_LOCKED" -> "Р–СѓСЂРЅР°Р» Р·Р°РјРѕСЂРѕР¶РµРЅ"
+    "JOURNAL_UNLOCKED" -> "Р–СѓСЂРЅР°Р» СЂР°Р·РјРѕСЂРѕР¶РµРЅ"
+    "JOURNAL_ARCHIVED" -> "Р–СѓСЂРЅР°Р» РІ Р°СЂС…РёРІРµ"
+    "JOURNAL_RESTORED" -> "Р–СѓСЂРЅР°Р» РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅ"
+    "PERIOD_CLOSED" -> "РџРµСЂРёРѕРґ Р·Р°РєСЂС‹С‚"
+    "PERIOD_REOPENED" -> "РџРµСЂРёРѕРґ РѕС‚РєСЂС‹С‚"
+    "ACCESS_BINDING_CREATED" -> "Р”РѕСЃС‚СѓРї РІС‹РґР°РЅ"
+    "ACCESS_BINDING_REVOKED" -> "Р”РѕСЃС‚СѓРї РѕС‚РѕР·РІР°РЅ"
+    "AUDIT_EXPORTED" -> "Р­РєСЃРїРѕСЂС‚ Р°СѓРґРёС‚Р°"
+    "USER_BLOCKED" -> "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ"
+    "USER_UNBLOCKED" -> "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЂР°Р·Р±Р»РѕРєРёСЂРѕРІР°РЅ"
+    else -> action ?: "вЂ”"
 }
 
-// ─── Shared UI components ─────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ Shared UI components в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 @Composable
 private fun ReasonDialog(
@@ -182,7 +183,7 @@ private fun ReasonDialog(
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    "×",
+                    "Г—",
                     modifier = Modifier
                         .clickable(onClick = onDismiss)
                         .padding(4.dp),
@@ -193,7 +194,7 @@ private fun ReasonDialog(
             OutlinedTextField(
                 value = reason,
                 onValueChange = { reason = it },
-                label = { Text("Причина") },
+                label = { Text("РџСЂРёС‡РёРЅР°") },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = InputTextColor,
@@ -208,10 +209,10 @@ private fun ReasonDialog(
                 horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
             ) {
                 TextButton(onClick = onDismiss) {
-                    Text("Отмена", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                    Text("РћС‚РјРµРЅР°", color = SecondaryText, fontWeight = FontWeight.SemiBold)
                 }
                 PrimaryButton(
-                    text = "Подтвердить",
+                    text = "РџРѕРґС‚РІРµСЂРґРёС‚СЊ",
                     onClick = { if (reason.isNotBlank()) onConfirm(reason.trim()) }
                 )
             }
@@ -219,17 +220,20 @@ private fun ReasonDialog(
     }
 }
 
-// ─── 1. Admin Dashboard ───────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ 1. Admin Dashboard в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 @Composable
 fun AdminAuditRoute(
     journalApi: JournalApi,
     viewModel: AdminAuditViewModel = hiltViewModel()
 ) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     var filterAction by remember { mutableStateOf("") }
     var filterEntity by remember { mutableStateOf("") }
     var page by remember { mutableIntStateOf(1) }
+    var actionError by remember { mutableStateOf<String?>(null) }
 
     fun loadAudit() {
         viewModel.loadAudit(
@@ -243,6 +247,28 @@ fun AdminAuditRoute(
     LaunchedEffect(page, filterAction, filterEntity) { loadAudit() }
 
     val totalPages = maxOf(1, (uiState.total + AUDIT_PAGE_SIZE - 1) / AUDIT_PAGE_SIZE)
+    val currentError = actionError ?: uiState.error
+
+    fun exportAudit() {
+        scope.launch {
+            actionError = null
+            runCatching {
+                val bytes = journalApi.exportAdminAudit(
+                    action = filterAction.ifBlank { null },
+                    entityType = filterEntity.ifBlank { null }
+                ).bytes()
+                shareBytesFile(
+                    context = context,
+                    bytes = bytes,
+                    fileName = "admin-audit.csv",
+                    mimeType = "text/csv",
+                    chooserTitle = "Экспорт аудита"
+                )
+            }.onFailure {
+                actionError = it.userFacingMessage("Не удалось экспортировать аудит")
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -256,44 +282,45 @@ fun AdminAuditRoute(
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            Text("�������", fontWeight = FontWeight.Bold, color = PrimaryBlue, fontSize = 14.sp)
+            Text("Фильтры", fontWeight = FontWeight.Bold, color = PrimaryBlue, fontSize = 14.sp)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 AdminDropdown(
-                    label = "��� �������",
+                    label = "Все события",
                     selected = filterAction,
                     options = listOf(
-                        "��� �������" to "",
-                        "������ ���������" to "JOURNAL_LOCKED",
-                        "������ ����������" to "JOURNAL_UNLOCKED",
-                        "� ������" to "JOURNAL_ARCHIVED",
-                        "������������" to "JOURNAL_RESTORED",
-                        "������ ������" to "PERIOD_CLOSED",
-                        "������ ������" to "PERIOD_REOPENED",
-                        "������ �����" to "ACCESS_BINDING_CREATED",
-                        "������ �������" to "ACCESS_BINDING_REVOKED",
-                        "������������" to "USER_BLOCKED",
-                        "�������������" to "USER_UNLOCKED"
+                        "Все события" to "",
+                        "Журнал заморожен" to "JOURNAL_LOCKED",
+                        "Журнал разморожен" to "JOURNAL_UNLOCKED",
+                        "В архиве" to "JOURNAL_ARCHIVED",
+                        "Восстановлен" to "JOURNAL_RESTORED",
+                        "Период закрыт" to "PERIOD_CLOSED",
+                        "Период открыт" to "PERIOD_REOPENED",
+                        "Доступ выдан" to "ACCESS_BINDING_CREATED",
+                        "Доступ отозван" to "ACCESS_BINDING_REVOKED",
+                        "Заблокирован" to "USER_BLOCKED",
+                        "Разблокирован" to "USER_UNLOCKED"
                     ),
                     onSelected = { filterAction = it; page = 1 },
                     modifier = Modifier.weight(1f)
                 )
                 AdminDropdown(
-                    label = "��� ��������",
+                    label = "Все сущности",
                     selected = filterEntity,
                     options = listOf(
-                        "��� ��������" to "",
-                        "������" to "JournalContext",
-                        "������������" to "AdminUser",
-                        "������" to "AcademicPeriod",
-                        "��������" to "DocumentTask"
+                        "Все сущности" to "",
+                        "Журнал" to "JournalContext",
+                        "Пользователь" to "AdminUser",
+                        "Период" to "AcademicPeriod",
+                        "Документ" to "DocumentTask"
                     ),
                     onSelected = { filterEntity = it; page = 1 },
                     modifier = Modifier.weight(1f)
                 )
             }
+            SecondaryButton("Экспорт CSV", onClick = ::exportAudit, modifier = Modifier.fillMaxWidth())
         }
 
         when {
@@ -304,15 +331,15 @@ fun AdminAuditRoute(
                 CircularProgressIndicator(color = PrimaryBlue)
             }
 
-            uiState.error != null -> Column(modifier = Modifier.padding(16.dp)) {
-                ErrorCard(uiState.error!!)
+            currentError != null -> Column(modifier = Modifier.padding(16.dp)) {
+                ErrorCard(currentError)
             }
 
             uiState.events.isEmpty() -> Box(
                 modifier = Modifier.fillMaxSize().padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("������� �� �������", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                Text("События не найдены", color = SecondaryText, fontWeight = FontWeight.SemiBold)
             }
 
             else -> LazyColumn(
@@ -338,7 +365,7 @@ fun AdminAuditRoute(
                                 onClick = { if (page > 1) page-- },
                                 enabled = page > 1
                             ) {
-                                Text("< �����", color = if (page > 1) PrimaryBlue else SecondaryText)
+                                Text("< Назад", color = if (page > 1) PrimaryBlue else SecondaryText)
                             }
                             Text(
                                 "$page / $totalPages",
@@ -350,7 +377,7 @@ fun AdminAuditRoute(
                                 onClick = { if (page < totalPages) page++ },
                                 enabled = page < totalPages
                             ) {
-                                Text("����� >", color = if (page < totalPages) PrimaryBlue else SecondaryText)
+                                Text("Вперёд >", color = if (page < totalPages) PrimaryBlue else SecondaryText)
                             }
                         }
                     }
@@ -384,7 +411,7 @@ private fun AuditEventRow(event: AuditEvent) {
                 Spacer(modifier = Modifier.height(2.dp))
                 if (!event.entityType.isNullOrBlank()) {
                     Text(
-                        text = "Сущность: ${event.entityType}",
+                        text = "РЎСѓС‰РЅРѕСЃС‚СЊ: ${event.entityType}",
                         color = SecondaryText,
                         fontSize = 12.sp
                     )
@@ -408,7 +435,7 @@ private fun AuditEventRow(event: AuditEvent) {
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = event.actorId?.let { shortenId(it) } ?: "Система",
+                    text = event.actorId?.let { shortenId(it) } ?: "РЎРёСЃС‚РµРјР°",
                     color = SecondaryText,
                     fontSize = 11.sp,
                     maxLines = 1,
@@ -420,9 +447,9 @@ private fun AuditEventRow(event: AuditEvent) {
 }
 
 private fun shortenId(id: String): String =
-    if (id.length > 16) "…${id.takeLast(12)}" else id
+    if (id.length > 16) "вЂ¦${id.takeLast(12)}" else id
 
-// ─── 4. Admin Journals ────────────────────────────────────────────────────────
+// в”Ђв”Ђв”Ђ 4. Admin Journals в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 private const val JOURNALS_PAGE_SIZE = 20
 

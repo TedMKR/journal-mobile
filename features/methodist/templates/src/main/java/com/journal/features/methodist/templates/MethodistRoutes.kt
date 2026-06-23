@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
@@ -64,6 +65,8 @@ import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppMutedText
 import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.appFieldColors
+import com.journal.core.ui.shareBytesFile
+import com.journal.core.ui.shareTextFile
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
@@ -91,6 +94,7 @@ fun MethodistTemplatesRoute(
     journalApi: JournalApi
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var isLoading by remember { mutableStateOf(true) }
     var saving by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -102,6 +106,33 @@ fun MethodistTemplatesRoute(
     var selectedDisciplineId by remember { mutableStateOf("") }
     var includeArchived by remember { mutableStateOf(false) }
     var showCreateDialog by remember { mutableStateOf(false) }
+
+    fun downloadImportTemplate(templateId: Int) {
+        scope.launch {
+            error = null
+            runCatching {
+                val bytes = journalApi.downloadAdminImportTemplate(templateId).bytes()
+                shareBytesFile(
+                    context = context,
+                    bytes = bytes,
+                    fileName = if (templateId == 3) "lesson-topics-template.xlsx" else "lesson-topics-example.xlsx",
+                    mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    chooserTitle = "Шаблон КТП"
+                )
+            }.onFailure { error = it.userFacingMessage("Не удалось скачать шаблон") }
+        }
+    }
+
+    fun exportSelectedTemplate() {
+        selectedTemplate?.let { detail ->
+            shareTextFile(
+                context = context,
+                text = buildLessonTemplateCsv(detail),
+                fileName = "lesson-template-${detail.id.takeLast(8)}.csv",
+                chooserTitle = "Экспорт КТП"
+            )
+        }
+    }
 
     fun loadTemplates() {
         scope.launch {
@@ -136,6 +167,11 @@ fun MethodistTemplatesRoute(
         title = "КТП шаблоны",
         actions = {
             PrimaryButton(text = "Добавить КТП", onClick = { showCreateDialog = true })
+            SecondaryButton(text = "Шаблон тем", onClick = { downloadImportTemplate(3) })
+            SecondaryButton(text = "Пример тем", onClick = { downloadImportTemplate(4) })
+            if (selectedTemplate != null) {
+                SecondaryButton(text = "Экспорт CSV", onClick = ::exportSelectedTemplate)
+            }
         },
         useContentCard = false
     ) {
@@ -612,6 +648,26 @@ private fun List<TopicDraft>.replaceAt(index: Int, item: TopicDraft): List<Topic
     mapIndexed { currentIndex, current -> if (currentIndex == index) item else current }
 
 private fun List<TopicDraft>.reindexTopics(): List<TopicDraft> = mapIndexed { index, topic -> topic.copy(orderIndex = index + 1) }
+
+private fun buildLessonTemplateCsv(detail: LessonTemplateDetail): String {
+    val rows = mutableListOf<List<String>>()
+    rows += listOf("КТП", detail.name)
+    rows += listOf("Дисциплина", detail.disciplineName)
+    rows += listOf("Описание", detail.description.orEmpty())
+    rows.add(emptyList())
+    rows += listOf("№", "Тема", "Описание", "Количество занятий")
+    detail.topics.sortedBy { it.orderIndex }.forEach { topic ->
+        rows += listOf(
+            topic.orderIndex.toString(),
+            topic.topicName,
+            topic.topicDescription.orEmpty(),
+            topic.lessonCount.toString()
+        )
+    }
+    return rows.joinToString("\n") { row ->
+        row.joinToString(";") { cell -> "\"${cell.replace("\"", "\"\"")}\"" }
+    }
+}
 
 data class MethodistJournalTarget(
     val groupId: String,
