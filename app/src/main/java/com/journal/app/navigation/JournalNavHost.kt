@@ -47,13 +47,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.withTransform
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.vector.PathParser
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -89,10 +92,6 @@ import com.journal.features.teacher.journal.TeacherJournalRoute
 import com.journal.features.teacher.studentcard.TeacherStudentCardRoute
 import com.journal.features.teacher.ved.TeacherVedRoute
 import com.journal.shared.navigation.Routes
-import kotlin.math.PI
-import kotlin.math.cos
-import kotlin.math.min
-import kotlin.math.sin
 
 private val MenuBackground = Color.White
 private val MenuPrimary = Color(0xFF223268)
@@ -100,6 +99,8 @@ private val MenuOverlay = Color.Black.copy(alpha = 0.28f)
 private val MenuItemBackground = Color(0xFFD3D7E1)
 private val MenuDanger = Color(0xFFB91C1C)
 private val MenuDangerBackground = Color(0xFFFFE4E6)
+private const val GearIconPathData =
+    "M27.758,10.366l-1,-1.732c-0.552,-0.957 -1.775,-1.284 -2.732,-0.732L23.5,8.206C21.5,9.36 19,7.917 19,5.608V5c0,-1.105 -0.895,-2 -2,-2h-2c-1.105,0 -2,0.895 -2,2v0.608c0,2.309 -2.5,3.753 -4.5,2.598L7.974,7.902C7.017,7.35 5.794,7.677 5.242,8.634l-1,1.732c-0.552,0.957 -0.225,2.18 0.732,2.732L5.5,13.402c2,1.155 2,4.041 0,5.196l-0.526,0.304c-0.957,0.552 -1.284,1.775 -0.732,2.732l1,1.732c0.552,0.957 1.775,1.284 2.732,0.732L8.5,23.794c2,-1.155 4.5,0.289 4.5,2.598V27c0,1.105 0.895,2 2,2h2c1.105,0 2,-0.895 2,-2v-0.608c0,-2.309 2.5,-3.753 4.5,-2.598l0.526,0.304c0.957,0.552 2.18,0.225 2.732,-0.732l1,-1.732c0.552,-0.957 0.225,-2.18 -0.732,-2.732L26.5,18.598c-2,-1.155 -2,-4.041 0,-5.196l0.526,-0.304C27.983,12.546 28.311,11.323 27.758,10.366z"
 
 @Composable
 fun JournalNavHost(
@@ -764,42 +765,35 @@ private fun CloseIcon() {
 
 @Composable
 private fun GearIcon() {
+    val gearPath = remember {
+        PathParser().parsePathString(GearIconPathData).toPath()
+    }
     Canvas(modifier = Modifier.size(24.dp)) {
-        val strokeWidth = 2.dp.toPx()
-        val center = Offset(size.width / 2f, size.height / 2f)
-        val outerRadius = min(size.width, size.height) * 0.38f
-        val innerRadius = min(size.width, size.height) * 0.25f
-        val toothInnerRadius = min(size.width, size.height) * 0.32f
-        val toothOuterRadius = min(size.width, size.height) * 0.45f
-
-        repeat(8) { index ->
-            val angle = (PI / 4.0 * index).toFloat()
-            drawLine(
+        val scale = size.minDimension / 32f
+        val offsetX = (size.width - 32f * scale) / 2f
+        val offsetY = (size.height - 32f * scale) / 2f
+        val iconStroke = Stroke(
+            width = 2f,
+            cap = StrokeCap.Round,
+            join = StrokeJoin.Round,
+            miter = 10f
+        )
+        withTransform({
+            translate(left = offsetX, top = offsetY)
+            scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
+        }) {
+            drawCircle(
                 color = MenuPrimary,
-                start = Offset(
-                    x = center.x + cos(angle) * toothInnerRadius,
-                    y = center.y + sin(angle) * toothInnerRadius
-                ),
-                end = Offset(
-                    x = center.x + cos(angle) * toothOuterRadius,
-                    y = center.y + sin(angle) * toothOuterRadius
-                ),
-                strokeWidth = strokeWidth,
-                cap = StrokeCap.Round
+                radius = 4f,
+                center = Offset(16f, 16f),
+                style = iconStroke
+            )
+            drawPath(
+                path = gearPath,
+                color = MenuPrimary,
+                style = iconStroke
             )
         }
-        drawCircle(
-            color = MenuPrimary,
-            radius = outerRadius,
-            center = center,
-            style = Stroke(width = strokeWidth)
-        )
-        drawCircle(
-            color = MenuPrimary,
-            radius = innerRadius,
-            center = center,
-            style = Stroke(width = strokeWidth)
-        )
     }
 }
 
