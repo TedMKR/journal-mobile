@@ -420,12 +420,16 @@ private fun AppHeader(
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         if (canNavigateBack) {
-            HeaderIconButton(
-                modifier = Modifier.align(Alignment.CenterStart),
-                onClick = onBack
-            ) {
-                BackIcon()
-            }
+            Text(
+                text = "←",
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .clickable(onClick = onBack)
+                    .padding(horizontal = 13.dp, vertical = 8.dp),
+                color = MenuPrimary,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
         } else {
             Spacer(modifier = Modifier.align(Alignment.CenterStart).width(48.dp))
         }
@@ -707,35 +711,6 @@ private fun HeaderIconButton(
         contentAlignment = Alignment.Center
     ) {
         content()
-    }
-}
-
-@Composable
-private fun BackIcon() {
-    val menuPrimary = MenuPrimary
-    Canvas(modifier = Modifier.size(24.dp)) {
-        val strokeWidth = 2.5.dp.toPx()
-        drawLine(
-            color = menuPrimary,
-            start = Offset(size.width * 0.72f, size.height * 0.2f),
-            end = Offset(size.width * 0.3f, size.height * 0.5f),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = menuPrimary,
-            start = Offset(size.width * 0.3f, size.height * 0.5f),
-            end = Offset(size.width * 0.72f, size.height * 0.8f),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = menuPrimary,
-            start = Offset(size.width * 0.32f, size.height * 0.5f),
-            end = Offset(size.width * 0.88f, size.height * 0.5f),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
     }
 }
 
