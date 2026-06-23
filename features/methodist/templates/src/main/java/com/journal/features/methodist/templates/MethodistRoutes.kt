@@ -64,7 +64,6 @@ import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppDanger
 import com.journal.core.ui.AppDropdown
 import com.journal.core.ui.AppFieldPlaceholder
-import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppMutedText
 import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.appFieldColors
@@ -88,7 +87,6 @@ private val BackgroundColor = AppBackground
 private val CardBackground = Color.White
 private val PrimaryText = AppPrimary
 private val SecondaryText = AppMutedText
-private val LightBlue = AppHeaderBackground
 private val AccentBlue = AppPrimary
 private val DangerColor = AppDanger
 private const val DashboardVisibleRows = 8
@@ -199,7 +197,6 @@ fun MethodistTemplatesRoute(
                 },
                 isLoading = isLoading,
                 templates = filteredTemplates,
-                selectedTemplateId = selectedTemplate?.id,
                 onOpenTemplate = { template ->
                     scope.launch {
                         runCatching { journalApi.getLessonTemplate(template.id) }
@@ -354,7 +351,6 @@ private fun TemplateListBlock(
     onToggleArchived: () -> Unit,
     isLoading: Boolean,
     templates: List<LessonTemplate>,
-    selectedTemplateId: String?,
     onOpenTemplate: (LessonTemplate) -> Unit
 ) {
     Column(
@@ -420,7 +416,6 @@ private fun TemplateListBlock(
             else -> templates.forEach { template ->
                 TemplateCard(
                     template = template,
-                    selected = selectedTemplateId == template.id,
                     onClick = { onOpenTemplate(template) }
                 )
             }
@@ -429,13 +424,13 @@ private fun TemplateListBlock(
 }
 
 @Composable
-private fun TemplateCard(template: LessonTemplate, selected: Boolean, onClick: () -> Unit) {
+private fun TemplateCard(template: LessonTemplate, onClick: () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (selected) LightBlue else CardBackground, shape)
-            .border(1.dp, if (selected) AccentBlue else Color(0xFFE1E7F0), shape)
+            .background(CardBackground, shape)
+            .border(1.dp, Color(0xFFE1E7F0), shape)
             .clickable(onClick = onClick)
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -456,15 +451,6 @@ private fun TemplateCard(template: LessonTemplate, selected: Boolean, onClick: (
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis
             )
-            if (selected) {
-                Badge(
-                    text = "Выбран",
-                    color = Color.White,
-                    backgroundColor = AccentBlue,
-                    horizontalPadding = 10,
-                    verticalPadding = 4
-                )
-            }
         }
         TemplateInfoLine(label = "Дисциплина", value = template.disciplineName)
         template.description
