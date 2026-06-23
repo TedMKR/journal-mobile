@@ -38,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.journal.core.ui.AppTheme
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -88,13 +89,20 @@ import com.journal.core.ui.AppTextActionButton as SecondaryButton
 import com.journal.core.ui.AppFilterChip as FilterChip
 import com.journal.core.ui.AppBadge as Badge
 
-private val BackgroundColor = AppBackground
-private val CardBackground = Color.White
-private val PrimaryText = AppPrimary
-private val SecondaryText = AppMutedText
-private val LightBlue = AppHeaderBackground
-private val AccentBlue = AppPrimary
-private val DangerColor = AppDanger
+private val BackgroundColor: Color
+    @Composable get() = AppTheme.colors.background
+private val CardBackground: Color
+    @Composable get() = AppTheme.colors.surface
+private val PrimaryText: Color
+    @Composable get() = AppTheme.colors.primary
+private val SecondaryText: Color
+    @Composable get() = AppTheme.colors.mutedText
+private val LightBlue: Color
+    @Composable get() = AppTheme.colors.headerBackground
+private val AccentBlue: Color
+    @Composable get() = AppTheme.colors.primary
+private val DangerColor: Color
+    @Composable get() = AppTheme.colors.danger
 private const val DashboardVisibleRows = 8
 
 @Composable

@@ -34,9 +34,11 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import com.journal.core.ui.AppTheme
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -63,14 +65,21 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val Background = AppBackground
-private val CardBackground = Color.White
-private val LessonBackground = AppLessonBackground
-private val PrimaryText = AppPrimary
+private val Background: Color
+    @Composable get() = AppTheme.colors.background
+private val CardBackground: Color
+    @Composable get() = AppTheme.colors.surface
+private val LessonBackground: Color
+    @Composable get() = AppTheme.colors.lessonBackground
+private val PrimaryText: Color
+    @Composable get() = AppTheme.colors.primary
 private val MutedText = AppSecondaryText
-private val BadgeBackground = AppHeaderBackground
-private val LightBlue = AppHeaderBackground
-private val BarBackground = AppBarBackground
+private val BadgeBackground: Color
+    @Composable get() = AppTheme.colors.headerBackground
+private val LightBlue: Color
+    @Composable get() = AppTheme.colors.headerBackground
+private val BarBackground: Color
+    @Composable get() = AppTheme.colors.barBackground
 private val Accent = AppPrimary
 private val Danger = AppDanger
 private val Success = AppSuccess
@@ -371,6 +380,9 @@ private fun JournalAttendanceChartCard(months: List<JournalAttendanceMonth>) {
 
 @Composable
 private fun JournalAttendanceLineChart(months: List<JournalAttendanceMonth>) {
+    val primaryText = PrimaryText
+    val primaryTextArgb = primaryText.toArgb()
+    val onPrimaryArgb = AppTheme.colors.onPrimary.toArgb()
     Canvas(
         modifier = Modifier
             .fillMaxWidth()
@@ -393,7 +405,7 @@ private fun JournalAttendanceLineChart(months: List<JournalAttendanceMonth>) {
         // Connecting lines
         points.zipWithNext().forEach { (start, end) ->
             drawLine(
-                color = PrimaryText,
+                color = primaryText,
                 start = start,
                 end = end,
                 strokeWidth = 1.dp.toPx(),
@@ -407,14 +419,14 @@ private fun JournalAttendanceLineChart(months: List<JournalAttendanceMonth>) {
             val labelW = 38.dp.toPx()
             val labelH = 18.dp.toPx()
             drawRoundRect(
-                color = PrimaryText,
+                color = primaryText,
                 topLeft = Offset(point.x - labelW / 2f, point.y - labelH / 2f),
                 size = Size(labelW, labelH),
                 cornerRadius = CornerRadius(9.dp.toPx())
             )
             drawContext.canvas.nativeCanvas.apply {
                 val paint = android.graphics.Paint().apply {
-                    color = android.graphics.Color.WHITE
+                    color = onPrimaryArgb
                     textAlign = android.graphics.Paint.Align.CENTER
                     textSize = 11.dp.toPx()
                     isAntiAlias = true
@@ -422,7 +434,7 @@ private fun JournalAttendanceLineChart(months: List<JournalAttendanceMonth>) {
                 drawText(percentText, point.x, point.y + 4.dp.toPx(), paint)
 
                 val monthPaint = android.graphics.Paint().apply {
-                    color = android.graphics.Color.rgb(34, 50, 104)
+                    color = primaryTextArgb
                     textAlign = android.graphics.Paint.Align.CENTER
                     textSize = 11.dp.toPx()
                     isAntiAlias = true
@@ -433,7 +445,7 @@ private fun JournalAttendanceLineChart(months: List<JournalAttendanceMonth>) {
 
         // Baseline
         drawLine(
-            color = PrimaryText.copy(alpha = 0.35f),
+            color = primaryText.copy(alpha = 0.35f),
             start = Offset(leftPadding, chartBottom + 4.dp.toPx()),
             end = Offset(size.width - rightPadding, chartBottom + 4.dp.toPx()),
             strokeWidth = 1.dp.toPx()
@@ -570,6 +582,7 @@ private fun studentAttendanceSymbol(status: String?): String = when (status) {
     else           -> status
 }
 
+@Composable
 private fun studentAttendanceColor(status: String?): Color = when (status) {
     "present"      -> JournalPresentColor
     "absent"       -> JournalAbsentColor

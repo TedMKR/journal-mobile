@@ -27,15 +27,17 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.journal.core.ui.AppTheme
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
-import com.journal.core.ui.AppPrimary
 
-private val PrimaryText = AppPrimary
-private val ErrorText = Color(0xFFB91C1C)
+private val PrimaryText: Color
+    @Composable get() = AppTheme.colors.primary
+private val ErrorText: Color
+    @Composable get() = AppTheme.colors.danger
 
 @Composable
 fun AuthRoute(
@@ -66,16 +68,19 @@ fun AuthRoute(
                 .widthIn(min = 160.dp),
             shape = RoundedCornerShape(12.dp),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 10.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = PrimaryText)
+            colors = ButtonDefaults.buttonColors(
+                containerColor = AppTheme.colors.primary,
+                contentColor = AppTheme.colors.onPrimary
+            )
         ) {
             if (state is AuthUiState.Loading) {
                 CircularProgressIndicator(
                     modifier = Modifier.size(18.dp),
-                    color = Color.White,
+                    color = AppTheme.colors.onPrimary,
                     strokeWidth = 2.dp
                 )
             } else {
-                Text("Войти", color = Color.White)
+                Text("Войти", color = AppTheme.colors.onPrimary)
             }
         }
 
@@ -93,6 +98,7 @@ fun AuthRoute(
 
 @Composable
 private fun AuthBackgroundCard(content: @Composable ColumnScope.() -> Unit) {
+    val colors = AppTheme.colors
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
             painter = painterResource(id = R.drawable.auth_white_section_background),
@@ -106,7 +112,7 @@ private fun AuthBackgroundCard(content: @Composable ColumnScope.() -> Unit) {
                 .align(Alignment.Center)
                 .fillMaxWidth(0.78f),
             shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color.White)
+            colors = CardDefaults.cardColors(containerColor = colors.surface)
         ) {
             Column(
                 modifier = Modifier.padding(horizontal = 18.dp, vertical = 16.dp),

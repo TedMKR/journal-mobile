@@ -1,4 +1,4 @@
-﻿package com.journal.features.teacher.dashboard
+package com.journal.features.teacher.dashboard
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -33,8 +33,10 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import com.journal.core.ui.AppTheme
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
@@ -63,12 +65,17 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import com.journal.core.ui.AppStatTile as StatTile
 
-private val BackgroundColor = AppBackground
-private val PrimaryText = AppPrimary
-private val SecondaryText = AppSecondaryText
-private val CardBackground = Color.White
+private val BackgroundColor: Color
+    @Composable get() = AppTheme.colors.background
+private val PrimaryText: Color
+    @Composable get() = AppTheme.colors.primary
+private val SecondaryText: Color
+    @Composable get() = AppTheme.colors.secondaryText
+private val CardBackground: Color
+    @Composable get() = AppTheme.colors.surface
 private val AccentBackground = AppHeaderBackground
-private val LessonBackground = AppLessonBackground
+private val LessonBackground: Color
+    @Composable get() = AppTheme.colors.lessonBackground
 
 @Composable
 fun TeacherDashboardRoute(
@@ -355,7 +362,10 @@ private fun AnalyticsCard(
             Button(
                 onClick = { showAccessDialog = true },
                 enabled = selectedTarget != null && !isOffline,
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = PrimaryText,
+                    contentColor = AppTheme.colors.onPrimary
+                ),
                 shape = RoundedCornerShape(12.dp),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 modifier = Modifier.weight(1f)
@@ -471,7 +481,7 @@ private fun AccessGrantDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White, RoundedCornerShape(16.dp))
+                .background(CardBackground, RoundedCornerShape(16.dp))
                 .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
@@ -553,7 +563,10 @@ private fun AccessGrantDialog(
                         }
                     },
                     enabled = !isSaving && !teachersState.isLoading && !isOffline && !teachersState.isOffline,
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = PrimaryText,
+                        contentColor = AppTheme.colors.onPrimary
+                    ),
                     shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
                 ) {
@@ -594,6 +607,9 @@ private fun AttendanceLineChart(months: List<AttendanceMonth>) {
         return
     }
 
+    val primaryText = PrimaryText
+    val primaryTextArgb = primaryText.toArgb()
+    val onPrimaryArgb = AppTheme.colors.onPrimary.toArgb()
     Canvas(
         modifier = Modifier
             .fillMaxWidth()
@@ -611,21 +627,21 @@ private fun AttendanceLineChart(months: List<AttendanceMonth>) {
         }
 
         points.zipWithNext().forEach { (start, end) ->
-            drawLine(PrimaryText, start, end, strokeWidth = 1.dp.toPx(), cap = StrokeCap.Round)
+            drawLine(primaryText, start, end, strokeWidth = 1.dp.toPx(), cap = StrokeCap.Round)
         }
 
         points.forEachIndexed { index, point ->
             val labelWidth = 38.dp.toPx()
             val labelHeight = 18.dp.toPx()
             drawRoundRect(
-                color = PrimaryText,
+                color = primaryText,
                 topLeft = Offset(point.x - labelWidth / 2f, point.y - labelHeight / 2f),
                 size = Size(labelWidth, labelHeight),
                 cornerRadius = CornerRadius(9.dp.toPx(), 9.dp.toPx())
             )
             drawContext.canvas.nativeCanvas.apply {
                 val labelPaint = android.graphics.Paint().apply {
-                    color = android.graphics.Color.WHITE
+                    color = onPrimaryArgb
                     textAlign = android.graphics.Paint.Align.CENTER
                     textSize = 11.dp.toPx()
                     isAntiAlias = true
@@ -633,7 +649,7 @@ private fun AttendanceLineChart(months: List<AttendanceMonth>) {
                 drawText("${months[index].percent}%", point.x, point.y + 4.dp.toPx(), labelPaint)
 
                 val monthPaint = android.graphics.Paint().apply {
-                    color = android.graphics.Color.rgb(34, 50, 104)
+                    color = primaryTextArgb
                     textAlign = android.graphics.Paint.Align.CENTER
                     textSize = 11.dp.toPx()
                     isAntiAlias = true

@@ -33,6 +33,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import com.journal.core.ui.AppTheme
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.nativeCanvas
@@ -65,14 +66,21 @@ import java.util.Locale
 import com.journal.core.ui.AppStatTile as StatTile
 import com.journal.core.ui.AppBadge as InfoChip
 
-private val Background = AppBackground
-private val CardBackground = Color.White
-private val LessonBackground = AppLessonBackground
-private val PrimaryText = AppPrimary
+private val Background: Color
+    @Composable get() = AppTheme.colors.background
+private val CardBackground: Color
+    @Composable get() = AppTheme.colors.surface
+private val LessonBackground: Color
+    @Composable get() = AppTheme.colors.lessonBackground
+private val PrimaryText: Color
+    @Composable get() = AppTheme.colors.primary
 private val MutedText = AppSecondaryText
-private val BadgeBackground = AppHeaderBackground
-private val LightBlue = AppHeaderBackground
-private val BarBackground = AppBarBackground
+private val BadgeBackground: Color
+    @Composable get() = AppTheme.colors.headerBackground
+private val LightBlue: Color
+    @Composable get() = AppTheme.colors.headerBackground
+private val BarBackground: Color
+    @Composable get() = AppTheme.colors.barBackground
 private val Accent = AppPrimary
 private val Danger = AppDanger
 private val Success = AppSuccess

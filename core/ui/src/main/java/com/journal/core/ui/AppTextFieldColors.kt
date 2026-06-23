@@ -14,22 +14,25 @@ import androidx.compose.ui.graphics.Color
  */
 @Composable
 fun appFieldColors(
-    unfocusedLabelColor: Color = AppPrimary,
-): TextFieldColors = OutlinedTextFieldDefaults.colors(
-    focusedTextColor = AppPrimary,
-    unfocusedTextColor = AppPrimary,
-    disabledTextColor = AppPrimary,
-    focusedContainerColor = Color.White,
-    unfocusedContainerColor = Color.White,
-    disabledContainerColor = Color.White,
-    focusedBorderColor = AppPrimary,
-    unfocusedBorderColor = AppFieldBorder,
-    disabledBorderColor = AppFieldBorder,
-    focusedLabelColor = AppPrimary,
-    unfocusedLabelColor = unfocusedLabelColor,
-    disabledLabelColor = AppSecondaryText,
-    focusedPlaceholderColor = AppFieldPlaceholder,
-    unfocusedPlaceholderColor = AppFieldPlaceholder,
-    disabledPlaceholderColor = AppFieldPlaceholder,
-    cursorColor = AppPrimary
-)
+    unfocusedLabelColor: Color = AppTheme.colors.primary,
+): TextFieldColors {
+    val colors = AppTheme.colors
+    return OutlinedTextFieldDefaults.colors(
+        focusedTextColor = colors.inputText,
+        unfocusedTextColor = colors.inputText,
+        disabledTextColor = colors.inputText,
+        focusedContainerColor = colors.surface,
+        unfocusedContainerColor = colors.surface,
+        disabledContainerColor = colors.surface,
+        focusedBorderColor = colors.primary,
+        unfocusedBorderColor = colors.fieldBorder,
+        disabledBorderColor = colors.fieldBorder,
+        focusedLabelColor = colors.primary,
+        unfocusedLabelColor = unfocusedLabelColor,
+        disabledLabelColor = colors.secondaryText,
+        focusedPlaceholderColor = colors.fieldPlaceholder,
+        unfocusedPlaceholderColor = colors.fieldPlaceholder,
+        disabledPlaceholderColor = colors.fieldPlaceholder,
+        cursorColor = colors.primary
+    )
+}

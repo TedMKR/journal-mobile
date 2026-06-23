@@ -40,14 +40,11 @@ import com.journal.core.model.teacher.AcademicPeriod
 import com.journal.core.model.teacher.ArchivedJournalEntry
 import com.journal.core.network.api.JournalApi
 import com.journal.core.ui.AppAdminBadge
-import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppErrorCard
-import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppMenuDropdown
-import com.journal.core.ui.AppMutedText
 import com.journal.core.ui.AppPaginationRow
-import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppPrimaryButton
+import com.journal.core.ui.AppTheme
 import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -67,6 +64,7 @@ fun TeacherArchiveRoute(
     journalApi: JournalApi,
     onOpenJournal: (TeacherArchiveJournalTarget) -> Unit
 ) {
+    val colors = AppTheme.colors
     val scope = rememberCoroutineScope()
     var page by remember { mutableIntStateOf(0) }
     var periods by remember { mutableStateOf<List<AcademicPeriod>>(emptyList()) }
@@ -107,17 +105,17 @@ fun TeacherArchiveRoute(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppBackground)
+            .background(colors.background)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .background(colors.surface)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Период:", color = AppPrimary, fontWeight = FontWeight.SemiBold)
+            Text("Период:", color = colors.primary, fontWeight = FontWeight.SemiBold)
             AppMenuDropdown(
                 label = "Все периоды",
                 selected = selectedPeriodId,
@@ -132,14 +130,14 @@ fun TeacherArchiveRoute(
 
         when {
             isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = AppPrimary)
+                CircularProgressIndicator(color = colors.primary)
             }
             error != null -> Column(Modifier.padding(16.dp)) { AppErrorCard(error.orEmpty()) }
             journals.isEmpty() -> Box(
                 Modifier.fillMaxSize().padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Архивные журналы не найдены", color = AppMutedText, fontWeight = FontWeight.SemiBold)
+                Text("Архивные журналы не найдены", color = colors.mutedText, fontWeight = FontWeight.SemiBold)
             }
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -187,12 +185,13 @@ private fun ArchiveJournalRow(
     journal: ArchivedJournalEntry,
     onOpen: () -> Unit
 ) {
+    val colors = AppTheme.colors
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
-            .border(1.dp, AppHeaderBackground, RoundedCornerShape(16.dp))
+            .background(colors.surface)
+            .border(1.dp, colors.outline, RoundedCornerShape(16.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -204,25 +203,25 @@ private fun ArchiveJournalRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = journal.disciplineName ?: "Журнал",
-                    color = AppPrimary,
+                    color = colors.primary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text(journal.groupName ?: "-", color = AppMutedText, fontSize = 13.sp)
+                Text(journal.groupName ?: "-", color = colors.mutedText, fontSize = 13.sp)
                 Text(
                     PersonNameFormatter.formatFullName(journal.teacherName.orEmpty()).ifBlank { journal.teacherName ?: "-" },
-                    color = AppMutedText,
+                    color = colors.mutedText,
                     fontSize = 13.sp
                 )
-                Text("Архив: ${formatDateTime(journal.archivedAt)}", color = AppMutedText, fontSize = 13.sp)
+                Text("Архив: ${formatDateTime(journal.archivedAt)}", color = colors.mutedText, fontSize = 13.sp)
             }
             Spacer(Modifier.width(10.dp))
             AppAdminBadge(
                 text = journal.periodName ?: "Архив",
-                color = AppPrimary,
-                background = AppHeaderBackground
+                color = colors.primary,
+                background = colors.headerBackground
             )
         }
         AppPrimaryButton("Открыть журнал", onClick = onOpen, modifier = Modifier.fillMaxWidth())

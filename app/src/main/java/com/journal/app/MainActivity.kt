@@ -31,6 +31,7 @@ import com.journal.core.common.config.TokenSession
 import com.journal.core.data.notification.NotificationSettingsRepository
 import com.journal.core.data.notification.StudentGradeNotificationWorker
 import com.journal.core.data.sync.SyncWorker
+import com.journal.core.data.theme.AppearanceSettingsRepository
 import com.journal.core.network.api.JournalApi
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
@@ -50,17 +51,25 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var notificationSettingsRepository: NotificationSettingsRepository
 
+    @Inject
+    lateinit var appearanceSettingsRepository: AppearanceSettingsRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         SyncWorker.enqueue(this)
 
         setContent {
-            JournalTheme {
+            val darkThemeEnabled by appearanceSettingsRepository
+                .darkThemeEnabled
+                .collectAsState()
+
+            JournalTheme(darkTheme = darkThemeEnabled) {
                 Surface(
                     modifier = Modifier
                         .fillMaxSize()
-                        .systemBarsPadding()
+                        .systemBarsPadding(),
+                    color = androidx.compose.material3.MaterialTheme.colorScheme.background
                 ) {
                     val appViewModel: AppViewModel = hiltViewModel()
                     val sessionState by appViewModel.sessionState.collectAsState()
@@ -110,6 +119,10 @@ class MainActivity : FragmentActivity() {
                                 onGradeNotificationsEnabledChange = {
                                     notificationSettingsRepository.setGradeNotificationsEnabled(it)
                                 },
+                                darkThemeEnabled = darkThemeEnabled,
+                                onDarkThemeEnabledChange = {
+                                    appearanceSettingsRepository.setDarkThemeEnabled(it)
+                                },
                                 onClearSession = { appViewModel.clearSession() }
                             )
                         }
@@ -123,6 +136,10 @@ class MainActivity : FragmentActivity() {
                                 gradeNotificationsEnabled = gradeNotificationsEnabled,
                                 onGradeNotificationsEnabledChange = {
                                     notificationSettingsRepository.setGradeNotificationsEnabled(it)
+                                },
+                                darkThemeEnabled = darkThemeEnabled,
+                                onDarkThemeEnabledChange = {
+                                    appearanceSettingsRepository.setDarkThemeEnabled(it)
                                 },
                                 onClearSession = { appViewModel.clearSession() }
                             )

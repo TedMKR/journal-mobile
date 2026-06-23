@@ -41,20 +41,13 @@ import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.AdminImportBatch
 import com.journal.core.network.api.JournalApi
 import com.journal.core.ui.AppAdminBadge
-import com.journal.core.ui.AppBackground
-import com.journal.core.ui.AppDanger
 import com.journal.core.ui.AppDangerButton
-import com.journal.core.ui.AppDangerLight
 import com.journal.core.ui.AppErrorCard
-import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppMenuDropdown
-import com.journal.core.ui.AppMutedText
 import com.journal.core.ui.AppPaginationRow
-import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppPrimaryButton
 import com.journal.core.ui.AppSecondaryButton
-import com.journal.core.ui.AppSuccess
-import com.journal.core.ui.AppSuccessLight
+import com.journal.core.ui.AppTheme
 import com.journal.core.ui.shareBytesFile
 import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
@@ -66,6 +59,7 @@ private val WarningLight = Color(0xFFFEF3C7)
 
 @Composable
 fun AdminImportsRoute(journalApi: JournalApi) {
+    val colors = AppTheme.colors
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var page by remember { mutableIntStateOf(1) }
@@ -146,17 +140,17 @@ fun AdminImportsRoute(journalApi: JournalApi) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppBackground)
+            .background(colors.background)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .background(colors.surface)
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text("Статус:", color = AppPrimary, fontWeight = FontWeight.SemiBold)
+                Text("Статус:", color = colors.primary, fontWeight = FontWeight.SemiBold)
                 AppMenuDropdown(
                     label = "Все",
                     selected = status,
@@ -186,22 +180,22 @@ fun AdminImportsRoute(journalApi: JournalApi) {
                 modifier = Modifier
                     .padding(horizontal = 12.dp)
                     .fillMaxWidth()
-                    .background(AppSuccessLight, RoundedCornerShape(14.dp))
+                    .background(colors.successContainer, RoundedCornerShape(14.dp))
                     .padding(14.dp),
-                color = AppSuccess,
+                color = colors.success,
                 fontWeight = FontWeight.SemiBold
             )
         }
 
         when {
             isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = AppPrimary)
+                CircularProgressIndicator(color = colors.primary)
             }
             imports.isEmpty() -> Box(
                 Modifier.fillMaxSize().padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("История импорта пуста", color = AppMutedText, fontWeight = FontWeight.SemiBold)
+                Text("История импорта пуста", color = colors.mutedText, fontWeight = FontWeight.SemiBold)
             }
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -252,6 +246,7 @@ private fun ImportBatchRow(
     onApply: () -> Unit,
     onCancel: () -> Unit
 ) {
+    val colors = AppTheme.colors
     val canApply = batch.status in setOf("preview_ready", "conflicts_detected", "resolved")
     val canCancel = batch.status !in setOf("completed", "cancelled", "failed", "partial")
 
@@ -259,8 +254,8 @@ private fun ImportBatchRow(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
-            .border(1.dp, AppHeaderBackground, RoundedCornerShape(16.dp))
+            .background(colors.surface)
+            .border(1.dp, colors.outline, RoundedCornerShape(16.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -272,15 +267,15 @@ private fun ImportBatchRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = batch.sourceFileName ?: batch.importType ?: "Импорт",
-                    color = AppPrimary,
+                    color = colors.primary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text("Старт: ${formatDateTime(batch.startedAt)}", color = AppMutedText, fontSize = 13.sp)
-                batch.groupName?.let { Text("Группа: $it", color = AppMutedText, fontSize = 13.sp) }
-                batch.periodName?.let { Text("Период: $it", color = AppMutedText, fontSize = 13.sp) }
+                Text("Старт: ${formatDateTime(batch.startedAt)}", color = colors.mutedText, fontSize = 13.sp)
+                batch.groupName?.let { Text("Группа: $it", color = colors.mutedText, fontSize = 13.sp) }
+                batch.periodName?.let { Text("Период: $it", color = colors.mutedText, fontSize = 13.sp) }
             }
             Spacer(Modifier.width(10.dp))
             StatusBadge(batch.status)
@@ -313,12 +308,13 @@ private fun ImportBatchRow(
 
 @Composable
 private fun MetricChip(text: String) {
+    val colors = AppTheme.colors
     Text(
         text = text,
         modifier = Modifier
-            .background(AppBackground, RoundedCornerShape(999.dp))
+            .background(colors.surfaceVariant, RoundedCornerShape(999.dp))
             .padding(horizontal = 10.dp, vertical = 5.dp),
-        color = AppPrimary,
+        color = colors.primary,
         fontSize = 12.sp,
         fontWeight = FontWeight.SemiBold
     )
@@ -326,6 +322,7 @@ private fun MetricChip(text: String) {
 
 @Composable
 private fun StatusBadge(status: String?) {
+    val colors = AppTheme.colors
     val text = when (status) {
         "pending" -> "Ожидает"
         "validating" -> "Проверка"
@@ -340,16 +337,16 @@ private fun StatusBadge(status: String?) {
         else -> status ?: "?"
     }
     val color = when (status) {
-        "completed" -> AppSuccess
-        "failed", "cancelled" -> AppDanger
+        "completed" -> colors.success
+        "failed", "cancelled" -> colors.danger
         "applying", "validating", "conflicts_detected", "partial" -> Warning
-        else -> AppPrimary
+        else -> colors.primary
     }
     val background = when (status) {
-        "completed" -> AppSuccessLight
-        "failed", "cancelled" -> AppDangerLight
+        "completed" -> colors.successContainer
+        "failed", "cancelled" -> colors.dangerContainer
         "applying", "validating", "conflicts_detected", "partial" -> WarningLight
-        else -> AppHeaderBackground
+        else -> colors.headerBackground
     }
     AppAdminBadge(text = text, color = color, background = background)
 }

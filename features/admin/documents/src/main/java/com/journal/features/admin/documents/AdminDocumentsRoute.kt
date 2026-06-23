@@ -39,18 +39,11 @@ import com.journal.core.common.config.userFacingMessage
 import com.journal.core.model.teacher.AdminDocumentTask
 import com.journal.core.network.api.JournalApi
 import com.journal.core.ui.AppAdminBadge
-import com.journal.core.ui.AppBackground
-import com.journal.core.ui.AppDanger
-import com.journal.core.ui.AppDangerLight
 import com.journal.core.ui.AppErrorCard
-import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppMenuDropdown
-import com.journal.core.ui.AppMutedText
 import com.journal.core.ui.AppPaginationRow
-import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppSecondaryButton
-import com.journal.core.ui.AppSuccess
-import com.journal.core.ui.AppSuccessLight
+import com.journal.core.ui.AppTheme
 import com.journal.core.ui.shareBytesFile
 import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
@@ -62,6 +55,7 @@ private val WarningLight = Color(0xFFFEF3C7)
 
 @Composable
 fun AdminDocumentsRoute(journalApi: JournalApi) {
+    val colors = AppTheme.colors
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var page by remember { mutableIntStateOf(1) }
@@ -117,17 +111,17 @@ fun AdminDocumentsRoute(journalApi: JournalApi) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppBackground)
+            .background(colors.background)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
+                .background(colors.surface)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Статус:", color = AppPrimary, fontWeight = FontWeight.SemiBold)
+            Text("Статус:", color = colors.primary, fontWeight = FontWeight.SemiBold)
             AppMenuDropdown(
                 label = "Все",
                 selected = status,
@@ -149,14 +143,14 @@ fun AdminDocumentsRoute(journalApi: JournalApi) {
 
         when {
             isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator(color = AppPrimary)
+                CircularProgressIndicator(color = colors.primary)
             }
             error != null -> Column(Modifier.padding(16.dp)) { AppErrorCard(error.orEmpty()) }
             documents.isEmpty() -> Box(
                 Modifier.fillMaxSize().padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Документы не найдены", color = AppMutedText, fontWeight = FontWeight.SemiBold)
+                Text("Документы не найдены", color = colors.mutedText, fontWeight = FontWeight.SemiBold)
             }
             else -> LazyColumn(
                 modifier = Modifier.fillMaxSize(),
@@ -186,13 +180,14 @@ private fun DocumentRow(
     task: AdminDocumentTask,
     onDownload: () -> Unit
 ) {
+    val colors = AppTheme.colors
     val isDone = task.status == "done"
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
-            .border(1.dp, AppHeaderBackground, RoundedCornerShape(16.dp))
+            .background(colors.surface)
+            .border(1.dp, colors.outline, RoundedCornerShape(16.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -204,16 +199,16 @@ private fun DocumentRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = task.result?.fileName ?: task.jobType ?: "Документ",
-                    color = AppPrimary,
+                    color = colors.primary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
                 Spacer(Modifier.height(4.dp))
-                Text("Создан: ${formatDateTime(task.createdAt)}", color = AppMutedText, fontSize = 13.sp)
+                Text("Создан: ${formatDateTime(task.createdAt)}", color = colors.mutedText, fontSize = 13.sp)
                 task.errorMsg?.takeIf { it.isNotBlank() }?.let { error ->
-                    Text(error, color = AppDanger, fontSize = 13.sp)
+                    Text(error, color = colors.danger, fontSize = 13.sp)
                 }
             }
             Spacer(Modifier.width(10.dp))
@@ -231,6 +226,7 @@ private fun DocumentRow(
 
 @Composable
 private fun StatusBadge(status: String?) {
+    val colors = AppTheme.colors
     val text = when (status) {
         "pending" -> "Ожидает"
         "running" -> "В работе"
@@ -240,16 +236,16 @@ private fun StatusBadge(status: String?) {
         else -> status ?: "?"
     }
     val color = when (status) {
-        "done" -> AppSuccess
-        "failed", "permanently_failed" -> AppDanger
+        "done" -> colors.success
+        "failed", "permanently_failed" -> colors.danger
         "running" -> Warning
-        else -> AppMutedText
+        else -> colors.mutedText
     }
     val background = when (status) {
-        "done" -> AppSuccessLight
-        "failed", "permanently_failed" -> AppDangerLight
+        "done" -> colors.successContainer
+        "failed", "permanently_failed" -> colors.dangerContainer
         "running" -> WarningLight
-        else -> AppHeaderBackground
+        else -> colors.headerBackground
     }
     AppAdminBadge(text = text, color = color, background = background)
 }

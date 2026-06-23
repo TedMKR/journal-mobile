@@ -36,6 +36,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.journal.core.ui.AppTheme
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
@@ -76,12 +77,18 @@ import com.journal.core.ui.AppTextActionButton as SecondaryButton
 import com.journal.core.ui.AppFilterChip as FilterChip
 import com.journal.core.ui.AppBadge as Badge
 
-private val BackgroundColor = AppBackground
-private val CardBackground = Color.White
-private val PrimaryText = AppPrimary
-private val SecondaryText = AppMutedText
-private val LightBlue = AppHeaderBackground
-private val AccentBlue = AppPrimary
+private val BackgroundColor: Color
+    @Composable get() = AppTheme.colors.background
+private val CardBackground: Color
+    @Composable get() = AppTheme.colors.surface
+private val PrimaryText: Color
+    @Composable get() = AppTheme.colors.primary
+private val SecondaryText: Color
+    @Composable get() = AppTheme.colors.mutedText
+private val LightBlue: Color
+    @Composable get() = AppTheme.colors.headerBackground
+private val AccentBlue: Color
+    @Composable get() = AppTheme.colors.primary
 private const val DashboardVisibleRows = 8
 
 @Composable
@@ -438,7 +445,7 @@ private fun JournalMetaTile(label: String, value: String) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color.White, RoundedCornerShape(12.dp))
+            .background(CardBackground, RoundedCornerShape(12.dp))
             .padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically

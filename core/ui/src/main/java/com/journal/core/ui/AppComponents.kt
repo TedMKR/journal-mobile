@@ -45,8 +45,8 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun AppSectionCard(
     modifier: Modifier = Modifier,
-    backgroundColor: Color = Color.White,
-    borderColor: Color = AppHeaderBackground,
+    backgroundColor: Color = AppTheme.colors.surface,
+    borderColor: Color = AppTheme.colors.outline,
     cornerRadius: Int = 16,
     content: @Composable () -> Unit
 ) {
@@ -67,9 +67,9 @@ fun AppStatCard(
     label: String,
     value: String,
     modifier: Modifier = Modifier,
-    backgroundColor: Color = AppBackground,
-    contentColor: Color = AppPrimary,
-    labelColor: Color = AppMutedText
+    backgroundColor: Color = AppTheme.colors.surfaceVariant,
+    contentColor: Color = AppTheme.colors.primary,
+    labelColor: Color = AppTheme.colors.mutedText
 ) {
     Column(
         modifier = modifier
@@ -88,9 +88,9 @@ fun AppStatTile(
     title: String,
     value: String,
     modifier: Modifier = Modifier,
-    backgroundColor: Color = Color.White,
-    contentColor: Color = AppPrimary,
-    barColor: Color = AppHeaderBackground
+    backgroundColor: Color = AppTheme.colors.surface,
+    contentColor: Color = AppTheme.colors.primary,
+    barColor: Color = AppTheme.colors.headerBackground
 ) {
     Column(
         modifier = modifier
@@ -123,8 +123,8 @@ fun AppStatTile(
 fun AppBadge(
     text: String,
     modifier: Modifier = Modifier,
-    color: Color = AppPrimary,
-    backgroundColor: Color = AppHeaderBackground,
+    color: Color = AppTheme.colors.primary,
+    backgroundColor: Color = AppTheme.colors.headerBackground,
     horizontalPadding: Int = 10,
     verticalPadding: Int = 6
 ) {
@@ -167,9 +167,9 @@ fun AppPrimaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    containerColor: Color = AppPrimary,
+    containerColor: Color = AppTheme.colors.primary,
     cornerRadius: Int = 12,
-    textColor: Color = Color.White,
+    textColor: Color = AppTheme.colors.onPrimary,
     bold: Boolean = true
 ) {
     Button(
@@ -197,16 +197,17 @@ fun AppSecondaryButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    containerColor: Color = Color.White,
-    contentColor: Color = AppPrimary,
+    containerColor: Color = AppTheme.colors.surface,
+    contentColor: Color = AppTheme.colors.primary,
     cornerRadius: Int = 12
 ) {
     val shape = RoundedCornerShape(cornerRadius.dp)
+    val borderColor = AppTheme.colors.outline
     Button(
         onClick = onClick,
         modifier = modifier,
         shape = shape,
-        border = BorderStroke(1.dp, AppHeaderBackground),
+        border = BorderStroke(1.dp, borderColor),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = containerColor,
@@ -229,9 +230,10 @@ fun AppDangerButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    containerColor: Color = AppDanger
+    containerColor: Color = AppTheme.colors.danger
 ) {
     val shape = RoundedCornerShape(12.dp)
+    val dangerContainer = AppTheme.colors.dangerContainer
     Button(
         onClick = onClick,
         modifier = modifier,
@@ -239,7 +241,7 @@ fun AppDangerButton(
         border = BorderStroke(1.dp, containerColor),
         contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
         colors = ButtonDefaults.buttonColors(
-            containerColor = AppDangerLight,
+            containerColor = dangerContainer,
             contentColor = containerColor
         )
     ) {
@@ -259,7 +261,7 @@ fun AppDangerButton(
 fun AppTextActionButton(
     text: String,
     onClick: () -> Unit,
-    color: Color = AppPrimary
+    color: Color = AppTheme.colors.primary
 ) {
     TextButton(onClick = onClick) {
         Text(
@@ -280,21 +282,22 @@ fun AppMenuDropdown(
     options: List<Pair<String, String>>,
     onSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
-    contentColor: Color = AppPrimary,
-    secondaryColor: Color = AppMutedText,
-    borderColor: Color = AppFieldBorder
+    contentColor: Color = AppTheme.colors.primary,
+    secondaryColor: Color = AppTheme.colors.mutedText,
+    borderColor: Color = AppTheme.colors.fieldBorder
 ) {
     var expanded by remember { mutableStateOf(false) }
     val displayLabel = options.firstOrNull { it.second == selected }?.first ?: label
     var fieldWidth by remember { mutableStateOf(0.dp) }
     val density = LocalDensity.current
+    val surfaceColor = AppTheme.colors.surface
 
     Box(modifier = modifier) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .onSizeChanged { fieldWidth = with(density) { it.width.toDp() } }
-                .background(Color.White, RoundedCornerShape(12.dp))
+                .background(surfaceColor, RoundedCornerShape(12.dp))
                 .border(1.dp, if (expanded) contentColor else borderColor, RoundedCornerShape(12.dp))
                 .clickable { expanded = true }
                 .padding(horizontal = 12.dp, vertical = 11.dp)
@@ -328,7 +331,7 @@ fun AppMenuDropdown(
             onDismissRequest = { expanded = false },
             modifier = Modifier
                 .width(fieldWidth)
-                .background(Color.White)
+                .background(surfaceColor)
         ) {
             options.forEach { (optLabel, optValue) ->
                 DropdownMenuItem(
@@ -364,8 +367,8 @@ fun AppSelectCard(
 fun AppErrorCard(
     message: String,
     modifier: Modifier = Modifier,
-    backgroundColor: Color = AppDangerLight,
-    contentColor: Color = AppDanger
+    backgroundColor: Color = AppTheme.colors.dangerContainer,
+    contentColor: Color = AppTheme.colors.danger
 ) {
     Text(
         text = message,
@@ -383,18 +386,19 @@ fun AppErrorCard(
 fun AppLoadingCard(
     text: String,
     modifier: Modifier = Modifier,
-    backgroundColor: Color = AppBackground,
-    contentColor: Color = AppPrimary,
-    textColor: Color = AppMutedText,
+    backgroundColor: Color = AppTheme.colors.surfaceVariant,
+    contentColor: Color = AppTheme.colors.primary,
+    textColor: Color = AppTheme.colors.mutedText,
     cornerRadius: Int = 14,
     indicatorSize: Int = 20
 ) {
+    val borderColor = AppTheme.colors.outline
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(cornerRadius.dp))
             .background(backgroundColor)
-            .border(1.dp, AppHeaderBackground, RoundedCornerShape(cornerRadius.dp))
+            .border(1.dp, borderColor, RoundedCornerShape(cornerRadius.dp))
             .padding(18.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
         verticalAlignment = Alignment.CenterVertically
@@ -416,9 +420,9 @@ fun AppStateCard(
     text: String,
     isError: Boolean = false,
     modifier: Modifier = Modifier,
-    backgroundColor: Color = AppBackground,
-    contentColor: Color = AppPrimary,
-    errorColor: Color = AppDanger
+    backgroundColor: Color = AppTheme.colors.surfaceVariant,
+    contentColor: Color = AppTheme.colors.primary,
+    errorColor: Color = AppTheme.colors.danger
 ) {
     Text(
         text = text,
@@ -436,9 +440,9 @@ fun AppMessageCards(
     error: String?,
     success: String?,
     modifier: Modifier = Modifier,
-    backgroundColor: Color = AppBackground,
-    contentColor: Color = AppPrimary,
-    errorColor: Color = AppDanger
+    backgroundColor: Color = AppTheme.colors.surfaceVariant,
+    contentColor: Color = AppTheme.colors.primary,
+    errorColor: Color = AppTheme.colors.danger
 ) {
     Column(modifier = modifier) {
         error?.let {
@@ -467,10 +471,10 @@ fun AppFilterChip(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    selectedColor: Color = AppPrimary,
-    unselectedColor: Color = AppHeaderBackground,
-    selectedTextColor: Color = Color.White,
-    unselectedTextColor: Color = AppPrimary
+    selectedColor: Color = AppTheme.colors.primary,
+    unselectedColor: Color = AppTheme.colors.headerBackground,
+    selectedTextColor: Color = AppTheme.colors.onPrimary,
+    unselectedTextColor: Color = AppTheme.colors.primary
 ) {
     Box(
         modifier = modifier
@@ -492,7 +496,7 @@ fun AppFilterChip(
 fun AppFormField(
     label: String,
     modifier: Modifier = Modifier,
-    labelColor: Color = AppPrimary,
+    labelColor: Color = AppTheme.colors.primary,
     content: @Composable () -> Unit
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -512,10 +516,10 @@ fun AppStatusChip(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    selectedColor: Color = AppPrimary,
-    unselectedColor: Color = AppHeaderBackground,
-    selectedTextColor: Color = Color.White,
-    unselectedTextColor: Color = AppPrimary
+    selectedColor: Color = AppTheme.colors.primary,
+    unselectedColor: Color = AppTheme.colors.headerBackground,
+    selectedTextColor: Color = AppTheme.colors.onPrimary,
+    unselectedTextColor: Color = AppTheme.colors.primary
 ) {
     Box(
         modifier = modifier
@@ -539,15 +543,17 @@ fun AppPaginationRow(
     onPrev: () -> Unit,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
-    contentColor: Color = AppPrimary,
-    secondaryColor: Color = AppMutedText
+    contentColor: Color = AppTheme.colors.primary,
+    secondaryColor: Color = AppTheme.colors.mutedText
 ) {
+    val surfaceColor = AppTheme.colors.surface
+    val borderColor = AppTheme.colors.outline
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
-            .border(1.dp, AppHeaderBackground, RoundedCornerShape(16.dp))
+            .background(surfaceColor)
+            .border(1.dp, borderColor, RoundedCornerShape(16.dp))
             .padding(horizontal = 12.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically

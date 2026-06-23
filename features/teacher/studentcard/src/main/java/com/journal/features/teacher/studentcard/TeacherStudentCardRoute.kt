@@ -26,8 +26,10 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import com.journal.core.ui.AppTheme
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.journal.core.common.config.PersonNameFormatter
@@ -43,12 +45,17 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import com.journal.core.ui.AppStatTile as StatTile
 
-private val BackgroundColor = AppBackground
-private val PrimaryText = AppPrimary
+private val BackgroundColor: Color
+    @Composable get() = AppTheme.colors.background
+private val PrimaryText: Color
+    @Composable get() = AppTheme.colors.primary
 private val MutedText = AppSecondaryText
-private val CardBackground = Color.White
-private val LightBlue = AppHeaderBackground
-private val BarBackground = AppBarBackground
+private val CardBackground: Color
+    @Composable get() = AppTheme.colors.surface
+private val LightBlue: Color
+    @Composable get() = AppTheme.colors.headerBackground
+private val BarBackground: Color
+    @Composable get() = AppTheme.colors.barBackground
 
 @Composable
 fun TeacherStudentCardRoute(
@@ -172,6 +179,9 @@ private fun AttendanceChartCard(months: List<StudentAttendanceMonth>) {
 
 @Composable
 private fun AttendanceLineChart(months: List<StudentAttendanceMonth>) {
+    val primaryText = PrimaryText
+    val primaryTextArgb = primaryText.toArgb()
+    val onPrimaryArgb = AppTheme.colors.onPrimary.toArgb()
     Canvas(
         modifier = Modifier
             .fillMaxWidth()
@@ -191,7 +201,7 @@ private fun AttendanceLineChart(months: List<StudentAttendanceMonth>) {
 
         points.zipWithNext().forEach { (start, end) ->
             drawLine(
-                color = PrimaryText,
+                color = primaryText,
                 start = start,
                 end = end,
                 strokeWidth = 1.dp.toPx(),
@@ -204,14 +214,14 @@ private fun AttendanceLineChart(months: List<StudentAttendanceMonth>) {
             val labelWidth = 38.dp.toPx()
             val labelHeight = 18.dp.toPx()
             drawRoundRect(
-                color = PrimaryText,
+                color = primaryText,
                 topLeft = Offset(point.x - labelWidth / 2f, point.y - labelHeight / 2f),
                 size = Size(labelWidth, labelHeight),
                 cornerRadius = CornerRadius(9.dp.toPx(), 9.dp.toPx())
             )
             drawContext.canvas.nativeCanvas.apply {
                 val paint = android.graphics.Paint().apply {
-                    color = android.graphics.Color.WHITE
+                    color = onPrimaryArgb
                     textAlign = android.graphics.Paint.Align.CENTER
                     textSize = 11.dp.toPx()
                     isAntiAlias = true
@@ -219,7 +229,7 @@ private fun AttendanceLineChart(months: List<StudentAttendanceMonth>) {
                 drawText(percentText, point.x, point.y + 4.dp.toPx(), paint)
 
                 val monthPaint = android.graphics.Paint().apply {
-                    color = android.graphics.Color.rgb(34, 50, 104)
+                    color = primaryTextArgb
                     textAlign = android.graphics.Paint.Align.CENTER
                     textSize = 11.dp.toPx()
                     isAntiAlias = true
@@ -229,7 +239,7 @@ private fun AttendanceLineChart(months: List<StudentAttendanceMonth>) {
         }
 
         drawLine(
-            color = PrimaryText.copy(alpha = 0.35f),
+            color = primaryText.copy(alpha = 0.35f),
             start = Offset(leftPadding, chartBottom + 4.dp.toPx()),
             end = Offset(size.width - rightPadding, chartBottom + 4.dp.toPx()),
             strokeWidth = 1.dp.toPx()

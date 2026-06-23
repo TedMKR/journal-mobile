@@ -25,7 +25,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
@@ -60,11 +59,12 @@ fun AppDropdown(
 
     val displayText = options.firstOrNull { it.first == selected }?.second
         ?: placeholder
+    val colors = AppTheme.colors
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             text = label,
-            color = AppPrimary,
+            color = colors.primary,
             style = MaterialTheme.typography.bodyMedium,
             fontWeight = FontWeight.SemiBold
         )
@@ -73,10 +73,10 @@ fun AppDropdown(
                 modifier = Modifier
                     .fillMaxWidth()
                     .onSizeChanged { fieldWidthPx = it.width }
-                    .background(Color.White, RoundedCornerShape(12.dp))
+                    .background(colors.surface, RoundedCornerShape(12.dp))
                     .border(
                         width = 1.dp,
-                        color = if (expanded) AppPrimary else AppFieldBorder,
+                        color = if (expanded) colors.primary else colors.fieldBorder,
                         shape = RoundedCornerShape(12.dp)
                     )
                     .clickable { expanded = true }
@@ -90,7 +90,7 @@ fun AppDropdown(
                     Text(
                         text = displayText,
                         color = if (displayText == placeholder && placeholder.isNotEmpty())
-                            AppFieldPlaceholder else AppPrimary,
+                            colors.fieldPlaceholder else colors.inputText,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
@@ -99,7 +99,7 @@ fun AppDropdown(
                     Icon(
                         painter = painterResource(R.drawable.arrow_bottom),
                         contentDescription = null,
-                        tint = AppSecondaryText,
+                        tint = colors.secondaryText,
                         modifier = Modifier
                             .size(width = 13.dp, height = 9.dp)
                             .rotate(if (expanded) 180f else 0f)
@@ -111,14 +111,14 @@ fun AppDropdown(
                 onDismissRequest = { expanded = false },
                 modifier = Modifier
                     .width(fieldWidthDp)
-                    .background(Color.White)
+                    .background(colors.surface)
             ) {
                 options.forEach { (value, displayLabel) ->
                     DropdownMenuItem(
                         text = {
                             Text(
                                 text = displayLabel,
-                                color = AppPrimary,
+                                color = colors.inputText,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
                             )

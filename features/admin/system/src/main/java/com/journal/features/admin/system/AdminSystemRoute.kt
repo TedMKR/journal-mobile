@@ -45,18 +45,11 @@ import com.journal.core.model.teacher.MobileAppDownloadResponse
 import com.journal.core.model.teacher.UpdateMobileAppDownloadRequest
 import com.journal.core.network.api.JournalApi
 import com.journal.core.ui.AppAdminBadge
-import com.journal.core.ui.AppBackground
-import com.journal.core.ui.AppDanger
-import com.journal.core.ui.AppDangerLight
 import com.journal.core.ui.AppErrorCard
-import com.journal.core.ui.AppHeaderBackground
-import com.journal.core.ui.AppMutedText
-import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppPrimaryButton
 import com.journal.core.ui.AppSecondaryButton
 import com.journal.core.ui.AppSectionCard
-import com.journal.core.ui.AppSuccess
-import com.journal.core.ui.AppSuccessLight
+import com.journal.core.ui.AppTheme
 import com.journal.core.ui.shareBytesFile
 import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
@@ -64,6 +57,7 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 fun AdminSystemRoute(journalApi: JournalApi) {
+    val colors = AppTheme.colors
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var isLoading by remember { mutableStateOf(true) }
@@ -166,8 +160,8 @@ fun AdminSystemRoute(journalApi: JournalApi) {
     LaunchedEffect(Unit) { load() }
 
     if (isLoading) {
-        Box(Modifier.fillMaxSize().background(AppBackground), contentAlignment = Alignment.Center) {
-            CircularProgressIndicator(color = AppPrimary)
+        Box(Modifier.fillMaxSize().background(colors.background), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator(color = colors.primary)
         }
         return
     }
@@ -175,7 +169,7 @@ fun AdminSystemRoute(journalApi: JournalApi) {
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .background(AppBackground),
+            .background(colors.background),
         contentPadding = PaddingValues(12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
@@ -186,9 +180,9 @@ fun AdminSystemRoute(journalApi: JournalApi) {
                     text = it,
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(AppSuccessLight, RoundedCornerShape(14.dp))
+                        .background(colors.successContainer, RoundedCornerShape(14.dp))
                         .padding(14.dp),
-                    color = AppSuccess,
+                    color = colors.success,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -196,11 +190,11 @@ fun AdminSystemRoute(journalApi: JournalApi) {
 
         item {
             AppSectionCard {
-                Text("Мобильное приложение", color = AppPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("Мобильное приложение", color = colors.primary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Checkbox(checked = visible, onCheckedChange = { visible = it })
-                    Text("Показывать ссылку на скачивание", color = AppPrimary, fontWeight = FontWeight.SemiBold)
+                    Text("Показывать ссылку на скачивание", color = colors.primary, fontWeight = FontWeight.SemiBold)
                 }
                 OutlinedTextField(
                     value = url,
@@ -212,7 +206,7 @@ fun AdminSystemRoute(journalApi: JournalApi) {
                 Spacer(Modifier.height(10.dp))
                 Text(
                     text = "Обновлено: ${formatDateTime(appSettings?.updatedAt)}",
-                    color = AppMutedText,
+                    color = colors.mutedText,
                     fontSize = 13.sp
                 )
                 Spacer(Modifier.height(10.dp))
@@ -235,9 +229,9 @@ fun AdminSystemRoute(journalApi: JournalApi) {
                     text = "Бэкапы не найдены",
                     modifier = Modifier
                         .fillMaxWidth()
-                        .background(Color.White, RoundedCornerShape(16.dp))
+                        .background(colors.surface, RoundedCornerShape(16.dp))
                         .padding(16.dp),
-                    color = AppMutedText,
+                    color = colors.mutedText,
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -261,6 +255,7 @@ private fun BackupHeader(
     isBusy: Boolean,
     onCreate: () -> Unit
 ) {
+    val colors = AppTheme.colors
     val createEnabled = backups.capabilities
         .flatMap { it.actions }
         .firstOrNull { it.id == "create" }
@@ -273,9 +268,9 @@ private fun BackupHeader(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("Бэкапы", color = AppPrimary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
+                Text("Бэкапы", color = colors.primary, fontWeight = FontWeight.Bold, fontSize = 18.sp)
                 backups.storageHint?.takeIf { it.isNotBlank() }?.let {
-                    Text(it, color = AppMutedText, fontSize = 13.sp)
+                    Text(it, color = colors.mutedText, fontSize = 13.sp)
                 }
             }
             Spacer(Modifier.width(10.dp))
@@ -290,8 +285,8 @@ private fun BackupHeader(
             backups.capabilities.forEach { capability ->
                 AppAdminBadge(
                     text = "${capability.component ?: "backup"}: ${capability.status ?: "-"}",
-                    color = if (capability.status == "enabled") AppSuccess else AppMutedText,
-                    background = if (capability.status == "enabled") AppSuccessLight else AppHeaderBackground
+                    color = if (capability.status == "enabled") colors.success else colors.mutedText,
+                    background = if (capability.status == "enabled") colors.successContainer else colors.headerBackground
                 )
             }
         }
@@ -305,12 +300,13 @@ private fun BackupRow(
     onDownload: () -> Unit,
     onCheck: () -> Unit
 ) {
+    val colors = AppTheme.colors
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .background(Color.White)
-            .border(1.dp, AppHeaderBackground, RoundedCornerShape(16.dp))
+            .background(colors.surface)
+            .border(1.dp, colors.outline, RoundedCornerShape(16.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -322,28 +318,28 @@ private fun BackupRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = artifact.fileName ?: artifact.id,
-                    color = AppPrimary,
+                    color = colors.primary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 16.sp,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis
                 )
-                Text("Создан: ${formatDateTime(artifact.createdAt)}", color = AppMutedText, fontSize = 13.sp)
-                Text("Размер: ${formatBytes(artifact.sizeBytes)}", color = AppMutedText, fontSize = 13.sp)
+                Text("Создан: ${formatDateTime(artifact.createdAt)}", color = colors.mutedText, fontSize = 13.sp)
+                Text("Размер: ${formatBytes(artifact.sizeBytes)}", color = colors.mutedText, fontSize = 13.sp)
                 artifact.errorMessage?.takeIf { it.isNotBlank() }?.let {
-                    Text(it, color = AppDanger, fontSize = 13.sp)
+                    Text(it, color = colors.danger, fontSize = 13.sp)
                 }
             }
             Spacer(Modifier.width(10.dp))
             AppAdminBadge(
                 text = artifact.status ?: "-",
-                color = if (artifact.status == "completed" || artifact.status == "ok") AppSuccess else AppMutedText,
-                background = if (artifact.status == "completed" || artifact.status == "ok") AppSuccessLight else AppHeaderBackground
+                color = if (artifact.status == "completed" || artifact.status == "ok") colors.success else colors.mutedText,
+                background = if (artifact.status == "completed" || artifact.status == "ok") colors.successContainer else colors.headerBackground
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
             AppSecondaryButton("Скачать", onClick = onDownload, modifier = Modifier.weight(1f))
-            AppSecondaryButton("Проверить", onClick = onCheck, modifier = Modifier.weight(1f), contentColor = if (isBusy) AppMutedText else AppPrimary)
+            AppSecondaryButton("Проверить", onClick = onCheck, modifier = Modifier.weight(1f), contentColor = if (isBusy) colors.mutedText else colors.primary)
         }
     }
 }

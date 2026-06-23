@@ -47,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import com.journal.core.ui.AppTheme
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -86,18 +87,25 @@ import java.util.zip.ZipOutputStream
 import com.journal.core.ui.AppFormField as WebFormField
 import com.journal.core.ui.AppStatusChip as StatusChip
 
-private val BackgroundColor = AppBackground
-private val PrimaryText = AppPrimary
-private val CardBackground = Color.White
+private val BackgroundColor: Color
+    @Composable get() = AppTheme.colors.background
+private val PrimaryText: Color
+    @Composable get() = AppTheme.colors.primary
+private val CardBackground: Color
+    @Composable get() = AppTheme.colors.surface
 private val HeaderBackground = AppHeaderBackground
 private val CellBorder = Color(0xFFC9CED8)
-private val AccentBlue = AppPrimary
+private val AccentBlue: Color
+    @Composable get() = AppTheme.colors.primary
 private val PresentColor = AppSuccess
 private val AbsentColor = AppDanger
 private val ExcuseColor = AppWarning
-private val DangerColor = AppDanger
-private val DialogContainerColor = Color.White
-private val DialogTextColor = PrimaryText
+private val DangerColor: Color
+    @Composable get() = AppTheme.colors.danger
+private val DialogContainerColor: Color
+    @Composable get() = AppTheme.colors.surface
+private val DialogTextColor: Color
+    @Composable get() = PrimaryText
 
 private const val ATTENDANCE_COLUMN_WIDTH = 82
 private const val GRADE_COLUMN_WIDTH = 112
@@ -850,7 +858,7 @@ private fun AssessmentDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White, RoundedCornerShape(16.dp))
+                .background(CardBackground, RoundedCornerShape(16.dp))
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -944,11 +952,12 @@ private fun WebSelectOption(
     selected: Boolean,
     onClick: () -> Unit
 ) {
+    val colors = AppTheme.colors
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (selected) Color(0xFFE8ECF8) else Color.White, RoundedCornerShape(8.dp))
-            .border(1.dp, if (selected) AccentBlue else Color(0xFFD1D5DB), RoundedCornerShape(8.dp))
+            .background(if (selected) colors.headerBackground else CardBackground, RoundedCornerShape(8.dp))
+            .border(1.dp, if (selected) AccentBlue else colors.outline, RoundedCornerShape(8.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
@@ -1316,7 +1325,7 @@ private fun BulkDropdown(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White, RoundedCornerShape(10.dp))
+                .background(CardBackground, RoundedCornerShape(10.dp))
                 .border(1.dp, Color(0xFFD1D5DB), RoundedCornerShape(10.dp))
                 .clickable(onClick = onToggle)
                 .padding(horizontal = 14.dp, vertical = 12.dp),
@@ -1349,7 +1358,7 @@ private fun BulkDropdown(
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.White, RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
+                    .background(CardBackground, RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
                     .border(1.dp, Color(0xFFD1D5DB), RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
                     .padding(vertical = 4.dp)
             ) {
@@ -1365,10 +1374,11 @@ private fun BulkDropdownOption(
     selected: Boolean,
     onClick: () -> Unit
 ) {
+    val colors = AppTheme.colors
     Box(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (selected) Color(0xFFE8ECF8) else Color.Transparent)
+            .background(if (selected) colors.headerBackground else Color.Transparent)
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 10.dp)
     ) {
@@ -1585,6 +1595,7 @@ private fun attendanceExportText(status: String?): String = when (status) {
     else -> status
 }
 
+@Composable
 private fun attendanceColor(status: String?): Color = when (status) {
     "present" -> PresentColor
     "absent" -> AbsentColor

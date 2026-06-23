@@ -57,6 +57,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import com.journal.core.ui.AppTheme
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -109,19 +110,30 @@ import com.journal.core.ui.AppPaginationRow as AdminPaginationRow
 
 // ─── Colors ───────────────────────────────────────────────────────────────────
 
-private val BackgroundColor = AppBackground
-private val CardBackground = Color.White
-private val PrimaryBlue = AppPrimary
-private val SecondaryText = AppMutedText
-private val LightBlue = AppHeaderBackground
-private val FieldBorder = AppFieldBorder
-private val InputTextColor = AppInputText
-private val DangerColor = AppDanger
+private val BackgroundColor: Color
+    @Composable get() = AppTheme.colors.background
+private val CardBackground: Color
+    @Composable get() = AppTheme.colors.surface
+private val PrimaryBlue: Color
+    @Composable get() = AppTheme.colors.primary
+private val SecondaryText: Color
+    @Composable get() = AppTheme.colors.mutedText
+private val LightBlue: Color
+    @Composable get() = AppTheme.colors.headerBackground
+private val FieldBorder: Color
+    @Composable get() = AppTheme.colors.fieldBorder
+private val InputTextColor: Color
+    @Composable get() = AppTheme.colors.inputText
+private val DangerColor: Color
+    @Composable get() = AppTheme.colors.danger
 private val DangerLight = AppDangerLight
-private val GreenColor = AppSuccess
+private val GreenColor: Color
+    @Composable get() = AppTheme.colors.success
 private val GreenLight = AppSuccessLight
-private val AccentBadge = AppHeaderBackground
-private val BarBackground = AppBarBackground
+private val AccentBadge: Color
+    @Composable get() = AppTheme.colors.headerBackground
+private val BarBackground: Color
+    @Composable get() = AppTheme.colors.barBackground
 private val WarningLight = Color(0xFFFEF3C7)
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -166,7 +178,7 @@ private fun ReasonDialog(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White, RoundedCornerShape(16.dp))
+                .background(CardBackground, RoundedCornerShape(16.dp))
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -229,6 +241,7 @@ private fun journalStatusLabel(status: String?): String = when (status) {
     else -> status ?: "—"
 }
 
+@Composable
 private fun journalStatusColor(status: String?): Color = when (status) {
     "active" -> GreenColor
     "locked" -> Color(0xFFB45309)
@@ -516,7 +529,7 @@ private fun JournalStatusBadge(status: String?) {
     Text(
         text = journalStatusLabel(status),
         modifier = Modifier
-            .background(Color.White, RoundedCornerShape(999.dp))
+            .background(CardBackground, RoundedCornerShape(999.dp))
             .border(1.dp, LightBlue, RoundedCornerShape(999.dp))
             .padding(horizontal = 12.dp, vertical = 5.dp),
         color = textColor,

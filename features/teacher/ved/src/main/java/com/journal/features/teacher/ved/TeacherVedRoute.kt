@@ -45,6 +45,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.Color
+import com.journal.core.ui.AppTheme
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -83,11 +84,16 @@ import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val BackgroundColor = AppBackground
-private val PrimaryText = AppPrimary
-private val SecondaryText = AppSecondaryText
-private val CardBackground = Color.White
-private val LightBlue = AppLessonBackground
+private val BackgroundColor: Color
+    @Composable get() = AppTheme.colors.background
+private val PrimaryText: Color
+    @Composable get() = AppTheme.colors.primary
+private val SecondaryText: Color
+    @Composable get() = AppTheme.colors.secondaryText
+private val CardBackground: Color
+    @Composable get() = AppTheme.colors.surface
+private val LightBlue: Color
+    @Composable get() = AppTheme.colors.lessonBackground
 private val Danger = AppDanger
 private val Success = AppSuccess
 

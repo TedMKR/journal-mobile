@@ -67,6 +67,7 @@ import com.journal.core.common.config.AppConfig
 import com.journal.core.common.config.JwtUtils
 import com.journal.core.common.config.TokenSession
 import com.journal.core.network.api.JournalApi
+import com.journal.core.ui.AppTheme
 import com.journal.features.admin.access.AdminAccessRoute
 import com.journal.features.admin.audit.AdminAuditRoute
 import com.journal.features.admin.dashboard.AdminDashboardRoute
@@ -93,12 +94,18 @@ import com.journal.features.teacher.studentcard.TeacherStudentCardRoute
 import com.journal.features.teacher.ved.TeacherVedRoute
 import com.journal.shared.navigation.Routes
 
-private val MenuBackground = Color.White
-private val MenuPrimary = Color(0xFF223268)
-private val MenuOverlay = Color.Black.copy(alpha = 0.28f)
-private val MenuItemBackground = Color(0xFFD3D7E1)
-private val MenuDanger = Color(0xFFB91C1C)
-private val MenuDangerBackground = Color(0xFFFFE4E6)
+private val MenuBackground: Color
+    @Composable get() = AppTheme.colors.surface
+private val MenuPrimary: Color
+    @Composable get() = AppTheme.colors.primary
+private val MenuOverlay: Color
+    @Composable get() = AppTheme.colors.overlay
+private val MenuItemBackground: Color
+    @Composable get() = AppTheme.colors.headerBackground
+private val MenuDanger: Color
+    @Composable get() = AppTheme.colors.danger
+private val MenuDangerBackground: Color
+    @Composable get() = AppTheme.colors.dangerContainer
 private const val GearIconPathData =
     "M27.758,10.366l-1,-1.732c-0.552,-0.957 -1.775,-1.284 -2.732,-0.732L23.5,8.206C21.5,9.36 19,7.917 19,5.608V5c0,-1.105 -0.895,-2 -2,-2h-2c-1.105,0 -2,0.895 -2,2v0.608c0,2.309 -2.5,3.753 -4.5,2.598L7.974,7.902C7.017,7.35 5.794,7.677 5.242,8.634l-1,1.732c-0.552,0.957 -0.225,2.18 0.732,2.732L5.5,13.402c2,1.155 2,4.041 0,5.196l-0.526,0.304c-0.957,0.552 -1.284,1.775 -0.732,2.732l1,1.732c0.552,0.957 1.775,1.284 2.732,0.732L8.5,23.794c2,-1.155 4.5,0.289 4.5,2.598V27c0,1.105 0.895,2 2,2h2c1.105,0 2,-0.895 2,-2v-0.608c0,-2.309 2.5,-3.753 4.5,-2.598l0.526,0.304c0.957,0.552 2.18,0.225 2.732,-0.732l1,-1.732c0.552,-0.957 0.225,-2.18 -0.732,-2.732L26.5,18.598c-2,-1.155 -2,-4.041 0,-5.196l0.526,-0.304C27.983,12.546 28.311,11.323 27.758,10.366z"
 
@@ -110,6 +117,8 @@ fun JournalNavHost(
     initialRole: String?,
     gradeNotificationsEnabled: Boolean,
     onGradeNotificationsEnabledChange: (Boolean) -> Unit,
+    darkThemeEnabled: Boolean,
+    onDarkThemeEnabledChange: (Boolean) -> Unit,
     onClearSession: () -> Unit
 ) {
     val navController = rememberNavController()
@@ -375,6 +384,8 @@ fun JournalNavHost(
                 },
                 gradeNotificationsEnabled = gradeNotificationsEnabled,
                 onGradeNotificationsEnabledChange = onGradeNotificationsEnabledChange,
+                darkThemeEnabled = darkThemeEnabled,
+                onDarkThemeEnabledChange = onDarkThemeEnabledChange,
                 onLogout = {
                     isMenuOpen = false
                     openKeycloakLogout(
@@ -454,6 +465,8 @@ private fun AnimatedVisibilityScope.RightSideMenu(
     onNavigate: (String) -> Unit,
     gradeNotificationsEnabled: Boolean,
     onGradeNotificationsEnabledChange: (Boolean) -> Unit,
+    darkThemeEnabled: Boolean,
+    onDarkThemeEnabledChange: (Boolean) -> Unit,
     onLogout: () -> Unit
 ) {
     val animScope = this
@@ -489,6 +502,8 @@ private fun AnimatedVisibilityScope.RightSideMenu(
                 SettingsMenuContent(
                     gradeNotificationsEnabled = gradeNotificationsEnabled,
                     onNotificationsEnabledChange = onGradeNotificationsEnabledChange,
+                    darkThemeEnabled = darkThemeEnabled,
+                    onDarkThemeEnabledChange = onDarkThemeEnabledChange,
                     onLogout = onLogout
                 )
             } else {
@@ -547,6 +562,8 @@ private fun ColumnScope.MainMenuContent(
 private fun ColumnScope.SettingsMenuContent(
     gradeNotificationsEnabled: Boolean,
     onNotificationsEnabledChange: (Boolean) -> Unit,
+    darkThemeEnabled: Boolean,
+    onDarkThemeEnabledChange: (Boolean) -> Unit,
     onLogout: () -> Unit
 ) {
     Column {
@@ -558,9 +575,15 @@ private fun ColumnScope.SettingsMenuContent(
         )
     }
 
-    NotificationSwitchRow(
+    SettingsSwitchRow(
+        label = "Уведомления",
         checked = gradeNotificationsEnabled,
         onCheckedChange = onNotificationsEnabledChange
+    )
+    SettingsSwitchRow(
+        label = "Темная тема",
+        checked = darkThemeEnabled,
+        onCheckedChange = onDarkThemeEnabledChange
     )
 
     Spacer(modifier = Modifier.weight(1f))
@@ -568,7 +591,8 @@ private fun ColumnScope.SettingsMenuContent(
 }
 
 @Composable
-private fun NotificationSwitchRow(
+private fun SettingsSwitchRow(
+    label: String,
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
@@ -581,7 +605,7 @@ private fun NotificationSwitchRow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "Уведомления",
+            text = label,
             color = MenuPrimary,
             fontWeight = FontWeight.SemiBold
         )
@@ -597,26 +621,27 @@ private fun ProjectSwitch(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit
 ) {
+    val colors = AppTheme.colors
     val shape = RoundedCornerShape(30.dp)
     val trackColor by animateColorAsState(
-        targetValue = if (checked) MenuPrimary else Color.White,
+        targetValue = if (checked) colors.primary else colors.surface,
         animationSpec = tween(240),
-        label = "notificationSwitchTrackColor"
+        label = "settingsSwitchTrackColor"
     )
     val borderColor by animateColorAsState(
-        targetValue = if (checked) MenuPrimary else MenuItemBackground,
+        targetValue = if (checked) colors.primary else colors.fieldBorder,
         animationSpec = tween(240),
-        label = "notificationSwitchBorderColor"
+        label = "settingsSwitchBorderColor"
     )
     val thumbColor by animateColorAsState(
-        targetValue = if (checked) Color.White else MenuItemBackground,
+        targetValue = if (checked) colors.surface else colors.headerBackground,
         animationSpec = tween(240),
-        label = "notificationSwitchThumbColor"
+        label = "settingsSwitchThumbColor"
     )
     val thumbOffset by animateDpAsState(
         targetValue = if (checked) 30.dp else 4.dp,
         animationSpec = tween(240),
-        label = "notificationSwitchThumbOffset"
+        label = "settingsSwitchThumbOffset"
     )
 
     Box(
@@ -656,6 +681,7 @@ private fun LogoutRow(onClick: () -> Unit) {
 
 @Composable
 private fun MenuRow(item: MenuItem, selected: Boolean, onClick: () -> Unit) {
+    val selectedTextColor = AppTheme.colors.onPrimary
     Text(
         text = item.title,
         modifier = Modifier
@@ -663,7 +689,7 @@ private fun MenuRow(item: MenuItem, selected: Boolean, onClick: () -> Unit) {
             .background(if (selected) MenuPrimary else MenuItemBackground, RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 13.dp),
-        color = if (selected) Color.White else MenuPrimary,
+        color = if (selected) selectedTextColor else MenuPrimary,
         fontWeight = FontWeight.SemiBold
     )
 }
@@ -686,24 +712,25 @@ private fun HeaderIconButton(
 
 @Composable
 private fun BackIcon() {
+    val menuPrimary = MenuPrimary
     Canvas(modifier = Modifier.size(24.dp)) {
         val strokeWidth = 2.5.dp.toPx()
         drawLine(
-            color = MenuPrimary,
+            color = menuPrimary,
             start = Offset(size.width * 0.72f, size.height * 0.2f),
             end = Offset(size.width * 0.3f, size.height * 0.5f),
             strokeWidth = strokeWidth,
             cap = StrokeCap.Round
         )
         drawLine(
-            color = MenuPrimary,
+            color = menuPrimary,
             start = Offset(size.width * 0.3f, size.height * 0.5f),
             end = Offset(size.width * 0.72f, size.height * 0.8f),
             strokeWidth = strokeWidth,
             cap = StrokeCap.Round
         )
         drawLine(
-            color = MenuPrimary,
+            color = menuPrimary,
             start = Offset(size.width * 0.32f, size.height * 0.5f),
             end = Offset(size.width * 0.88f, size.height * 0.5f),
             strokeWidth = strokeWidth,
@@ -714,11 +741,12 @@ private fun BackIcon() {
 
 @Composable
 private fun MenuIcon() {
+    val menuPrimary = MenuPrimary
     Canvas(modifier = Modifier.size(24.dp)) {
         val strokeWidth = 2.5.dp.toPx()
         listOf(0.26f, 0.5f, 0.74f).forEach { y ->
             drawLine(
-                color = MenuPrimary,
+                color = menuPrimary,
                 start = Offset(size.width * 0.2f, size.height * y),
                 end = Offset(size.width * 0.8f, size.height * y),
                 strokeWidth = strokeWidth,
@@ -730,17 +758,18 @@ private fun MenuIcon() {
 
 @Composable
 private fun CloseIcon() {
+    val menuPrimary = MenuPrimary
     Canvas(modifier = Modifier.size(24.dp)) {
         val strokeWidth = 2.5.dp.toPx()
         drawLine(
-            color = MenuPrimary,
+            color = menuPrimary,
             start = Offset(size.width * 0.25f, size.height * 0.25f),
             end = Offset(size.width * 0.75f, size.height * 0.75f),
             strokeWidth = strokeWidth,
             cap = StrokeCap.Round
         )
         drawLine(
-            color = MenuPrimary,
+            color = menuPrimary,
             start = Offset(size.width * 0.75f, size.height * 0.25f),
             end = Offset(size.width * 0.25f, size.height * 0.75f),
             strokeWidth = strokeWidth,
@@ -754,6 +783,8 @@ private fun GearIcon(active: Boolean) {
     val gearPath = remember {
         PathParser().parsePathString(GearIconPathData).toPath()
     }
+    val menuPrimary = MenuPrimary
+    val menuBackground = MenuBackground
     Canvas(modifier = Modifier.size(24.dp)) {
         val scale = size.minDimension / 32f
         val offsetX = (size.width - 32f * scale) / 2f
@@ -771,23 +802,23 @@ private fun GearIcon(active: Boolean) {
             if (active) {
                 drawPath(
                     path = gearPath,
-                    color = MenuPrimary
+                    color = menuPrimary
                 )
                 drawCircle(
-                    color = MenuBackground,
+                    color = menuBackground,
                     radius = 4f,
                     center = Offset(16f, 16f)
                 )
             } else {
                 drawCircle(
-                    color = MenuPrimary,
+                    color = menuPrimary,
                     radius = 4f,
                     center = Offset(16f, 16f),
                     style = iconStroke
                 )
                 drawPath(
                     path = gearPath,
-                    color = MenuPrimary,
+                    color = menuPrimary,
                     style = iconStroke
                 )
             }

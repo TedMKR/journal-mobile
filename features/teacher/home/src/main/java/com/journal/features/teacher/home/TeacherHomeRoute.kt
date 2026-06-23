@@ -20,6 +20,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import com.journal.core.ui.AppTheme
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -36,12 +37,18 @@ import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val BackgroundColor = AppBackground
-private val PrimaryText = AppPrimary
-private val SecondaryText = AppSecondaryText
-private val CardBackground = Color.White
-private val LessonBackground = AppLessonBackground
-private val BadgeBackground = AppHeaderBackground
+private val BackgroundColor: Color
+    @Composable get() = AppTheme.colors.background
+private val PrimaryText: Color
+    @Composable get() = AppTheme.colors.primary
+private val SecondaryText: Color
+    @Composable get() = AppTheme.colors.secondaryText
+private val CardBackground: Color
+    @Composable get() = AppTheme.colors.surface
+private val LessonBackground: Color
+    @Composable get() = AppTheme.colors.lessonBackground
+private val BadgeBackground: Color
+    @Composable get() = AppTheme.colors.headerBackground
 
 private val dayNames = listOf(
     "Понедельник",
