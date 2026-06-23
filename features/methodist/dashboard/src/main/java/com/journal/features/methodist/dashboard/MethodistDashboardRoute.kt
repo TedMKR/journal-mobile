@@ -315,24 +315,21 @@ private fun DirectoryPanel(
         DirectoryBlock(
             title = "Дисциплины",
             count = disciplines.size,
-            rows = disciplines.take(DashboardVisibleRows).map { DirectoryRow(it.name, it.code ?: "Код не указан") },
-            hiddenCount = (disciplines.size - DashboardVisibleRows).coerceAtLeast(0),
+            rows = disciplines.map { DirectoryRow(it.name, it.code ?: "Код не указан") },
             emptyText = "Нет дисциплин"
         )
         DirectoryBlock(
             title = "Преподаватели",
             count = teachers.size,
-            rows = teachers.take(DashboardVisibleRows).map {
+            rows = teachers.map {
                 DirectoryRow(PersonNameFormatter.formatFullName(it.fullName), it.email ?: "Email не указан")
             },
-            hiddenCount = (teachers.size - DashboardVisibleRows).coerceAtLeast(0),
             emptyText = "Нет преподавателей"
         )
         DirectoryBlock(
             title = "Группы",
             count = groups.size,
-            rows = groups.take(DashboardVisibleRows).map { DirectoryRow(it.name, groupSubtitle(it)) },
-            hiddenCount = (groups.size - DashboardVisibleRows).coerceAtLeast(0),
+            rows = groups.map { DirectoryRow(it.name, groupSubtitle(it)) },
             emptyText = "Нет групп"
         )
     }
@@ -343,9 +340,12 @@ private fun DirectoryBlock(
     title: String,
     count: Int,
     rows: List<DirectoryRow>,
-    hiddenCount: Int,
     emptyText: String
 ) {
+    var expanded by remember(title) { mutableStateOf(false) }
+    val hiddenCount = (rows.size - DashboardVisibleRows).coerceAtLeast(0)
+    val visibleRows = if (expanded) rows else rows.take(DashboardVisibleRows)
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -369,10 +369,20 @@ private fun DirectoryBlock(
         if (rows.isEmpty()) {
             Text(emptyText, color = SecondaryText, modifier = Modifier.padding(vertical = 8.dp))
         } else {
-            rows.forEach { row -> DirectoryDataRow(row) }
+            visibleRows.forEach { row -> DirectoryDataRow(row) }
         }
         if (hiddenCount > 0) {
-            Text("Еще $hiddenCount", color = SecondaryText, style = MaterialTheme.typography.bodySmall)
+            TextButton(
+                onClick = { expanded = !expanded },
+                modifier = Modifier.align(Alignment.Start)
+            ) {
+                Text(
+                    text = if (expanded) "Свернуть" else "Показать еще $hiddenCount",
+                    color = AccentBlue,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }
