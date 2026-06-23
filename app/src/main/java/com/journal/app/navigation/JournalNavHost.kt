@@ -508,7 +508,7 @@ private fun AnimatedVisibilityScope.RightSideMenu(
             verticalAlignment = Alignment.CenterVertically
         ) {
             HeaderIconButton(onClick = { showSettings = !showSettings }) {
-                GearIcon()
+                GearIcon(active = showSettings)
             }
             HeaderIconButton(onClick = onDismiss) {
                 CloseIcon()
@@ -764,7 +764,7 @@ private fun CloseIcon() {
 }
 
 @Composable
-private fun GearIcon() {
+private fun GearIcon(active: Boolean) {
     val gearPath = remember {
         PathParser().parsePathString(GearIconPathData).toPath()
     }
@@ -782,17 +782,29 @@ private fun GearIcon() {
             translate(left = offsetX, top = offsetY)
             scale(scaleX = scale, scaleY = scale, pivot = Offset.Zero)
         }) {
-            drawCircle(
-                color = MenuPrimary,
-                radius = 4f,
-                center = Offset(16f, 16f),
-                style = iconStroke
-            )
-            drawPath(
-                path = gearPath,
-                color = MenuPrimary,
-                style = iconStroke
-            )
+            if (active) {
+                drawPath(
+                    path = gearPath,
+                    color = MenuPrimary
+                )
+                drawCircle(
+                    color = MenuBackground,
+                    radius = 4f,
+                    center = Offset(16f, 16f)
+                )
+            } else {
+                drawCircle(
+                    color = MenuPrimary,
+                    radius = 4f,
+                    center = Offset(16f, 16f),
+                    style = iconStroke
+                )
+                drawPath(
+                    path = gearPath,
+                    color = MenuPrimary,
+                    style = iconStroke
+                )
+            }
         }
     }
 }
