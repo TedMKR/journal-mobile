@@ -11,6 +11,7 @@ import com.journal.core.model.teacher.AdminBackupsResponse
 import com.journal.core.model.teacher.AdminCreateAccessBindingRequest
 import com.journal.core.model.teacher.AdminCreatePeriodRequest
 import com.journal.core.model.teacher.AdminCreateTeachingAssignmentRequest
+import com.journal.core.model.teacher.AdminDashboardSummary
 import com.journal.core.model.teacher.AdminDocumentsResponse
 import com.journal.core.model.teacher.AdminImportBatch
 import com.journal.core.model.teacher.AdminImportsResponse
@@ -52,12 +53,16 @@ import com.journal.core.model.teacher.MarkAttendanceRequest
 import com.journal.core.model.teacher.DocumentTask
 import com.journal.core.model.teacher.ProblemStudentsResponse
 import com.journal.core.model.teacher.RequestReportPayload
+import com.journal.core.model.teacher.ImportApplyResult
+import com.journal.core.model.teacher.ImportBatchPreview
 import com.journal.core.model.teacher.StudentJournalData
+import com.journal.core.model.teacher.StartStudentImportRequest
 import com.journal.core.model.teacher.StudentLessonsResponse
 import com.journal.core.model.teacher.StudentProfile
 import com.journal.core.model.teacher.StudentSubjectCard
 import com.journal.core.model.teacher.StudentSubjectsResponse
 import com.journal.core.model.teacher.TeacherProfile
+import com.journal.core.model.teacher.TemplateAssignment
 import com.journal.core.model.teacher.TeacherStats
 import com.journal.core.model.teacher.TopicPayload
 import com.journal.core.model.teacher.AttendanceSummaryResponse
@@ -339,6 +344,29 @@ interface JournalApi {
         @Body request: AssignLessonTemplateRequest
     )
 
+    @GET("lesson-template-assignments/current")
+    suspend fun getCurrentLessonTemplateAssignment(
+        @Query("teacher_id") teacherId: String,
+        @Query("discipline_id") disciplineId: String,
+        @Query("group_id") groupId: String,
+        @Query("period_id") periodId: String
+    ): TemplateAssignment
+
+    @DELETE("lesson-template-assignments/{assignment_id}")
+    suspend fun revokeLessonTemplateAssignment(
+        @Path("assignment_id") assignmentId: String
+    )
+
+    @POST("admin/imports/students")
+    suspend fun startStudentImport(
+        @Body request: StartStudentImportRequest
+    ): ImportBatchPreview
+
+    @POST("admin/imports/{id}/apply")
+    suspend fun applyStudentImport(
+        @Path("id") batchId: String
+    ): ImportApplyResult
+
     @POST("journals")
     suspend fun createJournal(
         @Body request: CreateJournalRequest
@@ -354,6 +382,9 @@ interface JournalApi {
         @Query("user_type") userType: String? = null,
         @Query("status") status: String? = null
     ): AdminUsersResponse
+
+    @GET("admin/dashboard-summary")
+    suspend fun getAdminDashboardSummary(): AdminDashboardSummary
 
     @PATCH("admin/users/{id}")
     suspend fun updateAdminUser(

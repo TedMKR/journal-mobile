@@ -1,5 +1,7 @@
 package com.journal.features.methodist.templates
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -65,8 +67,9 @@ import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppMutedText
 import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.appFieldColors
+import com.journal.core.ui.readSpreadsheetDocument
 import com.journal.core.ui.shareBytesFile
-import com.journal.core.ui.shareTextFile
+import com.journal.core.ui.shareXlsxFile
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
@@ -125,10 +128,11 @@ fun MethodistTemplatesRoute(
 
     fun exportSelectedTemplate() {
         selectedTemplate?.let { detail ->
-            shareTextFile(
+            shareXlsxFile(
                 context = context,
-                text = buildLessonTemplateCsv(detail),
-                fileName = "lesson-template-${detail.id.takeLast(8)}.csv",
+                rows = buildLessonTemplateRows(detail),
+                fileName = "lesson-template-${detail.id.takeLast(8)}.xlsx",
+                sheetName = "КТП",
                 chooserTitle = "Экспорт КТП"
             )
         }
@@ -170,7 +174,7 @@ fun MethodistTemplatesRoute(
             SecondaryButton(text = "Шаблон тем", onClick = { downloadImportTemplate(3) })
             SecondaryButton(text = "Пример тем", onClick = { downloadImportTemplate(4) })
             if (selectedTemplate != null) {
-                SecondaryButton(text = "Экспорт CSV", onClick = ::exportSelectedTemplate)
+                SecondaryButton(text = "Экспорт XLSX", onClick = ::exportSelectedTemplate)
             }
         },
         useContentCard = false
@@ -269,8 +273,6 @@ fun MethodistTemplatesRoute(
         )
     }
 }
-
-
 private suspend fun syncTopics(
     journalApi: JournalApi,
     detail: LessonTemplateDetail,
@@ -418,10 +420,28 @@ private fun TemplateEditorCard(
     onSave: (String, String?, List<TopicDraft>) -> Unit,
     onDelete: () -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var name by remember(detail.id) { mutableStateOf(detail.name) }
     var description by remember(detail.id) { mutableStateOf(detail.description.orEmpty()) }
     var topics by remember(detail.id) {
         mutableStateOf(detail.topics.sortedBy { it.orderIndex }.map { TopicDraft.from(it) })
+    }
+    var importError by remember(detail.id) { mutableStateOf<String?>(null) }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching { parseKtpRows(readSpreadsheetDocument(context, uri).rows) }
+                .onSuccess { parsed ->
+                    if (parsed.isEmpty()) {
+                        importError = "В файле не найдены темы"
+                    } else {
+                        importError = null
+                        topics = parsed
+                    }
+                }
+                .onFailure { importError = it.userFacingMessage("Не удалось разобрать файл") }
+        }
     }
     Column(
         modifier = Modifier
@@ -447,6 +467,21 @@ private fun TemplateEditorCard(
             colors = appFieldColors(),
             modifier = Modifier.fillMaxWidth()
         )
+        SecondaryButton(
+            text = "Загрузить темы из файла",
+            onClick = {
+                importLauncher.launch(
+                    arrayOf(
+                        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        "application/vnd.ms-excel",
+                        "text/csv",
+                        "text/comma-separated-values",
+                        "*/*"
+                    )
+                )
+            }
+        )
+        importError?.let { StateCard(it, isError = true) }
         TopicsEditor(topics = topics, onTopicsChange = { topics = it })
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             PrimaryButton(
@@ -466,10 +501,32 @@ private fun TemplateCreateDialog(
     onDismiss: () -> Unit,
     onCreate: (String, String, String?, List<TopicPayload>) -> Unit
 ) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     var disciplineId by remember { mutableStateOf(disciplines.firstOrNull()?.id.orEmpty()) }
     var name by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var topics by remember { mutableStateOf(listOf(TopicDraft.local(1))) }
+    var importError by remember { mutableStateOf<String?>(null) }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            runCatching { parseKtpRows(readSpreadsheetDocument(context, uri).rows) }
+                .onSuccess { parsed ->
+                    if (parsed.isEmpty()) {
+                        importError = "В файле не найдены темы"
+                    } else {
+                        importError = null
+                        topics = parsed
+                        if (name.isBlank()) {
+                            val disciplineName = disciplines.firstOrNull { it.id == disciplineId }?.name
+                            if (!disciplineName.isNullOrBlank()) name = "КТП: $disciplineName"
+                        }
+                    }
+                }
+                .onFailure { importError = it.userFacingMessage("Не удалось разобрать файл") }
+        }
+    }
 
     Dialog(onDismissRequest = onDismiss) {
         Column(
@@ -521,6 +578,21 @@ private fun TemplateCreateDialog(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+            SecondaryButton(
+                text = "Загрузить файл шаблона",
+                onClick = {
+                    importLauncher.launch(
+                        arrayOf(
+                            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            "application/vnd.ms-excel",
+                            "text/csv",
+                            "text/comma-separated-values",
+                            "*/*"
+                        )
+                    )
+                }
+            )
+            importError?.let { StateCard(it, isError = true) }
             TopicsEditor(topics = topics, onTopicsChange = { topics = it })
 
             Row(
@@ -533,6 +605,7 @@ private fun TemplateCreateDialog(
                     name = ""
                     description = ""
                     topics = listOf(TopicDraft.local(1))
+                    importError = null
                 }) {
                     Text("Очистить", color = AccentBlue, fontWeight = FontWeight.SemiBold)
                 }
@@ -649,7 +722,7 @@ private fun List<TopicDraft>.replaceAt(index: Int, item: TopicDraft): List<Topic
 
 private fun List<TopicDraft>.reindexTopics(): List<TopicDraft> = mapIndexed { index, topic -> topic.copy(orderIndex = index + 1) }
 
-private fun buildLessonTemplateCsv(detail: LessonTemplateDetail): String {
+private fun buildLessonTemplateRows(detail: LessonTemplateDetail): List<List<String>> {
     val rows = mutableListOf<List<String>>()
     rows += listOf("КТП", detail.name)
     rows += listOf("Дисциплина", detail.disciplineName)
@@ -664,11 +737,59 @@ private fun buildLessonTemplateCsv(detail: LessonTemplateDetail): String {
             topic.lessonCount.toString()
         )
     }
-    return rows.joinToString("\n") { row ->
-        row.joinToString(";") { cell -> "\"${cell.replace("\"", "\"\"")}\"" }
-    }
+    return rows
 }
 
+private fun parseKtpRows(rows: List<List<String>>): List<TopicDraft> {
+    val topicAliases = listOf("topic_name", "тема", "название темы", "названиетемы")
+    val lessonAliases = listOf("lesson_count", "занятий", "количество занятий", "количество", "занятия")
+    val orderAliases = listOf("order_index", "№", "номер", "порядок", "n")
+    val descriptionAliases = listOf("topic_description", "описание", "комментарий", "описание темы")
+    var headerIndex = rows.indexOfFirst { row ->
+        findColumn(row, topicAliases) != -1 && findColumn(row, lessonAliases) != -1
+    }
+    if (headerIndex == -1) {
+        headerIndex = rows.indexOfFirst { row -> findColumn(row, topicAliases) != -1 }
+    }
+
+    val header = rows.getOrNull(headerIndex).orEmpty()
+    val topicIndex = if (headerIndex >= 0) findColumn(header, topicAliases) else 1
+    val lessonIndex = if (headerIndex >= 0) findColumn(header, lessonAliases) else 3
+    val orderIndex = if (headerIndex >= 0) findColumn(header, orderAliases) else 0
+    val descriptionIndex = if (headerIndex >= 0) findColumn(header, descriptionAliases) else 2
+    val dataRows = rows.drop(if (headerIndex >= 0) headerIndex + 1 else 0)
+
+    return dataRows.mapIndexedNotNull { index, row ->
+        val topicName = textCell(row, topicIndex)
+        if (topicName.isBlank()) return@mapIndexedNotNull null
+        TopicDraft(
+            id = null,
+            name = topicName,
+            description = textCell(row, descriptionIndex),
+            lessonCount = numberCell(row, lessonIndex, 1),
+            orderIndex = numberCell(row, orderIndex, index + 1)
+        )
+    }.sortedBy { it.orderIndex }.reindexTopics()
+}
+
+private fun findColumn(row: List<String>, aliases: List<String>): Int {
+    val normalizedAliases = aliases.map(::normalizeKey).toSet()
+    return row.indexOfFirst { normalizeKey(it) in normalizedAliases }
+}
+
+private fun normalizeKey(value: String): String =
+    value.trim()
+        .lowercase()
+        .replace('ё', 'е')
+        .replace(Regex("[^a-zа-я0-9]+"), "")
+
+private fun textCell(row: List<String>, index: Int): String =
+    if (index in row.indices) row[index].trim() else ""
+
+private fun numberCell(row: List<String>, index: Int, fallback: Int): Int {
+    val value = textCell(row, index).replace(',', '.').toDoubleOrNull()
+    return value?.takeIf { it > 0 }?.toInt() ?: fallback
+}
 data class MethodistJournalTarget(
     val groupId: String,
     val disciplineId: String,

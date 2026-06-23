@@ -106,6 +106,90 @@ data class AssignLessonTemplateRequest(
 )
 
 @Serializable
+data class TemplateAssignment(
+    @SerialName("id") val id: String,
+    @SerialName("teacher_id") val teacherId: String? = null,
+    @SerialName("discipline_id") val disciplineId: String? = null,
+    @SerialName("group_id") val groupId: String? = null,
+    @SerialName("period_id") val periodId: String? = null,
+    @SerialName("plan_id") val planId: String? = null,
+    @SerialName("plan_name") val planName: String? = null,
+    @SerialName("assigned_by") val assignedBy: String? = null,
+    @SerialName("assigned_at") val assignedAt: String? = null,
+    @SerialName("revoked_at") val revokedAt: String? = null,
+    @SerialName("notes") val notes: String? = null
+)
+
+@Serializable
+data class StudentImportRow(
+    @SerialName("row_number") val rowNumber: Int,
+    @SerialName("last_name") val lastName: String,
+    @SerialName("first_name") val firstName: String,
+    @SerialName("middle_name") val middleName: String? = null,
+    @SerialName("email") val email: String? = null,
+    @SerialName("student_code") val studentCode: String? = null,
+    @SerialName("subgroup_number") val subgroupNumber: Int? = null,
+    @SerialName("start_date") val startDate: String? = null
+)
+
+@Serializable
+data class StartStudentImportRequest(
+    @SerialName("group_id") val groupId: String,
+    @SerialName("academic_period_id") val academicPeriodId: String,
+    @SerialName("import_mode") val importMode: String,
+    @SerialName("source_file_name") val sourceFileName: String? = null,
+    @SerialName("students") val students: List<StudentImportRow>
+)
+
+@Serializable
+data class ImportSummary(
+    @SerialName("total") val total: Int = 0,
+    @SerialName("created") val created: Int = 0,
+    @SerialName("updated") val updated: Int = 0,
+    @SerialName("skipped") val skipped: Int = 0,
+    @SerialName("conflicts") val conflicts: Int = 0,
+    @SerialName("errors") val errors: Int = 0
+)
+
+@Serializable
+data class ImportPreviewRow(
+    @SerialName("row_number") val rowNumber: Int = 0,
+    @SerialName("action") val action: String? = null,
+    @SerialName("conflict_id") val conflictId: String? = null,
+    @SerialName("conflict_type") val conflictType: String? = null,
+    @SerialName("message") val message: String? = null,
+    @SerialName("error_code") val errorCode: String? = null,
+    @SerialName("student") val student: StudentImportRow? = null
+)
+
+@Serializable
+data class ImportConflict(
+    @SerialName("id") val id: String,
+    @SerialName("batch_id") val batchId: String? = null,
+    @SerialName("row_number") val rowNumber: Int = 0,
+    @SerialName("conflict_type") val conflictType: String? = null,
+    @SerialName("resolution") val resolution: String? = null,
+    @SerialName("resolved_at") val resolvedAt: String? = null,
+    @SerialName("resolved_by") val resolvedBy: String? = null
+)
+
+@Serializable
+data class ImportBatchPreview(
+    @SerialName("batch_id") val batchId: String,
+    @SerialName("status") val status: String,
+    @SerialName("summary") val summary: ImportSummary = ImportSummary(),
+    @SerialName("rows") val rows: List<ImportPreviewRow> = emptyList(),
+    @SerialName("conflicts") val conflicts: List<ImportConflict>? = null
+)
+
+@Serializable
+data class ImportApplyResult(
+    @SerialName("batch_id") val batchId: String,
+    @SerialName("status") val status: String,
+    @SerialName("summary") val summary: ImportSummary = ImportSummary()
+)
+
+@Serializable
 data class CreateJournalRequest(
     @SerialName("teacher_id") val teacherId: String,
     @SerialName("discipline_id") val disciplineId: String,

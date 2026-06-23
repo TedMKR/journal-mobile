@@ -96,16 +96,26 @@ class AdminRepository @Inject constructor(
                 entity == null || System.currentTimeMillis() - entity.cachedAt > cacheMaxAgeMs
             },
             fetch = {
-                val journals = api.getAdminJournals(pageSize = 1)
-                val users = api.getAdminUsers(pageSize = 1)
                 val periods = api.getAdminPeriods(includeClosed = true)
-                val documents = api.getAdminDocuments(pageSize = 1)
-                AdminDashboardData(
-                    journalsCount = journals.meta?.total ?: journals.data.size,
-                    usersCount = users.meta?.total ?: users.data.size,
-                    periodsCount = periods.data.size,
-                    documentsCount = documents.meta?.total ?: documents.data.size
-                )
+                val summary = runCatching { api.getAdminDashboardSummary() }.getOrNull()
+                if (summary != null) {
+                    AdminDashboardData(
+                        journalsCount = summary.journals.total,
+                        usersCount = summary.users.total,
+                        periodsCount = periods.data.size,
+                        documentsCount = summary.documents.total
+                    )
+                } else {
+                    val journals = api.getAdminJournals(pageSize = 1)
+                    val users = api.getAdminUsers(pageSize = 1)
+                    val documents = api.getAdminDocuments(pageSize = 1)
+                    AdminDashboardData(
+                        journalsCount = journals.meta?.total ?: journals.data.size,
+                        usersCount = users.meta?.total ?: users.data.size,
+                        periodsCount = periods.data.size,
+                        documentsCount = documents.meta?.total ?: documents.data.size
+                    )
+                }
             },
             saveFetchResult = { dashboard ->
                 dashboardCacheDao.upsert(dashboard.toEntity(key, json))

@@ -1,4 +1,4 @@
-package com.journal.features.admin.users
+﻿package com.journal.features.admin.users
 
 import android.content.Intent
 import androidx.core.content.FileProvider
@@ -94,7 +94,7 @@ import com.journal.core.ui.AppMutedText
 import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppSuccess
 import com.journal.core.ui.AppSuccessLight
-import com.journal.core.ui.shareTextFile
+import com.journal.core.ui.shareXlsxFile
 import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -269,14 +269,14 @@ fun AdminUsersRoute(
     val currentError = actionError ?: uiState.error
 
     fun exportUsers() {
-        shareTextFile(
+        shareXlsxFile(
             context = context,
-            text = buildUsersCsv(uiState.users),
-            fileName = "admin-users.csv",
+            rows = buildUsersRows(uiState.users),
+            fileName = "admin-users.xlsx",
+            sheetName = "Пользователи",
             chooserTitle = "Экспорт пользователей"
         )
     }
-
     // Block/unblock confirmation dialog
     blockingUser?.let { user ->
         val isBlocking = user.status != "blocked"
@@ -446,7 +446,7 @@ fun AdminUsersRoute(
                 )
             }
             SecondaryButton(
-                text = "Экспорт CSV",
+                text = "Экспорт XLSX",
                 onClick = ::exportUsers,
                 modifier = Modifier.fillMaxWidth()
             )
@@ -667,7 +667,7 @@ private fun AdminUser.displayName(): String =
         )
     ).ifBlank { email ?: "Без имени" }
 
-private fun buildUsersCsv(users: List<AdminUser>): String {
+private fun buildUsersRows(users: List<AdminUser>): List<List<String>> {
     val rows = mutableListOf<List<String>>()
     rows += listOf("ID", "ФИО", "Роль", "Email", "Логин", "Группа", "Статус", "Создан")
     users.forEach { user ->
@@ -682,15 +682,7 @@ private fun buildUsersCsv(users: List<AdminUser>): String {
             user.createdAt.orEmpty()
         )
     }
-    return rows.joinToString("\n") { row ->
-        row.joinToString(";") { cell -> csvCell(cell) }
-    }
+    return rows
 }
-
-private fun csvCell(value: String): String =
-    "\"${value.replace("\"", "\"\"")}\""
-
-// ─── 3. Admin Audit ───────────────────────────────────────────────────────────
-
 private const val AUDIT_PAGE_SIZE = 20
 

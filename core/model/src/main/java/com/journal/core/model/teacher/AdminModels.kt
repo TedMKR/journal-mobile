@@ -156,6 +156,72 @@ data class AdminDocumentsResponse(
 )
 
 @Serializable
+data class AdminDashboardSummary(
+    @SerialName("generated_at") val generatedAt: String? = null,
+    @SerialName("users") val users: AdminDashboardUsersSummary = AdminDashboardUsersSummary(),
+    @SerialName("journals") val journals: AdminDashboardJournalsSummary = AdminDashboardJournalsSummary(),
+    @SerialName("documents") val documents: AdminDashboardDocumentsSummary = AdminDashboardDocumentsSummary(),
+    @SerialName("backups") val backups: AdminDashboardBackupsSummary = AdminDashboardBackupsSummary(),
+    @SerialName("imports") val imports: AdminDashboardImportsSummary = AdminDashboardImportsSummary()
+)
+
+@Serializable
+data class AdminDashboardUsersSummary(
+    @SerialName("total") val total: Int = 0,
+    @SerialName("active") val active: Int = 0,
+    @SerialName("blocked") val blocked: Int = 0,
+    @SerialName("teachers") val teachers: Int = 0,
+    @SerialName("students") val students: Int = 0
+)
+
+@Serializable
+data class AdminDashboardJournalsSummary(
+    @SerialName("total") val total: Int = 0,
+    @SerialName("active") val active: Int = 0,
+    @SerialName("locked") val locked: Int = 0,
+    @SerialName("archived") val archived: Int = 0
+)
+
+@Serializable
+data class AdminDashboardDocumentsSummary(
+    @SerialName("total") val total: Int = 0,
+    @SerialName("pending") val pending: Int = 0,
+    @SerialName("running") val running: Int = 0,
+    @SerialName("done") val done: Int = 0,
+    @SerialName("failed") val failed: Int = 0,
+    @SerialName("permanently_failed") val permanentlyFailed: Int = 0,
+    @SerialName("latest_created_at") val latestCreatedAt: String? = null
+)
+
+@Serializable
+data class AdminDashboardBackupsSummary(
+    @SerialName("status") val status: String? = null,
+    @SerialName("artifacts") val artifacts: Int = 0,
+    @SerialName("latest_id") val latestId: String? = null,
+    @SerialName("latest_status") val latestStatus: String? = null,
+    @SerialName("latest_created_at") val latestCreatedAt: String? = null,
+    @SerialName("error_message") val errorMessage: String? = null
+)
+
+@Serializable
+data class AdminDashboardImportsSummary(
+    @SerialName("total") val total: Int = 0,
+    @SerialName("pending") val pending: Int = 0,
+    @SerialName("validating") val validating: Int = 0,
+    @SerialName("preview_ready") val previewReady: Int = 0,
+    @SerialName("conflicts_detected") val conflictsDetected: Int = 0,
+    @SerialName("resolved") val resolved: Int = 0,
+    @SerialName("applying") val applying: Int = 0,
+    @SerialName("completed") val completed: Int = 0,
+    @SerialName("failed") val failed: Int = 0,
+    @SerialName("partial") val partial: Int = 0,
+    @SerialName("cancelled") val cancelled: Int = 0,
+    @SerialName("errors_total") val errorsTotal: Int = 0,
+    @SerialName("latest_status") val latestStatus: String? = null,
+    @SerialName("latest_started_at") val latestStartedAt: String? = null
+)
+
+@Serializable
 data class AdminImportSummary(
     @SerialName("total") val total: Int = 0,
     @SerialName("created") val created: Int = 0,

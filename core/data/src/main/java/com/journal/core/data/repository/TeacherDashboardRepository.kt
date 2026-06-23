@@ -5,6 +5,7 @@ import com.journal.core.data.util.networkBoundResource
 import com.journal.core.database.dao.DashboardCacheDao
 import com.journal.core.database.entity.DashboardCacheEntity
 import com.journal.core.model.teacher.GrantJournalAccessRequest
+import com.journal.core.model.teacher.GroupPerformanceEntry
 import com.journal.core.model.teacher.JournalAccessGrantResponse
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.TeacherLesson
@@ -25,7 +26,8 @@ data class TeacherDashboardData(
     val lessons: List<TeacherLesson> = emptyList(),
     val stats: TeacherStats? = null,
     val defaultJournal: JournalGridResponse? = null,
-    val activePeriodId: String? = null
+    val activePeriodId: String? = null,
+    val groupsPerformance: List<GroupPerformanceEntry> = emptyList()
 )
 
 @Serializable
@@ -83,12 +85,16 @@ class TeacherDashboardRepository @Inject constructor(
                     api.getAcademicPeriods(includeClosed = false).data
                         .firstOrNull { it.isActive }?.id
                 }.getOrNull()
+                val groupsPerformance = runCatching {
+                    api.getGroupsPerformance(activePeriodId).groups
+                }.getOrDefault(emptyList())
 
                 TeacherDashboardData(
                     lessons = lessons,
                     stats = stats,
                     defaultJournal = defaultJournal,
-                    activePeriodId = activePeriodId
+                    activePeriodId = activePeriodId,
+                    groupsPerformance = groupsPerformance
                 )
             },
             saveFetchResult = { dashboard ->

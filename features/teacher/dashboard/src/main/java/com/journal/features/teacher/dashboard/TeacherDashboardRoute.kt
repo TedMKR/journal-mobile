@@ -44,6 +44,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.common.config.userFacingMessage
 import com.journal.core.data.repository.TeacherDashboardData
+import com.journal.core.model.teacher.GroupPerformanceEntry
 import com.journal.core.model.teacher.GrantJournalAccessRequest
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.TeacherLesson
@@ -139,6 +140,7 @@ private fun TeacherDashboardContent(
             viewModel = viewModel,
             onOpenJournal = onOpenJournal
         )
+        GroupsPerformanceCard(state.groupsPerformance)
     }
 }
 
@@ -212,6 +214,41 @@ private fun TodayScheduleCard(lessons: List<TeacherLesson>) {
                         text = listOf(formatLessonTime(lesson), lessonTypeName(lesson.lessonType), lesson.groupName).joinToString(" · "),
                         color = SecondaryText,
                         style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun GroupsPerformanceCard(groups: List<GroupPerformanceEntry>) {
+    if (groups.isEmpty()) return
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(CardBackground, RoundedCornerShape(16.dp))
+            .padding(12.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        Text("Успеваемость по группам", color = PrimaryText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+        groups.sortedBy { it.groupName }.take(8).forEach { group ->
+            Column(verticalArrangement = Arrangement.spacedBy(5.dp), modifier = Modifier.fillMaxWidth()) {
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    Text(group.groupName, color = PrimaryText, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(String.format(Locale.US, "%.1f", group.avgGrade), color = SecondaryText)
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(8.dp)
+                        .background(LessonBackground, RoundedCornerShape(999.dp))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth((group.avgGrade / 5f).coerceIn(0f, 1f))
+                            .height(8.dp)
+                            .background(PrimaryText, RoundedCornerShape(999.dp))
                     )
                 }
             }
@@ -647,6 +684,7 @@ private fun buildDashboardState(
             .map { SelectOption(it.first, it.second) },
         lessons = lessons,
         activePeriodId = activePeriodId,
+        groupsPerformance = dashboard.groupsPerformance,
         defaultJournalTarget = defaultLesson?.let {
             TeacherDashboardJournalTarget(
                 groupId = it.groupId.orEmpty(),
@@ -746,6 +784,7 @@ private data class TeacherDashboardUiState(
     val lessons: List<TeacherLesson>,
     /** ID of the currently active academic period — reliable fallback for periodId resolution */
     val activePeriodId: String?,
+    val groupsPerformance: List<GroupPerformanceEntry>,
     val defaultJournalTarget: TeacherDashboardJournalTarget?
 )
 

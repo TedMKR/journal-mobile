@@ -1,5 +1,7 @@
 package com.journal.features.methodist.journalcreate
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,6 +38,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
@@ -52,7 +55,11 @@ import com.journal.core.model.teacher.LessonTemplate
 import com.journal.core.model.teacher.LessonTemplateDetail
 import com.journal.core.model.teacher.JournalContext
 import com.journal.core.model.teacher.LessonTopic
+import com.journal.core.model.teacher.ImportBatchPreview
+import com.journal.core.model.teacher.StartStudentImportRequest
+import com.journal.core.model.teacher.StudentImportRow
 import com.journal.core.model.teacher.TeacherProfile
+import com.journal.core.model.teacher.TemplateAssignment
 import com.journal.core.model.teacher.TopicPayload
 import com.journal.core.model.teacher.UpdateLessonTemplateRequest
 import com.journal.core.network.api.JournalApi
@@ -64,9 +71,13 @@ import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppMutedText
 import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.appFieldColors
+import com.journal.core.ui.readSpreadsheetDocument
+import com.journal.core.ui.shareBytesFile
+import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
 import kotlinx.coroutines.launch
+import retrofit2.HttpException
 import com.journal.core.ui.AppFormField as WebFormField
 import com.journal.core.ui.AppSelectCard as SelectCard
 import com.journal.core.ui.AppMessageCards as MessageCards
@@ -92,8 +103,11 @@ fun MethodistJournalCreateRoute(
     onOpenJournal: (MethodistJournalTarget) -> Unit
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var isLoading by remember { mutableStateOf(true) }
     var creating by remember { mutableStateOf(false) }
+    var previewing by remember { mutableStateOf(false) }
+    var applyingImport by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var success by remember { mutableStateOf<String?>(null) }
     var periods by remember { mutableStateOf<List<AcademicPeriod>>(emptyList()) }
@@ -107,12 +121,138 @@ fun MethodistJournalCreateRoute(
     var groupId by remember { mutableStateOf("") }
     var templateId by remember { mutableStateOf("") }
     var lessonType by remember { mutableStateOf("practice") }
+    var studentRows by remember { mutableStateOf<List<StudentImportRow>>(emptyList()) }
+    var sourceFileName by remember { mutableStateOf<String?>(null) }
+    var importMode by remember { mutableStateOf("replace_active_roster") }
+    var importPreview by remember { mutableStateOf<ImportBatchPreview?>(null) }
+    var currentTemplateAssignment by remember { mutableStateOf<TemplateAssignment?>(null) }
+    var templateAction by remember { mutableStateOf("replace") }
+    var loadingTemplateAssignment by remember { mutableStateOf(false) }
 
     fun loadTemplates() {
         scope.launch {
             runCatching { journalApi.getLessonTemplates(disciplineId = disciplineId.ifBlank { null }).data }
                 .onSuccess { templates = it }
                 .onFailure { error = it.userFacingMessage("Не удалось загрузить КТП") }
+        }
+    }
+
+    fun loadCurrentTemplateAssignment() {
+        if (teacherId.isBlank() || disciplineId.isBlank() || groupId.isBlank() || periodId.isBlank()) {
+            currentTemplateAssignment = null
+            templateAction = "replace"
+            return
+        }
+        scope.launch {
+            loadingTemplateAssignment = true
+            runCatching {
+                journalApi.getCurrentLessonTemplateAssignment(
+                    teacherId = teacherId,
+                    disciplineId = disciplineId,
+                    groupId = groupId,
+                    periodId = periodId
+                )
+            }.onSuccess { assignment ->
+                currentTemplateAssignment = assignment
+                templateAction = "keep"
+            }.onFailure { throwable ->
+                if (throwable is HttpException && throwable.code() == 404) {
+                    currentTemplateAssignment = null
+                    templateAction = "replace"
+                } else {
+                    error = throwable.userFacingMessage("Не удалось проверить назначенный КТП")
+                }
+            }
+            loadingTemplateAssignment = false
+        }
+    }
+
+    fun downloadRosterTemplate(templateId: Int) {
+        scope.launch {
+            error = null
+            runCatching {
+                val bytes = journalApi.downloadAdminImportTemplate(templateId).bytes()
+                shareBytesFile(
+                    context = context,
+                    bytes = bytes,
+                    fileName = if (templateId == 1) "students-template.xlsx" else "students-example.xlsx",
+                    mimeType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    chooserTitle = "Шаблон состава"
+                )
+            }.onFailure { error = it.userFacingMessage("Не удалось скачать шаблон состава") }
+        }
+    }
+
+    fun createImportPreview() {
+        if (groupId.isBlank() || periodId.isBlank() || studentRows.isEmpty()) return
+        scope.launch {
+            previewing = true
+            error = null
+            success = null
+            runCatching {
+                journalApi.startStudentImport(
+                    StartStudentImportRequest(
+                        groupId = groupId,
+                        academicPeriodId = periodId,
+                        importMode = importMode,
+                        sourceFileName = sourceFileName,
+                        students = studentRows
+                    )
+                )
+            }.onSuccess { preview ->
+                importPreview = preview
+                if (preview.status == "preview_ready" || preview.status == "resolved") {
+                    success = "Состав готов к применению"
+                } else {
+                    error = "Проверка состава: ${importStatusLabel(preview.status)}"
+                }
+            }.onFailure {
+                error = it.userFacingMessage("Не удалось проверить состав")
+            }
+            previewing = false
+        }
+    }
+
+    fun applyRosterImport() {
+        val preview = importPreview ?: return
+        scope.launch {
+            applyingImport = true
+            error = null
+            success = null
+            runCatching { journalApi.applyStudentImport(preview.batchId) }
+                .onSuccess { result ->
+                    success = "Состав применён: ${importStatusLabel(result.status)}"
+                    studentRows = emptyList()
+                    sourceFileName = null
+                    importPreview = null
+                }
+                .onFailure { error = it.userFacingMessage("Не удалось применить состав") }
+            applyingImport = false
+        }
+    }
+
+    val rosterLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            error = null
+            success = null
+            runCatching {
+                val document = readSpreadsheetDocument(context, uri)
+                document.fileName to parseStudentImportRows(document.rows)
+            }.onSuccess { (fileName, rows) ->
+                sourceFileName = fileName
+                studentRows = rows
+                importPreview = null
+                if (rows.isEmpty()) {
+                    error = "В файле не найдены строки студентов"
+                } else {
+                    success = "Загружено строк: ${rows.size}"
+                }
+            }.onFailure {
+                error = it.userFacingMessage("Не удалось разобрать файл состава")
+            }
         }
     }
 
@@ -129,8 +269,16 @@ fun MethodistJournalCreateRoute(
         loadTemplates()
     }
 
+    LaunchedEffect(teacherId, disciplineId, groupId, periodId) {
+        loadCurrentTemplateAssignment()
+    }
+
     val selectedTemplate = templates.firstOrNull { it.id == templateId }
-    val canCreate = periodId.isNotBlank() && disciplineId.isNotBlank() && groupId.isNotBlank() && teacherId.isNotBlank()
+    val hasAssignmentContext = periodId.isNotBlank() && disciplineId.isNotBlank() && groupId.isNotBlank() && teacherId.isNotBlank()
+    val needsTemplateSelection = hasAssignmentContext &&
+        !loadingTemplateAssignment &&
+        (currentTemplateAssignment == null || templateAction == "replace")
+    val canCreate = hasAssignmentContext && (!needsTemplateSelection || templateId.isNotBlank())
 
     MethodologistScaffold(title = "Создание журнала", useContentCard = false) {
         if (isLoading) {
@@ -162,22 +310,93 @@ fun MethodistJournalCreateRoute(
                 title = "КТП",
                 subtitle = "Шаблон КТП будет назначен преподавателю перед открытием журнала."
             ) {
-                SelectCard(
-                    label = "Шаблон КТП",
-                    options = listOf("" to "Выберите шаблон") + templates.map { it.id to "${it.name} · ${it.totalLessons} занятий" },
-                    selected = templateId,
-                    onSelected = { templateId = it }
-                )
-                selectedTemplate?.let { template ->
-                    TemplateSummaryCard(template)
-                } ?: StateCard("Можно создать журнал без шаблона КТП и назначить его позже.")
+                when {
+                    loadingTemplateAssignment -> StateCard("Проверяю назначенный КТП...")
+                    currentTemplateAssignment != null -> {
+                        StateCard("Назначен КТП: ${currentTemplateAssignment?.planName ?: currentTemplateAssignment?.planId.orEmpty()}")
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                            FilterChip(
+                                text = "Оставить",
+                                selected = templateAction == "keep",
+                                onClick = { templateAction = "keep"; templateId = "" }
+                            )
+                            FilterChip(
+                                text = "Заменить",
+                                selected = templateAction == "replace",
+                                onClick = { templateAction = "replace" }
+                            )
+                        }
+                    }
+                    else -> StateCard("Назначенный КТП не найден. Выберите шаблон.")
+                }
+                if (currentTemplateAssignment == null || templateAction == "replace") {
+                    SelectCard(
+                        label = "Шаблон КТП",
+                        options = listOf("" to "Выберите шаблон") + templates.map { it.id to "${it.name} · ${it.totalLessons} занятий" },
+                        selected = templateId,
+                        onSelected = { templateId = it }
+                    )
+                    selectedTemplate?.let { template ->
+                        TemplateSummaryCard(template)
+                    }
+                }
             }
 
             CreateJournalSectionCard(
                 title = "Состав группы",
-                subtitle = "Мобильная версия показывает состояние состава. Импорт файла выполняется в веб-версии."
+                subtitle = "Загрузите список студентов, проверьте изменения и примените состав группы."
             ) {
-                RosterSummaryGrid()
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    SecondaryButton(text = "Шаблон", onClick = { downloadRosterTemplate(1) })
+                    SecondaryButton(text = "Пример", onClick = { downloadRosterTemplate(2) })
+                }
+                PrimaryButton(
+                    text = "Загрузить состав",
+                    onClick = {
+                        rosterLauncher.launch(
+                            arrayOf(
+                                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                                "application/vnd.ms-excel",
+                                "text/csv",
+                                "text/comma-separated-values",
+                                "*/*"
+                            )
+                        )
+                    },
+                    enabled = groupId.isNotBlank() && periodId.isNotBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    FilterChip(
+                        text = "Полный состав",
+                        selected = importMode == "replace_active_roster",
+                        onClick = { importMode = "replace_active_roster"; importPreview = null },
+                        modifier = Modifier.weight(1f)
+                    )
+                    FilterChip(
+                        text = "Добавить",
+                        selected = importMode == "merge",
+                        onClick = { importMode = "merge"; importPreview = null },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+                RosterSummaryGrid(
+                    rowsCount = studentRows.size,
+                    sourceFileName = sourceFileName,
+                    preview = importPreview
+                )
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                    SecondaryButton(
+                        text = if (previewing) "Проверяю..." else "Проверить",
+                        onClick = ::createImportPreview
+                    )
+                    PrimaryButton(
+                        text = if (applyingImport) "Применяю..." else "Применить",
+                        enabled = importPreview?.let { it.status == "preview_ready" || it.status == "resolved" } == true && !applyingImport,
+                        onClick = ::applyRosterImport,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
                 StateCard("Перед созданием журнала убедитесь, что состав группы актуален.")
             }
 
@@ -190,6 +409,10 @@ fun MethodistJournalCreateRoute(
                         error = null
                         success = null
                         runCatching {
+                            if (currentTemplateAssignment != null && templateAction == "replace") {
+                                journalApi.revokeLessonTemplateAssignment(currentTemplateAssignment?.id.orEmpty())
+                                currentTemplateAssignment = null
+                            }
                             if (templateId.isNotBlank()) {
                                 journalApi.assignLessonTemplate(
                                     AssignLessonTemplateRequest(
@@ -221,7 +444,6 @@ fun MethodistJournalCreateRoute(
         }
     }
 }
-
 @Composable
 private fun CreateJournalSectionCard(
     title: String,
@@ -242,7 +464,6 @@ private fun CreateJournalSectionCard(
         content()
     }
 }
-
 @Composable
 private fun TemplateSummaryCard(template: LessonTemplate) {
     Column(
@@ -262,16 +483,22 @@ private fun TemplateSummaryCard(template: LessonTemplate) {
 }
 
 @Composable
-private fun RosterSummaryGrid() {
+private fun RosterSummaryGrid(
+    rowsCount: Int,
+    sourceFileName: String?,
+    preview: ImportBatchPreview?
+) {
+    val summary = preview?.summary
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            SummaryTile("Строк в файле", "0", Modifier.weight(1f))
-            SummaryTile("Preview", "не создан", Modifier.weight(1f))
+            SummaryTile("Строк в файле", rowsCount.toString(), Modifier.weight(1f))
+            SummaryTile("Preview", preview?.status?.let(::importStatusLabel) ?: "не создан", Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            SummaryTile("Конфликты", "0", Modifier.weight(1f))
-            SummaryTile("Ошибки", "0", Modifier.weight(1f))
+            SummaryTile("Конфликты", (summary?.conflicts ?: 0).toString(), Modifier.weight(1f))
+            SummaryTile("Ошибки", (summary?.errors ?: 0).toString(), Modifier.weight(1f))
         }
+        sourceFileName?.let { StateCard("Файл: $it") }
     }
 }
 
@@ -461,6 +688,83 @@ private fun lessonTypeName(type: String): String = when (type) {
     "lab" -> "Лабораторная"
     "seminar" -> "Семинар"
     else -> type
+}
+
+private fun importStatusLabel(status: String): String = when (status) {
+    "preview_ready", "resolved" -> "готов"
+    "conflicts_detected" -> "конфликт"
+    "completed" -> "завершён"
+    "partial" -> "частично"
+    "failed" -> "ошибка"
+    "cancelled" -> "отменён"
+    "pending" -> "ожидает"
+    "validating" -> "проверка"
+    "applying" -> "применение"
+    else -> status
+}
+
+private fun parseStudentImportRows(rows: List<List<String>>): List<StudentImportRow> {
+    val lastNameAliases = listOf("last_name", "фамилия")
+    val firstNameAliases = listOf("first_name", "имя")
+    val middleNameAliases = listOf("middle_name", "отчество")
+    val emailAliases = listOf("email", "почта", "электронная почта")
+    val codeAliases = listOf("student_code", "код", "номер зачетки", "зачетка", "номер зачётки", "зачётка")
+    val subgroupAliases = listOf("subgroup_number", "подгруппа")
+    val startDateAliases = listOf("start_date", "дата начала", "начало")
+    val headerIndex = rows.indexOfFirst { row ->
+        findColumn(row, lastNameAliases) != -1 && findColumn(row, firstNameAliases) != -1
+    }
+    if (headerIndex == -1) return emptyList()
+    val header = rows[headerIndex]
+    val lastNameIndex = findColumn(header, lastNameAliases)
+    val firstNameIndex = findColumn(header, firstNameAliases)
+    val middleNameIndex = findColumn(header, middleNameAliases)
+    val emailIndex = findColumn(header, emailAliases)
+    val codeIndex = findColumn(header, codeAliases)
+    val subgroupIndex = findColumn(header, subgroupAliases)
+    val startDateIndex = findColumn(header, startDateAliases)
+
+    return rows.drop(headerIndex + 1)
+        .mapIndexed { index, row ->
+            StudentImportRow(
+                rowNumber = headerIndex + index + 2,
+                lastName = textCell(row, lastNameIndex),
+                firstName = textCell(row, firstNameIndex),
+                middleName = textCell(row, middleNameIndex).ifBlank { null },
+                email = textCell(row, emailIndex).ifBlank { null },
+                studentCode = textCell(row, codeIndex).ifBlank { null },
+                subgroupNumber = textCell(row, subgroupIndex).toDoubleOrNull()?.toInt(),
+                startDate = dateCell(row, startDateIndex)
+            )
+        }
+        .filter { it.lastName.isNotBlank() && it.firstName.isNotBlank() }
+}
+
+private fun findColumn(row: List<String>, aliases: List<String>): Int {
+    val normalizedAliases = aliases.map(::normalizeKey).toSet()
+    return row.indexOfFirst { normalizeKey(it) in normalizedAliases }
+}
+
+private fun normalizeKey(value: String): String =
+    value.trim()
+        .lowercase()
+        .replace('ё', 'е')
+        .replace(Regex("[^a-zа-я0-9]+"), "")
+
+private fun textCell(row: List<String>, index: Int): String =
+    if (index in row.indices) row[index].trim() else ""
+
+private fun dateCell(row: List<String>, index: Int): String? {
+    val value = textCell(row, index)
+    if (value.isBlank()) return null
+    value.replace(',', '.').toDoubleOrNull()?.let { serial ->
+        return runCatching { LocalDate.of(1899, 12, 30).plusDays(serial.toLong()).toString() }.getOrNull()
+    }
+    return runCatching { LocalDate.parse(value) }.getOrNull()?.toString()
+        ?: runCatching {
+            LocalDate.parse(value, DateTimeFormatter.ofPattern("dd.MM.yyyy")).toString()
+        }.getOrNull()
+        ?: value
 }
 
 private fun List<TopicDraft>.replaceAt(index: Int, item: TopicDraft): List<TopicDraft> =
