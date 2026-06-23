@@ -5,6 +5,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -314,8 +315,10 @@ private fun MethodologistScaffold(
     ) {
         if (actions != null) {
             Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 content = actions
             )
@@ -355,31 +358,62 @@ private fun TemplateListBlock(
     onOpenTemplate: (LessonTemplate) -> Unit
 ) {
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(16.dp))
-            .padding(16.dp),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        Text("Список КТП", color = PrimaryText, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
         MessageCards(error = error, success = success)
-        OutlinedTextField(
-            value = search,
-            onValueChange = onSearchChange,
-            label = { Text("Поиск: название, дисциплина, описание") },
-            textStyle = LocalTextStyle.current.copy(color = PrimaryText),
-            colors = appFieldColors(),
-            modifier = Modifier.fillMaxWidth()
-        )
-        AppDropdown(
-            label = "Дисциплина",
-            options = listOf("" to "Все дисциплины") + disciplines.map { it.id to it.name },
-            selected = selectedDisciplineId,
-            onSelected = onDisciplineSelected
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(text = "Архив", selected = includeArchived, onClick = onToggleArchived)
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(CardBackground, RoundedCornerShape(16.dp))
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                "Поиск и фильтры",
+                color = PrimaryText,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            OutlinedTextField(
+                value = search,
+                onValueChange = onSearchChange,
+                label = { Text("Название, дисциплина, описание") },
+                textStyle = LocalTextStyle.current.copy(color = PrimaryText),
+                colors = appFieldColors(),
+                modifier = Modifier.fillMaxWidth()
+            )
+            AppDropdown(
+                label = "Дисциплина",
+                options = listOf("" to "Все дисциплины") + disciplines.map { it.id to it.name },
+                selected = selectedDisciplineId,
+                onSelected = onDisciplineSelected
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                FilterChip(text = "Архив", selected = includeArchived, onClick = onToggleArchived)
+            }
         }
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                "Список КТП",
+                color = PrimaryText,
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold
+            )
+            Text(
+                "${templates.size} шт.",
+                color = SecondaryText,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+        }
+
         when {
             isLoading -> LoadingCard("Загрузка шаблонов...")
             templates.isEmpty() -> StateCard("КТП не найдены")
@@ -396,20 +430,81 @@ private fun TemplateListBlock(
 
 @Composable
 private fun TemplateCard(template: LessonTemplate, selected: Boolean, onClick: () -> Unit) {
+    val shape = RoundedCornerShape(16.dp)
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (selected) LightBlue else Color.White, RoundedCornerShape(16.dp))
+            .background(if (selected) LightBlue else CardBackground, shape)
+            .border(1.dp, if (selected) AccentBlue else Color(0xFFE1E7F0), shape)
             .clickable(onClick = onClick)
             .padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(6.dp)
+        verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        Text(template.name, color = PrimaryText, fontWeight = FontWeight.Bold)
-        Text("${template.disciplineName} · ${template.topicsCount} тем · ${template.totalLessons} занятий", color = SecondaryText)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Text(
+                template.name,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp),
+                color = PrimaryText,
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
+            )
+            if (selected) {
+                Badge(
+                    text = "Открыт",
+                    color = Color.White,
+                    backgroundColor = AccentBlue,
+                    horizontalPadding = 10,
+                    verticalPadding = 4
+                )
+            }
+        }
+        TemplateInfoLine(label = "Дисциплина", value = template.disciplineName)
+        template.description
+            ?.takeIf { it.isNotBlank() }
+            ?.let { TemplateInfoLine(label = "Описание", value = it) }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Badge(text = "Тем: ${template.topicsCount}", horizontalPadding = 10, verticalPadding = 4)
+            Badge(text = "Занятий: ${template.totalLessons}", horizontalPadding = 10, verticalPadding = 4)
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (template.isArchived) Badge("Архив")
             if (template.hasAssignments) Badge("Назначен")
         }
+    }
+}
+
+@Composable
+private fun TemplateInfoLine(label: String, value: String) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(
+            text = label,
+            modifier = Modifier.width(88.dp),
+            color = SecondaryText,
+            style = MaterialTheme.typography.bodySmall,
+            fontWeight = FontWeight.SemiBold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
+        Text(
+            text = value,
+            modifier = Modifier.weight(1f),
+            color = PrimaryText,
+            style = MaterialTheme.typography.bodyMedium,
+            maxLines = 2,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
