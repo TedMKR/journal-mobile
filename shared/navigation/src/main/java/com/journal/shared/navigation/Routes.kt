@@ -25,7 +25,6 @@ object Routes {
     const val ADMIN_IMPORTS = "admin_imports"
     const val ADMIN_SYSTEM = "admin_system"
     const val ADMIN_PROBLEM_STUDENTS = "admin_problem_students"
-    const val NOTIFICATIONS = "notifications"
 
     fun teacherJournal(
         groupId: String,

@@ -1,9 +1,11 @@
 package com.journal.app
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.fragment.app.FragmentActivity
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricManager.Authenticators.DEVICE_CREDENTIAL
@@ -18,12 +20,16 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.journal.app.navigation.JournalNavHost
 import com.journal.app.ui.theme.JournalTheme
 import com.journal.core.common.config.AppConfig
 import com.journal.core.common.config.TokenSession
+import com.journal.core.data.notification.NotificationSettingsRepository
+import com.journal.core.data.notification.StudentGradeNotificationWorker
 import com.journal.core.data.sync.SyncWorker
 import com.journal.core.network.api.JournalApi
 import dagger.hilt.android.AndroidEntryPoint
@@ -41,12 +47,14 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var tokenSession: TokenSession
 
+    @Inject
+    lateinit var notificationSettingsRepository: NotificationSettingsRepository
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        // Запускаем фоновую синхронизацию при каждом старте приложения.
-        // WorkManager выполнит её только когда появится сеть.
         SyncWorker.enqueue(this)
+
         setContent {
             JournalTheme {
                 Surface(
@@ -56,8 +64,10 @@ class MainActivity : FragmentActivity() {
                 ) {
                     val appViewModel: AppViewModel = hiltViewModel()
                     val sessionState by appViewModel.sessionState.collectAsState()
+                    val gradeNotificationsEnabled by notificationSettingsRepository
+                        .gradeNotificationsEnabled
+                        .collectAsState()
 
-                    // Показываем биометрический диалог когда токены найдены
                     LaunchedEffect(sessionState) {
                         if (sessionState is AppViewModel.SessionState.RequireBiometric) {
                             showBiometricPrompt(
@@ -67,10 +77,21 @@ class MainActivity : FragmentActivity() {
                         }
                     }
 
+                    LaunchedEffect(sessionState, gradeNotificationsEnabled) {
+                        val isStudent = (sessionState as? AppViewModel.SessionState.Authenticated)
+                            ?.role == "student"
+                        if (isStudent && gradeNotificationsEnabled) {
+                            requestPostNotificationsIfNeeded()
+                            StudentGradeNotificationWorker.enqueuePeriodic(this@MainActivity)
+                            StudentGradeNotificationWorker.enqueueOnce(this@MainActivity)
+                        } else {
+                            StudentGradeNotificationWorker.cancel(this@MainActivity)
+                        }
+                    }
+
                     when (val state = sessionState) {
                         is AppViewModel.SessionState.Checking,
                         is AppViewModel.SessionState.RequireBiometric -> {
-                            // Пока идёт проверка или ожидание биометрии — спиннер
                             Box(
                                 modifier = Modifier.fillMaxSize(),
                                 contentAlignment = Alignment.Center
@@ -85,6 +106,10 @@ class MainActivity : FragmentActivity() {
                                 appConfig = appConfig,
                                 tokenSession = tokenSession,
                                 initialRole = state.role,
+                                gradeNotificationsEnabled = gradeNotificationsEnabled,
+                                onGradeNotificationsEnabledChange = {
+                                    notificationSettingsRepository.setGradeNotificationsEnabled(it)
+                                },
                                 onClearSession = { appViewModel.clearSession() }
                             )
                         }
@@ -95,6 +120,10 @@ class MainActivity : FragmentActivity() {
                                 appConfig = appConfig,
                                 tokenSession = tokenSession,
                                 initialRole = null,
+                                gradeNotificationsEnabled = gradeNotificationsEnabled,
+                                onGradeNotificationsEnabledChange = {
+                                    notificationSettingsRepository.setGradeNotificationsEnabled(it)
+                                },
                                 onClearSession = { appViewModel.clearSession() }
                             )
                         }
@@ -104,18 +133,31 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    private fun requestPostNotificationsIfNeeded() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        if (
+            ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) ==
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+        ActivityCompat.requestPermissions(
+            this,
+            arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+            POST_NOTIFICATIONS_REQUEST_CODE
+        )
+    }
+
     private fun showBiometricPrompt(
         onSuccess: () -> Unit,
         onFailed: () -> Unit
     ) {
         val authenticators = BIOMETRIC_STRONG or DEVICE_CREDENTIAL
 
-        // Проверяем доступность биометрии / PIN
         val canAuthenticate = BiometricManager.from(this)
             .canAuthenticate(authenticators)
 
         if (canAuthenticate != BiometricManager.BIOMETRIC_SUCCESS) {
-            // На устройстве не настроена блокировка экрана — входим без подтверждения
             onSuccess()
             return
         }
@@ -136,16 +178,17 @@ class MainActivity : FragmentActivity() {
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                    // Пользователь отменил или слишком много попыток
                     onFailed()
                 }
 
-                override fun onAuthenticationFailed() {
-                    // Неверный отпечаток — ждём ещё (BiometricPrompt сам показывает ошибку)
-                }
+                override fun onAuthenticationFailed() = Unit
             }
         )
 
         biometricPrompt.authenticate(promptInfo)
+    }
+
+    private companion object {
+        const val POST_NOTIFICATIONS_REQUEST_CODE = 9101
     }
 }

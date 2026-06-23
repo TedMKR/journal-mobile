@@ -18,12 +18,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -33,7 +32,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,17 +40,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -78,8 +72,6 @@ import com.journal.features.methodist.dashboard.MethodistDashboardRoute
 import com.journal.features.methodist.journalcreate.MethodistJournalCreateRoute
 import com.journal.features.methodist.journals.MethodistJournalsRoute
 import com.journal.features.methodist.templates.MethodistTemplatesRoute
-import com.journal.features.notifications.NotificationsRoute
-import com.journal.features.notifications.NotificationsViewModel
 import com.journal.features.student.home.StudentDashboardRoute
 import com.journal.features.student.home.StudentScheduleRoute
 import com.journal.features.student.journal.StudentJournalRoute
@@ -104,6 +96,8 @@ fun JournalNavHost(
     appConfig: AppConfig,
     tokenSession: TokenSession,
     initialRole: String?,
+    gradeNotificationsEnabled: Boolean,
+    onGradeNotificationsEnabledChange: (Boolean) -> Unit,
     onClearSession: () -> Unit
 ) {
     val navController = rememberNavController()
@@ -121,11 +115,6 @@ fun JournalNavHost(
     val jwtUserId: String? = remember(accessToken) {
         accessToken?.let { JwtUtils.extractSubject(it) }
     }
-    val notificationsViewModel: NotificationsViewModel = hiltViewModel()
-    LaunchedEffect(role, jwtUserId) {
-        notificationsViewModel.activate(role, jwtUserId)
-    }
-    val unreadNotifications by notificationsViewModel.unreadCount.collectAsState()
     val startDestination = if (initialRole != null) roleStartRoute(initialRole) else Routes.AUTH
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -135,13 +124,7 @@ fun JournalNavHost(
                     title = screenTitle(currentRoute.orEmpty()),
                     canNavigateBack = canNavigateBack(role = role, currentRoute = currentRoute),
                     isMenuOpen = isMenuOpen,
-                    unreadCount = unreadNotifications,
                     onBack = { navController.popBackStack() },
-                    onNotifications = {
-                        navController.navigate(Routes.NOTIFICATIONS) {
-                            launchSingleTop = true
-                        }
-                    },
                     onMenu = { isMenuOpen = !isMenuOpen }
                 )
             }
@@ -194,17 +177,6 @@ fun JournalNavHost(
                     }
                     composable(Routes.ADMIN_PROBLEM_STUDENTS) {
                         AdminProblemStudentsRoute(journalApi = journalApi)
-                    }
-                    composable(Routes.NOTIFICATIONS) {
-                        NotificationsRoute(
-                            role = role,
-                            userId = jwtUserId,
-                            onOpenRoute = { targetRoute ->
-                                navController.navigate(targetRoute) {
-                                    launchSingleTop = true
-                                }
-                            }
-                        )
                     }
                     composable(Routes.TEACHER_HOME) {
                         TeacherHomeRoute(
@@ -389,6 +361,8 @@ fun JournalNavHost(
                         launchSingleTop = true
                     }
                 },
+                gradeNotificationsEnabled = gradeNotificationsEnabled,
+                onGradeNotificationsEnabledChange = onGradeNotificationsEnabledChange,
                 onLogout = {
                     isMenuOpen = false
                     openKeycloakLogout(
@@ -413,9 +387,7 @@ private fun AppHeader(
     title: String,
     canNavigateBack: Boolean,
     isMenuOpen: Boolean,
-    unreadCount: Int,
     onBack: () -> Unit,
-    onNotifications: () -> Unit,
     onMenu: () -> Unit
 ) {
     Box(
@@ -439,7 +411,7 @@ private fun AppHeader(
             text = title,
             modifier = Modifier
                 .align(Alignment.Center)
-                .padding(horizontal = 96.dp),
+                .padding(horizontal = 64.dp),
             color = MenuPrimary,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
@@ -448,21 +420,14 @@ private fun AppHeader(
             overflow = TextOverflow.Ellipsis
         )
 
-        Row(
+        HeaderIconButton(
             modifier = Modifier.align(Alignment.CenterEnd),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalAlignment = Alignment.CenterVertically
+            onClick = onMenu
         ) {
-            NotificationIconButton(
-                unreadCount = unreadCount,
-                onClick = onNotifications
-            )
-            HeaderIconButton(onClick = onMenu) {
-                if (isMenuOpen) {
-                    CloseIcon()
-                } else {
-                    MenuIcon()
-                }
+            if (isMenuOpen) {
+                CloseIcon()
+            } else {
+                MenuIcon()
             }
         }
     }
@@ -475,9 +440,12 @@ private fun AnimatedVisibilityScope.RightSideMenu(
     currentRoute: String,
     onDismiss: () -> Unit,
     onNavigate: (String) -> Unit,
+    gradeNotificationsEnabled: Boolean,
+    onGradeNotificationsEnabledChange: (Boolean) -> Unit,
     onLogout: () -> Unit
 ) {
     val animScope = this
+    var showSettings by remember { mutableStateOf(false) }
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -505,30 +473,23 @@ private fun AnimatedVisibilityScope.RightSideMenu(
                 .padding(horizontal = 18.dp, vertical = 28.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Column {
-                Text(
-                    text = "Меню",
-                    color = MenuPrimary,
-                    style = MaterialTheme.typography.headlineSmall,
-                    fontWeight = FontWeight.Bold
+            if (showSettings) {
+                SettingsMenuContent(
+                    gradeNotificationsEnabled = gradeNotificationsEnabled,
+                    onBack = { showSettings = false },
+                    onToggleNotifications = {
+                        onGradeNotificationsEnabledChange(!gradeNotificationsEnabled)
+                    },
+                    onLogout = onLogout
                 )
-                Text(
-                    text = roleTitle(role),
-                    color = MenuPrimary.copy(alpha = 0.65f)
-                )
-            }
-
-            menuItems(role).forEach { item ->
-                MenuRow(
-                    item = item,
-                    selected = currentRoute == item.route,
-                    onClick = { onNavigate(item.route) }
+            } else {
+                MainMenuContent(
+                    role = role,
+                    currentRoute = currentRoute,
+                    onNavigate = onNavigate,
+                    onOpenSettings = { showSettings = true }
                 )
             }
-
-            Spacer(modifier = Modifier.weight(1f))
-
-            LogoutRow(onClick = onLogout)
         }
 
         HeaderIconButton(
@@ -540,6 +501,111 @@ private fun AnimatedVisibilityScope.RightSideMenu(
             CloseIcon()
         }
     }
+}
+
+@Composable
+private fun ColumnScope.MainMenuContent(
+    role: String,
+    currentRoute: String,
+    onNavigate: (String) -> Unit,
+    onOpenSettings: () -> Unit
+) {
+    Column {
+        Text(
+            text = "Меню",
+            color = MenuPrimary,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = roleTitle(role),
+            color = MenuPrimary.copy(alpha = 0.65f)
+        )
+    }
+
+    menuItems(role).forEach { item ->
+        MenuRow(
+            item = item,
+            selected = currentRoute == item.route,
+            onClick = { onNavigate(item.route) }
+        )
+    }
+
+    Spacer(modifier = Modifier.weight(1f))
+    SettingsRow(onClick = onOpenSettings)
+}
+
+@Composable
+private fun ColumnScope.SettingsMenuContent(
+    gradeNotificationsEnabled: Boolean,
+    onBack: () -> Unit,
+    onToggleNotifications: () -> Unit,
+    onLogout: () -> Unit
+) {
+    Column {
+        Text(
+            text = "Настройки",
+            color = MenuPrimary,
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.Bold
+        )
+        Text(
+            text = "Уведомления и аккаунт",
+            color = MenuPrimary.copy(alpha = 0.65f)
+        )
+    }
+
+    MenuActionRow(
+        text = "Назад",
+        onClick = onBack
+    )
+
+    MenuActionRow(
+        text = if (gradeNotificationsEnabled) {
+            "Отключить уведомления"
+        } else {
+            "Включить уведомления"
+        },
+        onClick = onToggleNotifications
+    )
+
+    Text(
+        text = if (gradeNotificationsEnabled) {
+            "Системные уведомления об оценках включены."
+        } else {
+            "Системные уведомления об оценках отключены."
+        },
+        color = MenuPrimary.copy(alpha = 0.65f),
+        style = MaterialTheme.typography.bodySmall
+    )
+
+    Spacer(modifier = Modifier.weight(1f))
+    LogoutRow(onClick = onLogout)
+}
+
+@Composable
+private fun SettingsRow(onClick: () -> Unit) {
+    MenuActionRow(
+        text = "Настройки",
+        onClick = onClick
+    )
+}
+
+@Composable
+private fun MenuActionRow(
+    text: String,
+    onClick: () -> Unit
+) {
+    Text(
+        text = text,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(MenuItemBackground, RoundedCornerShape(14.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 13.dp),
+        color = MenuPrimary,
+        fontWeight = FontWeight.SemiBold
+    )
 }
 
 @Composable
@@ -583,39 +649,6 @@ private fun HeaderIconButton(
         contentAlignment = Alignment.Center
     ) {
         content()
-    }
-}
-
-@Composable
-private fun NotificationIconButton(
-    unreadCount: Int,
-    onClick: () -> Unit
-) {
-    Box(
-        modifier = Modifier
-            .size(44.dp)
-            .clickable(onClick = onClick),
-        contentAlignment = Alignment.Center
-    ) {
-        BellIcon()
-        if (unreadCount > 0) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .height(18.dp)
-                    .background(MenuDanger, RoundedCornerShape(999.dp))
-                    .padding(horizontal = 5.dp, vertical = 1.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = unreadCount.coerceAtMost(99).toString(),
-                    color = Color.White,
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1
-                )
-            }
-        }
     }
 }
 
@@ -684,41 +717,6 @@ private fun CloseIcon() {
     }
 }
 
-@Composable
-private fun BellIcon() {
-    Canvas(modifier = Modifier.size(24.dp)) {
-        val stroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
-        drawArc(
-            color = MenuPrimary,
-            startAngle = 200f,
-            sweepAngle = 140f,
-            useCenter = false,
-            topLeft = Offset(size.width * 0.24f, size.height * 0.22f),
-            size = Size(size.width * 0.52f, size.height * 0.58f),
-            style = stroke
-        )
-        drawLine(
-            color = MenuPrimary,
-            start = Offset(size.width * 0.28f, size.height * 0.72f),
-            end = Offset(size.width * 0.72f, size.height * 0.72f),
-            strokeWidth = stroke.width,
-            cap = StrokeCap.Round
-        )
-        drawLine(
-            color = MenuPrimary,
-            start = Offset(size.width * 0.5f, size.height * 0.17f),
-            end = Offset(size.width * 0.5f, size.height * 0.23f),
-            strokeWidth = stroke.width,
-            cap = StrokeCap.Round
-        )
-        drawCircle(
-            color = MenuPrimary,
-            radius = size.width * 0.045f,
-            center = Offset(size.width * 0.5f, size.height * 0.82f)
-        )
-    }
-}
-
 private fun openKeycloakLogout(
     context: android.content.Context,
     appConfig: AppConfig,
@@ -773,7 +771,6 @@ private fun screenTitle(route: String): String = when {
     route == Routes.ADMIN_IMPORTS -> "Импорт"
     route == Routes.ADMIN_SYSTEM -> "Система"
     route == Routes.ADMIN_PROBLEM_STUDENTS -> "Проблемные студенты"
-    route == Routes.NOTIFICATIONS -> "Уведомления"
     else -> "Электронный журнал"
 }
 
@@ -788,13 +785,11 @@ private fun menuItems(role: String): List<MenuItem> = when (role) {
     "methodologist" -> listOf(
         MenuItem("Личный кабинет", Routes.METHODIST_DASHBOARD),
         MenuItem("Журналы", Routes.METHODIST_JOURNALS),
-        MenuItem("КТП", Routes.METHODIST_TEMPLATES),
-        MenuItem("Уведомления", Routes.NOTIFICATIONS)
+        MenuItem("КТП", Routes.METHODIST_TEMPLATES)
     )
     "student" -> listOf(
         MenuItem("Расписание", Routes.STUDENT_SCHEDULE),
-        MenuItem("Личный кабинет", Routes.STUDENT_DASHBOARD),
-        MenuItem("Уведомления", Routes.NOTIFICATIONS)
+        MenuItem("Личный кабинет", Routes.STUDENT_DASHBOARD)
     )
     "admin" -> listOf(
         MenuItem("Личный кабинет", Routes.ADMIN_DASHBOARD),
@@ -806,15 +801,13 @@ private fun menuItems(role: String): List<MenuItem> = when (role) {
         MenuItem("Документы", Routes.ADMIN_DOCUMENTS),
         MenuItem("Импорт", Routes.ADMIN_IMPORTS),
         MenuItem("Система", Routes.ADMIN_SYSTEM),
-        MenuItem("Проблемные студенты", Routes.ADMIN_PROBLEM_STUDENTS),
-        MenuItem("Уведомления", Routes.NOTIFICATIONS)
+        MenuItem("Проблемные студенты", Routes.ADMIN_PROBLEM_STUDENTS)
     )
     else -> listOf(
         MenuItem("Расписание", Routes.TEACHER_HOME),
         MenuItem("Личный кабинет", Routes.TEACHER_DASHBOARD),
         MenuItem("Ведомости", Routes.TEACHER_VED),
-        MenuItem("Архив", Routes.TEACHER_ARCHIVE),
-        MenuItem("Уведомления", Routes.NOTIFICATIONS)
+        MenuItem("Архив", Routes.TEACHER_ARCHIVE)
     )
 }
 

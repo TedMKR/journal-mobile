@@ -1,6 +1,7 @@
 package com.journal.tests.data
 
 import app.cash.turbine.test
+import com.journal.core.data.notification.StudentGradeChangeDetector
 import com.journal.core.data.repository.StudentRepository
 import com.journal.core.data.util.Resource
 import com.journal.core.database.dao.StudentLessonDao
@@ -39,6 +40,7 @@ class StudentRepositoryTest {
     private lateinit var dao: StudentLessonDao
     private lateinit var subjectCardCacheDao: StudentSubjectCardCacheDao
     private lateinit var profileCacheDao: StudentProfileCacheDao
+    private lateinit var gradeChangeDetector: StudentGradeChangeDetector
     private lateinit var repository: StudentRepository
 
     private val json = Json {
@@ -74,11 +76,13 @@ class StudentRepositoryTest {
         dao = mockk(relaxed = true)
         subjectCardCacheDao = mockk(relaxed = true)
         profileCacheDao = mockk(relaxed = true)
+        gradeChangeDetector = mockk(relaxed = true)
         repository = StudentRepository(
             api = api,
             studentLessonDao = dao,
             subjectCardCacheDao = subjectCardCacheDao,
             profileCacheDao = profileCacheDao,
+            gradeChangeDetector = gradeChangeDetector,
             json = json
         )
     }

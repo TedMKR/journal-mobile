@@ -31,6 +31,7 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
+    implementation("androidx.core:core-ktx:1.13.1")
 
     // Needed for JournalDatabase (RoomDatabase) and clearAllTables()
     implementation("androidx.room:room-runtime:2.6.1")

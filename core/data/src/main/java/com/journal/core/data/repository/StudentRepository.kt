@@ -1,6 +1,7 @@
 package com.journal.core.data.repository
 
 import com.journal.core.data.util.Resource
+import com.journal.core.data.notification.StudentGradeChangeDetector
 import com.journal.core.data.util.networkBoundResource
 import com.journal.core.database.dao.StudentProfileCacheDao
 import com.journal.core.database.dao.StudentLessonDao
@@ -32,6 +33,7 @@ class StudentRepository @Inject constructor(
     private val studentLessonDao: StudentLessonDao,
     private val subjectCardCacheDao: StudentSubjectCardCacheDao,
     private val profileCacheDao: StudentProfileCacheDao,
+    private val gradeChangeDetector: StudentGradeChangeDetector,
     private val json: Json
 ) {
 
@@ -109,6 +111,8 @@ class StudentRepository @Inject constructor(
                 api.getStudentSubjectCard(disciplineId, periodId, groupId)
             },
             saveFetchResult = { card ->
+                val previous = subjectCardCacheDao.get(key)?.toDomain(json)
+                gradeChangeDetector.notifyGradeChanges(previous, card)
                 subjectCardCacheDao.upsert(card.toEntity(key, disciplineId, periodId, groupId, json))
             }
         )
