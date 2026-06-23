@@ -458,7 +458,7 @@ private fun TemplateCard(template: LessonTemplate, selected: Boolean, onClick: (
             )
             if (selected) {
                 Badge(
-                    text = "Открыт",
+                    text = "Выбран",
                     color = Color.White,
                     backgroundColor = AccentBlue,
                     horizontalPadding = 10,
@@ -478,6 +478,11 @@ private fun TemplateCard(template: LessonTemplate, selected: Boolean, onClick: (
             if (template.isArchived) Badge("Архив")
             if (template.hasAssignments) Badge("Назначен")
         }
+        PrimaryButton(
+            text = "Открыть",
+            modifier = Modifier.fillMaxWidth(),
+            onClick = onClick
+        )
     }
 }
 
