@@ -257,11 +257,11 @@ fun AdminProblemStudentsRoute(
 
     val totalPages = maxOf(1, (uiState.total + PROBLEM_STUDENTS_PAGE_SIZE - 1) / PROBLEM_STUDENTS_PAGE_SIZE)
 
-    val periodOptions = listOf("Все периоды" to "") +
+    val periodOptions = listOf("Р’СЃРµ РїРµСЂРёРѕРґС‹" to "") +
         uiState.periods.map { (it.name ?: it.id) to it.id }
-    val groupOptions = listOf("Все группы" to "") +
+    val groupOptions = listOf("Р’СЃРµ РіСЂСѓРїРїС‹" to "") +
         uiState.groups.map { it.name to it.id }
-    val disciplineOptions = listOf("Все дисциплины" to "") +
+    val disciplineOptions = listOf("Р’СЃРµ РґРёСЃС†РёРїР»РёРЅС‹" to "") +
         uiState.disciplines.map { it.name to it.id }
 
     LazyColumn(
@@ -278,18 +278,18 @@ fun AdminProblemStudentsRoute(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                Text("Фильтры", fontWeight = FontWeight.Bold, color = PrimaryBlue, fontSize = 14.sp)
+                Text("Р¤РёР»СЊС‚СЂС‹", fontWeight = FontWeight.Bold, color = PrimaryBlue, fontSize = 14.sp)
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AdminDropdown(
-                        label = "Все периоды",
+                        label = "Р’СЃРµ РїРµСЂРёРѕРґС‹",
                         selected = periodId,
                         options = periodOptions,
                         onSelected = { periodId = it; page = 1 },
                         modifier = Modifier.weight(1f)
                     )
                     AdminDropdown(
-                        label = "Все группы",
+                        label = "Р’СЃРµ РіСЂСѓРїРїС‹",
                         selected = groupId,
                         options = groupOptions,
                         onSelected = { groupId = it; page = 1 },
@@ -298,7 +298,7 @@ fun AdminProblemStudentsRoute(
                 }
 
                 AdminDropdown(
-                    label = "Все дисциплины",
+                    label = "Р’СЃРµ РґРёСЃС†РёРїР»РёРЅС‹",
                     selected = disciplineId,
                     options = disciplineOptions,
                     onSelected = { disciplineId = it; page = 1 },
@@ -307,19 +307,19 @@ fun AdminProblemStudentsRoute(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     ProblemNumberField(
-                        label = "Минимум оценок",
+                        label = "РњРёРЅРёРјСѓРј РѕС†РµРЅРѕРє",
                         value = minGrades,
                         onChange = { minGrades = it },
                         modifier = Modifier.weight(1f)
                     )
                     ProblemNumberField(
-                        label = "Двоек подряд",
+                        label = "Р”РІРѕРµРє РїРѕРґСЂСЏРґ",
                         value = minFailingGrades,
                         onChange = { minFailingGrades = it },
                         modifier = Modifier.weight(1f)
                     )
                     ProblemNumberField(
-                        label = "Процент двоек",
+                        label = "РџСЂРѕС†РµРЅС‚ РґРІРѕРµРє",
                         value = failingPercentThreshold,
                         onChange = { failingPercentThreshold = it },
                         modifier = Modifier.weight(1f)
@@ -327,7 +327,7 @@ fun AdminProblemStudentsRoute(
                 }
 
                 PrimaryButton(
-                    text = "Применить",
+                    text = "РџСЂРёРјРµРЅРёС‚СЊ",
                     onClick = { page = 1; loadStudents() },
                     modifier = Modifier.fillMaxWidth()
                 )
@@ -342,21 +342,21 @@ fun AdminProblemStudentsRoute(
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
                 SummaryStatCard(
-                    label = "Найдено",
+                    label = "РќР°Р№РґРµРЅРѕ",
                     value = uiState.total.toString(),
-                    sub = "студентов",
+                    sub = "СЃС‚СѓРґРµРЅС‚РѕРІ",
                     modifier = Modifier.weight(1f)
                 )
                 SummaryStatCard(
-                    label = "Порог",
+                    label = "РџРѕСЂРѕРі",
                     value = "${(uiState.meta?.failingPercentThreshold?.toInt() ?: failingPercentThreshold.toIntOrNull() ?: 50)}%",
-                    sub = "доля двоек",
+                    sub = "РґРѕР»СЏ РґРІРѕРµРє",
                     modifier = Modifier.weight(1f)
                 )
                 SummaryStatCard(
-                    label = "Серия",
+                    label = "РЎРµСЂРёСЏ",
                     value = (uiState.meta?.minFailingGrades ?: minFailingGrades.toIntOrNull() ?: 3).toString(),
-                    sub = "подряд",
+                    sub = "РїРѕРґСЂСЏРґ",
                     modifier = Modifier.weight(1f)
                 )
             }
@@ -390,7 +390,7 @@ fun AdminProblemStudentsRoute(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        "Проблемные студенты не найдены",
+                        "РџСЂРѕР±Р»РµРјРЅС‹Рµ СЃС‚СѓРґРµРЅС‚С‹ РЅРµ РЅР°Р№РґРµРЅС‹",
                         color = SecondaryText,
                         fontWeight = FontWeight.SemiBold
                     )

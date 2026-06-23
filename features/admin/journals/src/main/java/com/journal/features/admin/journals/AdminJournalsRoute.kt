@@ -291,8 +291,8 @@ fun AdminJournalsRoute(
                     putExtra(Intent.EXTRA_STREAM, uri)
                     addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 }
-                context.startActivity(Intent.createChooser(intent, "Ýêñïîðò æóðíàëà"))
-            }.onFailure { actionError = it.userFacingMessage("Îøèáêà ýêñïîðòà") }
+                context.startActivity(Intent.createChooser(intent, "Ð­ÐºÑÐ¿Ð¾Ñ€Ñ‚ Ð¶ÑƒÑ€Ð½Ð°Ð»Ð°"))
+            }.onFailure { actionError = it.userFacingMessage("ÐžÑˆÐ¸Ð±ÐºÐ° ÑÐºÑÐ¿Ð¾Ñ€Ñ‚Ð°") }
         }
     }
 
@@ -303,11 +303,11 @@ fun AdminJournalsRoute(
 
     pendingAction?.let { pa ->
         val actionLabel = when (pa.action) {
-            "lock" -> "Çàìîðîçèòü æóðíàë"
-            "unlock" -> "Ðàçìîðîçèòü æóðíàë"
-            "archive" -> "Àðõèâèðîâàòü æóðíàë"
-            "restore" -> "Âîññòàíîâèòü æóðíàë"
-            else -> "Äåéñòâèå"
+            "lock" -> "Ð—Ð°Ð¼Ð¾Ñ€Ð¾Ð·Ð¸Ñ‚ÑŒ Ð¶ÑƒÑ€Ð½Ð°Ð»"
+            "unlock" -> "Ð Ð°Ð·Ð¼Ð¾Ñ€Ð¾Ð·Ð¸Ñ‚ÑŒ Ð¶ÑƒÑ€Ð½Ð°Ð»"
+            "archive" -> "ÐÑ€Ñ…Ð¸Ð²Ð¸Ñ€Ð¾Ð²Ð°Ñ‚ÑŒ Ð¶ÑƒÑ€Ð½Ð°Ð»"
+            "restore" -> "Ð’Ð¾ÑÑÑ‚Ð°Ð½Ð¾Ð²Ð¸Ñ‚ÑŒ Ð¶ÑƒÑ€Ð½Ð°Ð»"
+            else -> "Ð”ÐµÐ¹ÑÑ‚Ð²Ð¸Ðµ"
         }
         ReasonDialog(
             title = actionLabel,
@@ -315,7 +315,7 @@ fun AdminJournalsRoute(
                 scope.launch {
                     runCatching {
                         journalApi.adminJournalAction(pa.journal.id, pa.action, AdminActionRequest(reason))
-                    }.onFailure { actionError = it.userFacingMessage("Íå óäàëîñü âûïîëíèòü äåéñòâèå ñ æóðíàëîì") }
+                    }.onFailure { actionError = it.userFacingMessage("ÐÐµ ÑƒÐ´Ð°Ð»Ð¾ÑÑŒ Ð²Ñ‹Ð¿Ð¾Ð»Ð½Ð¸Ñ‚ÑŒ Ð´ÐµÐ¹ÑÑ‚Ð²Ð¸Ðµ Ñ Ð¶ÑƒÑ€Ð½Ð°Ð»Ð¾Ð¼") }
                     pendingAction = null
                     loadJournals()
                 }
@@ -337,15 +337,15 @@ fun AdminJournalsRoute(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text("Ñòàòóñ:", color = PrimaryBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text("Ð¡Ñ‚Ð°Ñ‚ÑƒÑ:", color = PrimaryBlue, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             AdminDropdown(
-                label = "Âñå",
+                label = "Ð’ÑÐµ",
                 selected = filterStatus,
                 options = listOf(
-                    "Âñå" to "",
-                    "Àêòèâíûå" to "active",
-                    "Çàìîðîæåííûå" to "locked",
-                    "Àðõèâíûå" to "archived"
+                    "Ð’ÑÐµ" to "",
+                    "ÐÐºÑ‚Ð¸Ð²Ð½Ñ‹Ðµ" to "active",
+                    "Ð—Ð°Ð¼Ð¾Ñ€Ð¾Ð¶ÐµÐ½Ð½Ñ‹Ðµ" to "locked",
+                    "ÐÑ€Ñ…Ð¸Ð²Ð½Ñ‹Ðµ" to "archived"
                 ),
                 onSelected = { filterStatus = it; page = 1 },
                 modifier = Modifier.weight(1f)
@@ -361,7 +361,7 @@ fun AdminJournalsRoute(
                 Modifier.fillMaxSize().padding(16.dp),
                 contentAlignment = Alignment.Center
             ) {
-                Text("Æóðíàëû íå íàéäåíû", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                Text("Ð–ÑƒÑ€Ð½Ð°Ð»Ñ‹ Ð½Ðµ Ð½Ð°Ð¹Ð´ÐµÐ½Ñ‹", color = SecondaryText, fontWeight = FontWeight.SemiBold)
             }
             else -> LazyColumn(
                 modifier = Modifier.weight(1f),

@@ -129,7 +129,7 @@ private val WarningLight = Color(0xFFFEF3C7)
 
 private const val AUDIT_PAGE_SIZE = 20
 private fun formatDateTime(value: String?): String {
-    if (value.isNullOrBlank()) return "вЂ”"
+    if (value.isNullOrBlank()) return "—"
     return try {
         val dt = OffsetDateTime.parse(value)
         dt.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
@@ -139,18 +139,18 @@ private fun formatDateTime(value: String?): String {
 }
 
 private fun adminActionLabel(action: String?): String = when (action) {
-    "JOURNAL_LOCKED" -> "Р–СѓСЂРЅР°Р» Р·Р°РјРѕСЂРѕР¶РµРЅ"
-    "JOURNAL_UNLOCKED" -> "Р–СѓСЂРЅР°Р» СЂР°Р·РјРѕСЂРѕР¶РµРЅ"
-    "JOURNAL_ARCHIVED" -> "Р–СѓСЂРЅР°Р» РІ Р°СЂС…РёРІРµ"
-    "JOURNAL_RESTORED" -> "Р–СѓСЂРЅР°Р» РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅ"
-    "PERIOD_CLOSED" -> "РџРµСЂРёРѕРґ Р·Р°РєСЂС‹С‚"
-    "PERIOD_REOPENED" -> "РџРµСЂРёРѕРґ РѕС‚РєСЂС‹С‚"
-    "ACCESS_BINDING_CREATED" -> "Р”РѕСЃС‚СѓРї РІС‹РґР°РЅ"
-    "ACCESS_BINDING_REVOKED" -> "Р”РѕСЃС‚СѓРї РѕС‚РѕР·РІР°РЅ"
-    "AUDIT_EXPORTED" -> "Р­РєСЃРїРѕСЂС‚ Р°СѓРґРёС‚Р°"
-    "USER_BLOCKED" -> "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ"
-    "USER_UNBLOCKED" -> "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЂР°Р·Р±Р»РѕРєРёСЂРѕРІР°РЅ"
-    else -> action ?: "вЂ”"
+    "JOURNAL_LOCKED" -> "Журнал заморожен"
+    "JOURNAL_UNLOCKED" -> "Журнал разморожен"
+    "JOURNAL_ARCHIVED" -> "Журнал в архиве"
+    "JOURNAL_RESTORED" -> "Журнал восстановлен"
+    "PERIOD_CLOSED" -> "Период закрыт"
+    "PERIOD_REOPENED" -> "Период открыт"
+    "ACCESS_BINDING_CREATED" -> "Доступ выдан"
+    "ACCESS_BINDING_REVOKED" -> "Доступ отозван"
+    "AUDIT_EXPORTED" -> "Экспорт аудита"
+    "USER_BLOCKED" -> "Пользователь заблокирован"
+    "USER_UNBLOCKED" -> "Пользователь разблокирован"
+    else -> action ?: "—"
 }
 
 // в”Ђв”Ђв”Ђ Shared UI components в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
@@ -183,7 +183,7 @@ private fun ReasonDialog(
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    "Г—",
+                    "×",
                     modifier = Modifier
                         .clickable(onClick = onDismiss)
                         .padding(4.dp),
@@ -194,7 +194,7 @@ private fun ReasonDialog(
             OutlinedTextField(
                 value = reason,
                 onValueChange = { reason = it },
-                label = { Text("РџСЂРёС‡РёРЅР°") },
+                label = { Text("Причина") },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = InputTextColor,
@@ -209,10 +209,10 @@ private fun ReasonDialog(
                 horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
             ) {
                 TextButton(onClick = onDismiss) {
-                    Text("РћС‚РјРµРЅР°", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                    Text("Отмена", color = SecondaryText, fontWeight = FontWeight.SemiBold)
                 }
                 PrimaryButton(
-                    text = "РџРѕРґС‚РІРµСЂРґРёС‚СЊ",
+                    text = "Подтвердить",
                     onClick = { if (reason.isNotBlank()) onConfirm(reason.trim()) }
                 )
             }
@@ -411,7 +411,7 @@ private fun AuditEventRow(event: AuditEvent) {
                 Spacer(modifier = Modifier.height(2.dp))
                 if (!event.entityType.isNullOrBlank()) {
                     Text(
-                        text = "РЎСѓС‰РЅРѕСЃС‚СЊ: ${event.entityType}",
+                        text = "Сущность: ${event.entityType}",
                         color = SecondaryText,
                         fontSize = 12.sp
                     )
@@ -435,7 +435,7 @@ private fun AuditEventRow(event: AuditEvent) {
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = event.actorId?.let { shortenId(it) } ?: "РЎРёСЃС‚РµРјР°",
+                    text = event.actorId?.let { shortenId(it) } ?: "Система",
                     color = SecondaryText,
                     fontSize = 11.sp,
                     maxLines = 1,
@@ -447,7 +447,7 @@ private fun AuditEventRow(event: AuditEvent) {
 }
 
 private fun shortenId(id: String): String =
-    if (id.length > 16) "вЂ¦${id.takeLast(12)}" else id
+    if (id.length > 16) "…${id.takeLast(12)}" else id
 
 // в”Ђв”Ђв”Ђ 4. Admin Journals в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 

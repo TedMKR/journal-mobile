@@ -132,7 +132,7 @@ private val WarningLight = Color(0xFFFEF3C7)
 // в”Ђв”Ђв”Ђ Helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 private fun formatDateTime(value: String?): String {
-    if (value.isNullOrBlank()) return "вЂ”"
+    if (value.isNullOrBlank()) return "—"
     return try {
         val dt = OffsetDateTime.parse(value)
         dt.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
@@ -142,18 +142,18 @@ private fun formatDateTime(value: String?): String {
 }
 
 private fun adminActionLabel(action: String?): String = when (action) {
-    "JOURNAL_LOCKED" -> "Р–СѓСЂРЅР°Р» Р·Р°РјРѕСЂРѕР¶РµРЅ"
-    "JOURNAL_UNLOCKED" -> "Р–СѓСЂРЅР°Р» СЂР°Р·РјРѕСЂРѕР¶РµРЅ"
-    "JOURNAL_ARCHIVED" -> "Р–СѓСЂРЅР°Р» РІ Р°СЂС…РёРІРµ"
-    "JOURNAL_RESTORED" -> "Р–СѓСЂРЅР°Р» РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅ"
-    "PERIOD_CLOSED" -> "РџРµСЂРёРѕРґ Р·Р°РєСЂС‹С‚"
-    "PERIOD_REOPENED" -> "РџРµСЂРёРѕРґ РѕС‚РєСЂС‹С‚"
-    "ACCESS_BINDING_CREATED" -> "Р”РѕСЃС‚СѓРї РІС‹РґР°РЅ"
-    "ACCESS_BINDING_REVOKED" -> "Р”РѕСЃС‚СѓРї РѕС‚РѕР·РІР°РЅ"
-    "AUDIT_EXPORTED" -> "Р­РєСЃРїРѕСЂС‚ Р°СѓРґРёС‚Р°"
-    "USER_BLOCKED" -> "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ"
-    "USER_UNBLOCKED" -> "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЂР°Р·Р±Р»РѕРєРёСЂРѕРІР°РЅ"
-    else -> action ?: "вЂ”"
+    "JOURNAL_LOCKED" -> "Журнал заморожен"
+    "JOURNAL_UNLOCKED" -> "Журнал разморожен"
+    "JOURNAL_ARCHIVED" -> "Журнал в архиве"
+    "JOURNAL_RESTORED" -> "Журнал восстановлен"
+    "PERIOD_CLOSED" -> "Период закрыт"
+    "PERIOD_REOPENED" -> "Период открыт"
+    "ACCESS_BINDING_CREATED" -> "Доступ выдан"
+    "ACCESS_BINDING_REVOKED" -> "Доступ отозван"
+    "AUDIT_EXPORTED" -> "Экспорт аудита"
+    "USER_BLOCKED" -> "Пользователь заблокирован"
+    "USER_UNBLOCKED" -> "Пользователь разблокирован"
+    else -> action ?: "—"
 }
 
 // в”Ђв”Ђв”Ђ Shared UI components в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
@@ -186,7 +186,7 @@ private fun ReasonDialog(
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    "Г—",
+                    "×",
                     modifier = Modifier
                         .clickable(onClick = onDismiss)
                         .padding(4.dp),
@@ -197,7 +197,7 @@ private fun ReasonDialog(
             OutlinedTextField(
                 value = reason,
                 onValueChange = { reason = it },
-                label = { Text("РџСЂРёС‡РёРЅР°") },
+                label = { Text("Причина") },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = InputTextColor,
@@ -212,10 +212,10 @@ private fun ReasonDialog(
                 horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
             ) {
                 TextButton(onClick = onDismiss) {
-                    Text("РћС‚РјРµРЅР°", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                    Text("Отмена", color = SecondaryText, fontWeight = FontWeight.SemiBold)
                 }
                 PrimaryButton(
-                    text = "РџРѕРґС‚РІРµСЂРґРёС‚СЊ",
+                    text = "Подтвердить",
                     onClick = { if (reason.isNotBlank()) onConfirm(reason.trim()) }
                 )
             }
@@ -226,7 +226,7 @@ private fun ReasonDialog(
 // в”Ђв”Ђв”Ђ 1. Admin Dashboard в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 private fun shortenId(id: String): String =
-    if (id.length > 16) "вЂ¦${id.takeLast(12)}" else id
+    if (id.length > 16) "…${id.takeLast(12)}" else id
 @Composable
 fun AdminAccessRoute(
     journalApi: JournalApi,
@@ -676,7 +676,7 @@ private fun AccessBindingRow(
     onRevoke: () -> Unit
 ) {
     val isRevoked = binding.revokedAt != null
-    val accessLabel = if (binding.accessLevel == "write") "Р—Р°РїРёСЃСЊ" else "Р§С‚РµРЅРёРµ"
+    val accessLabel = if (binding.accessLevel == "write") "Запись" else "Чтение"
 
     Column(
         modifier = Modifier
@@ -693,29 +693,29 @@ private fun AccessBindingRow(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "РџРѕР»СѓС‡Р°С‚РµР»СЊ: ${shortenId(binding.granteeId ?: "вЂ”")}",
+                    text = "Получатель: ${shortenId(binding.granteeId ?: "—")}",
                     fontWeight = FontWeight.Bold,
                     color = PrimaryBlue,
                     fontSize = 14.sp
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "Р’С‹РґР°Р»: ${shortenId(binding.granterId ?: "вЂ”")}",
+                    text = "Выдал: ${shortenId(binding.granterId ?: "—")}",
                     color = SecondaryText,
                     fontSize = 12.sp
                 )
                 Text(
-                    text = "Р”РёСЃС†РёРїР»РёРЅР°: ${shortenId(binding.disciplineId ?: "вЂ”")}",
+                    text = "Дисциплина: ${shortenId(binding.disciplineId ?: "—")}",
                     color = SecondaryText,
                     fontSize = 12.sp
                 )
                 Text(
-                    text = "Р“СЂСѓРїРїР°: ${shortenId(binding.groupId ?: "вЂ”")}",
+                    text = "Группа: ${shortenId(binding.groupId ?: "—")}",
                     color = SecondaryText,
                     fontSize = 12.sp
                 )
                 Text(
-                    text = "Р’С‹РґР°РЅ: ${formatDateTime(binding.grantedAt)}",
+                    text = "Выдан: ${formatDateTime(binding.grantedAt)}",
                     color = SecondaryText,
                     fontSize = 11.sp
                 )
@@ -727,7 +727,7 @@ private fun AccessBindingRow(
             ) {
                 AdminBadge(accessLabel, PrimaryBlue, AccentBadge)
                 AdminBadge(
-                    text = if (isRevoked) "РћС‚РѕР·РІР°РЅ" else "РђРєС‚РёРІРµРЅ",
+                    text = if (isRevoked) "Отозван" else "Активен",
                     color = if (isRevoked) DangerColor else GreenColor,
                     background = if (isRevoked) DangerLight else GreenLight
                 )
@@ -735,7 +735,7 @@ private fun AccessBindingRow(
         }
         if (!isRevoked) {
             Spacer(modifier = Modifier.height(10.dp))
-            DangerButton("РћС‚РѕР·РІР°С‚СЊ", onClick = onRevoke)
+            DangerButton("Отозвать", onClick = onRevoke)
         }
     }
 }

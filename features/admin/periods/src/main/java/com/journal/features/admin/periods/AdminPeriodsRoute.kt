@@ -128,7 +128,7 @@ private val WarningLight = Color(0xFFFEF3C7)
 // в”Ђв”Ђв”Ђ Helpers в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 private fun formatDateTime(value: String?): String {
-    if (value.isNullOrBlank()) return "вЂ”"
+    if (value.isNullOrBlank()) return "—"
     return try {
         val dt = OffsetDateTime.parse(value)
         dt.format(DateTimeFormatter.ofPattern("dd.MM.yyyy HH:mm"))
@@ -138,18 +138,18 @@ private fun formatDateTime(value: String?): String {
 }
 
 private fun adminActionLabel(action: String?): String = when (action) {
-    "JOURNAL_LOCKED" -> "Р–СѓСЂРЅР°Р» Р·Р°РјРѕСЂРѕР¶РµРЅ"
-    "JOURNAL_UNLOCKED" -> "Р–СѓСЂРЅР°Р» СЂР°Р·РјРѕСЂРѕР¶РµРЅ"
-    "JOURNAL_ARCHIVED" -> "Р–СѓСЂРЅР°Р» РІ Р°СЂС…РёРІРµ"
-    "JOURNAL_RESTORED" -> "Р–СѓСЂРЅР°Р» РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅ"
-    "PERIOD_CLOSED" -> "РџРµСЂРёРѕРґ Р·Р°РєСЂС‹С‚"
-    "PERIOD_REOPENED" -> "РџРµСЂРёРѕРґ РѕС‚РєСЂС‹С‚"
-    "ACCESS_BINDING_CREATED" -> "Р”РѕСЃС‚СѓРї РІС‹РґР°РЅ"
-    "ACCESS_BINDING_REVOKED" -> "Р”РѕСЃС‚СѓРї РѕС‚РѕР·РІР°РЅ"
-    "AUDIT_EXPORTED" -> "Р­РєСЃРїРѕСЂС‚ Р°СѓРґРёС‚Р°"
-    "USER_BLOCKED" -> "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ Р·Р°Р±Р»РѕРєРёСЂРѕРІР°РЅ"
-    "USER_UNBLOCKED" -> "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ СЂР°Р·Р±Р»РѕРєРёСЂРѕРІР°РЅ"
-    else -> action ?: "вЂ”"
+    "JOURNAL_LOCKED" -> "Журнал заморожен"
+    "JOURNAL_UNLOCKED" -> "Журнал разморожен"
+    "JOURNAL_ARCHIVED" -> "Журнал в архиве"
+    "JOURNAL_RESTORED" -> "Журнал восстановлен"
+    "PERIOD_CLOSED" -> "Период закрыт"
+    "PERIOD_REOPENED" -> "Период открыт"
+    "ACCESS_BINDING_CREATED" -> "Доступ выдан"
+    "ACCESS_BINDING_REVOKED" -> "Доступ отозван"
+    "AUDIT_EXPORTED" -> "Экспорт аудита"
+    "USER_BLOCKED" -> "Пользователь заблокирован"
+    "USER_UNBLOCKED" -> "Пользователь разблокирован"
+    else -> action ?: "—"
 }
 
 // в”Ђв”Ђв”Ђ Shared UI components в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
@@ -182,7 +182,7 @@ private fun ReasonDialog(
                     modifier = Modifier.weight(1f)
                 )
                 Text(
-                    "Г—",
+                    "×",
                     modifier = Modifier
                         .clickable(onClick = onDismiss)
                         .padding(4.dp),
@@ -193,7 +193,7 @@ private fun ReasonDialog(
             OutlinedTextField(
                 value = reason,
                 onValueChange = { reason = it },
-                label = { Text("РџСЂРёС‡РёРЅР°") },
+                label = { Text("Причина") },
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
                     focusedTextColor = InputTextColor,
@@ -208,10 +208,10 @@ private fun ReasonDialog(
                 horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.End)
             ) {
                 TextButton(onClick = onDismiss) {
-                    Text("РћС‚РјРµРЅР°", color = SecondaryText, fontWeight = FontWeight.SemiBold)
+                    Text("Отмена", color = SecondaryText, fontWeight = FontWeight.SemiBold)
                 }
                 PrimaryButton(
-                    text = "РџРѕРґС‚РІРµСЂРґРёС‚СЊ",
+                    text = "Подтвердить",
                     onClick = { if (reason.isNotBlank()) onConfirm(reason.trim()) }
                 )
             }
@@ -222,7 +222,7 @@ private fun ReasonDialog(
 // в”Ђв”Ђв”Ђ 1. Admin Dashboard в”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђв”Ђ
 
 private fun formatDate(value: String?): String {
-    if (value.isNullOrBlank()) return "вЂ”"
+    if (value.isNullOrBlank()) return "—"
     return try {
         val dt = OffsetDateTime.parse(value)
         dt.format(DateTimeFormatter.ofPattern("dd.MM.yyyy"))
@@ -478,14 +478,14 @@ private fun PeriodAdminRow(
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = period.name ?: "вЂ”",
+                    text = period.name ?: "—",
                     fontWeight = FontWeight.Bold,
                     color = PrimaryBlue,
                     fontSize = 15.sp
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
-                    text = "${formatDate(period.startsAt)} вЂ” ${formatDate(period.endsAt)}",
+                    text = "${formatDate(period.startsAt)} — ${formatDate(period.endsAt)}",
                     color = SecondaryText,
                     fontSize = 13.sp
                 )
@@ -496,10 +496,10 @@ private fun PeriodAdminRow(
                 verticalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 if (isActive) {
-                    AdminBadge("РђРєС‚РёРІРЅС‹Р№", PrimaryBlue, AccentBadge)
+                    AdminBadge("Активный", PrimaryBlue, AccentBadge)
                 }
                 AdminBadge(
-                    text = if (isClosed) "Р—Р°РєСЂС‹С‚" else "РћС‚РєСЂС‹С‚",
+                    text = if (isClosed) "Закрыт" else "Открыт",
                     color = if (isClosed) DangerColor else GreenColor,
                     background = if (isClosed) DangerLight else GreenLight
                 )
