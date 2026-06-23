@@ -530,10 +530,6 @@ private fun ColumnScope.MainMenuContent(
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
         )
-        Text(
-            text = roleTitle(role),
-            color = MenuPrimary.copy(alpha = 0.65f)
-        )
     }
 
     menuItems(role).forEach { item ->
@@ -864,13 +860,6 @@ private fun screenTitle(route: String): String = when {
     route == Routes.ADMIN_SYSTEM -> "Система"
     route == Routes.ADMIN_PROBLEM_STUDENTS -> "Проблемные студенты"
     else -> "Электронный журнал"
-}
-
-private fun roleTitle(role: String): String = when (role) {
-    "methodologist" -> "Методист"
-    "student" -> "Студент"
-    "admin" -> "Администратор"
-    else -> "Преподаватель"
 }
 
 private fun menuItems(role: String): List<MenuItem> = when (role) {
