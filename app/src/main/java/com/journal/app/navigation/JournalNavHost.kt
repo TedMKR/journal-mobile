@@ -7,6 +7,8 @@ import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -14,6 +16,7 @@ import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -28,10 +31,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -45,6 +48,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -586,9 +590,57 @@ private fun NotificationSwitchRow(
             color = MenuPrimary,
             fontWeight = FontWeight.SemiBold
         )
-        Switch(
+        ProjectSwitch(
             checked = checked,
             onCheckedChange = onCheckedChange
+        )
+    }
+}
+
+@Composable
+private fun ProjectSwitch(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit
+) {
+    val shape = RoundedCornerShape(30.dp)
+    val trackColor by animateColorAsState(
+        targetValue = if (checked) MenuPrimary else Color.White,
+        animationSpec = tween(240),
+        label = "notificationSwitchTrackColor"
+    )
+    val borderColor by animateColorAsState(
+        targetValue = if (checked) MenuPrimary else MenuItemBackground,
+        animationSpec = tween(240),
+        label = "notificationSwitchBorderColor"
+    )
+    val thumbColor by animateColorAsState(
+        targetValue = if (checked) Color.White else MenuItemBackground,
+        animationSpec = tween(240),
+        label = "notificationSwitchThumbColor"
+    )
+    val thumbOffset by animateDpAsState(
+        targetValue = if (checked) 30.dp else 4.dp,
+        animationSpec = tween(240),
+        label = "notificationSwitchThumbOffset"
+    )
+
+    Box(
+        modifier = Modifier
+            .size(width = 56.dp, height = 32.dp)
+            .background(trackColor, shape)
+            .border(width = 1.dp, color = borderColor, shape = shape)
+            .toggleable(
+                value = checked,
+                role = Role.Switch,
+                onValueChange = onCheckedChange
+            )
+    ) {
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterStart)
+                .padding(start = thumbOffset)
+                .size(22.dp)
+                .background(thumbColor, RoundedCornerShape(20.dp))
         )
     }
 }
