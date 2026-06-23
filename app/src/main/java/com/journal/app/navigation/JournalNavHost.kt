@@ -4,7 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.AnimatedVisibilityScope
-import androidx.compose.animation.Crossfade
 import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.ExperimentalAnimationApi
@@ -13,23 +12,28 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -37,12 +41,18 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -53,9 +63,9 @@ import com.journal.core.common.config.AppConfig
 import com.journal.core.common.config.JwtUtils
 import com.journal.core.common.config.TokenSession
 import com.journal.core.network.api.JournalApi
-import com.journal.features.admin.dashboard.AdminDashboardRoute
 import com.journal.features.admin.access.AdminAccessRoute
 import com.journal.features.admin.audit.AdminAuditRoute
+import com.journal.features.admin.dashboard.AdminDashboardRoute
 import com.journal.features.admin.documents.AdminDocumentsRoute
 import com.journal.features.admin.imports.AdminImportsRoute
 import com.journal.features.admin.journals.AdminJournalsRoute
@@ -68,6 +78,8 @@ import com.journal.features.methodist.dashboard.MethodistDashboardRoute
 import com.journal.features.methodist.journalcreate.MethodistJournalCreateRoute
 import com.journal.features.methodist.journals.MethodistJournalsRoute
 import com.journal.features.methodist.templates.MethodistTemplatesRoute
+import com.journal.features.notifications.NotificationsRoute
+import com.journal.features.notifications.NotificationsViewModel
 import com.journal.features.student.home.StudentDashboardRoute
 import com.journal.features.student.home.StudentScheduleRoute
 import com.journal.features.student.journal.StudentJournalRoute
@@ -83,6 +95,8 @@ private val MenuBackground = Color.White
 private val MenuPrimary = Color(0xFF223268)
 private val MenuOverlay = Color.Black.copy(alpha = 0.28f)
 private val MenuItemBackground = Color(0xFFD3D7E1)
+private val MenuDanger = Color(0xFFB91C1C)
+private val MenuDangerBackground = Color(0xFFFFE4E6)
 
 @Composable
 fun JournalNavHost(
@@ -100,8 +114,6 @@ fun JournalNavHost(
     val currentRoute = backStackEntry?.destination?.route
     val showMenu = currentRoute != null && currentRoute != Routes.AUTH && role != null
 
-    // Extract names from JWT for profile screens.
-    // Falls back gracefully to null when running in debug/stub mode (no real JWT).
     val accessToken by tokenSession.accessToken.collectAsState()
     val jwtFullName: String? = remember(accessToken) {
         accessToken?.let { JwtUtils.extractFullName(it) }
@@ -109,6 +121,11 @@ fun JournalNavHost(
     val jwtUserId: String? = remember(accessToken) {
         accessToken?.let { JwtUtils.extractSubject(it) }
     }
+    val notificationsViewModel: NotificationsViewModel = hiltViewModel()
+    LaunchedEffect(role, jwtUserId) {
+        notificationsViewModel.activate(role, jwtUserId)
+    }
+    val unreadNotifications by notificationsViewModel.unreadCount.collectAsState()
     val startDestination = if (initialRole != null) roleStartRoute(initialRole) else Routes.AUTH
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -118,222 +135,241 @@ fun JournalNavHost(
                     title = screenTitle(currentRoute.orEmpty()),
                     canNavigateBack = canNavigateBack(role = role, currentRoute = currentRoute),
                     isMenuOpen = isMenuOpen,
+                    unreadCount = unreadNotifications,
                     onBack = { navController.popBackStack() },
+                    onNotifications = {
+                        navController.navigate(Routes.NOTIFICATIONS) {
+                            launchSingleTop = true
+                        }
+                    },
                     onMenu = { isMenuOpen = !isMenuOpen }
                 )
             }
 
             Box(modifier = Modifier.weight(1f)) {
                 NavHost(navController = navController, startDestination = startDestination) {
-            composable(Routes.AUTH) {
-                AuthRoute(onContinue = { selectedRole ->
-                    role = selectedRole
-                    val startRoute = when (selectedRole) {
-                        "methodologist" -> Routes.METHODIST_DASHBOARD
-                        "student" -> Routes.STUDENT_SCHEDULE
-                        "admin" -> Routes.ADMIN_DASHBOARD
-                        else -> Routes.TEACHER_HOME
+                    composable(Routes.AUTH) {
+                        AuthRoute(onContinue = { selectedRole ->
+                            role = selectedRole
+                            navController.navigate(roleStartRoute(selectedRole))
+                        })
                     }
-                    navController.navigate(startRoute)
-                })
-            }
-            composable(Routes.ADMIN_DASHBOARD) {
-                AdminDashboardRoute(
-                    userId = jwtUserId,
-                    onOpenUsers = { navController.navigate(Routes.ADMIN_USERS) },
-                    onOpenAudit = { navController.navigate(Routes.ADMIN_AUDIT) },
-                    onOpenJournals = { navController.navigate(Routes.ADMIN_JOURNALS) },
-                    onOpenPeriods = { navController.navigate(Routes.ADMIN_PERIODS) },
-                    onOpenAccess = { navController.navigate(Routes.ADMIN_ACCESS) },
-                    onOpenDocuments = { navController.navigate(Routes.ADMIN_DOCUMENTS) },
-                    onOpenImports = { navController.navigate(Routes.ADMIN_IMPORTS) },
-                    onOpenSystem = { navController.navigate(Routes.ADMIN_SYSTEM) },
-                    onOpenProblemStudents = { navController.navigate(Routes.ADMIN_PROBLEM_STUDENTS) }
-                )
-            }
-            composable(Routes.ADMIN_USERS) {
-                AdminUsersRoute(journalApi = journalApi)
-            }
-            composable(Routes.ADMIN_AUDIT) {
-                AdminAuditRoute(journalApi = journalApi)
-            }
-            composable(Routes.ADMIN_JOURNALS) {
-                AdminJournalsRoute(journalApi = journalApi)
-            }
-            composable(Routes.ADMIN_PERIODS) {
-                AdminPeriodsRoute(journalApi = journalApi)
-            }
-            composable(Routes.ADMIN_ACCESS) {
-                AdminAccessRoute(journalApi = journalApi)
-            }
-            composable(Routes.ADMIN_DOCUMENTS) {
-                AdminDocumentsRoute(journalApi = journalApi)
-            }
-            composable(Routes.ADMIN_IMPORTS) {
-                AdminImportsRoute(journalApi = journalApi)
-            }
-            composable(Routes.ADMIN_SYSTEM) {
-                AdminSystemRoute(journalApi = journalApi)
-            }
-            composable(Routes.ADMIN_PROBLEM_STUDENTS) {
-                AdminProblemStudentsRoute(journalApi = journalApi)
-            }
-            composable(Routes.TEACHER_HOME) {
-                TeacherHomeRoute(
-                    onOpenLesson = { lesson ->
-                        val groupId = lesson.groupId.orEmpty()
-                        val disciplineId = lesson.disciplineId.orEmpty()
-                        val periodId = lesson.periodId.orEmpty()
-                        if (groupId.isNotBlank() && disciplineId.isNotBlank() && periodId.isNotBlank()) {
-                            navController.navigate(
-                                Routes.teacherJournal(
-                                    groupId = groupId,
-                                    disciplineId = disciplineId,
-                                    periodId = periodId,
-                                    lessonType = lesson.lessonType
+                    composable(Routes.ADMIN_DASHBOARD) {
+                        AdminDashboardRoute(
+                            userId = jwtUserId,
+                            onOpenUsers = { navController.navigate(Routes.ADMIN_USERS) },
+                            onOpenAudit = { navController.navigate(Routes.ADMIN_AUDIT) },
+                            onOpenJournals = { navController.navigate(Routes.ADMIN_JOURNALS) },
+                            onOpenPeriods = { navController.navigate(Routes.ADMIN_PERIODS) },
+                            onOpenAccess = { navController.navigate(Routes.ADMIN_ACCESS) },
+                            onOpenDocuments = { navController.navigate(Routes.ADMIN_DOCUMENTS) },
+                            onOpenImports = { navController.navigate(Routes.ADMIN_IMPORTS) },
+                            onOpenSystem = { navController.navigate(Routes.ADMIN_SYSTEM) },
+                            onOpenProblemStudents = { navController.navigate(Routes.ADMIN_PROBLEM_STUDENTS) }
+                        )
+                    }
+                    composable(Routes.ADMIN_USERS) {
+                        AdminUsersRoute(journalApi = journalApi)
+                    }
+                    composable(Routes.ADMIN_AUDIT) {
+                        AdminAuditRoute(journalApi = journalApi)
+                    }
+                    composable(Routes.ADMIN_JOURNALS) {
+                        AdminJournalsRoute(journalApi = journalApi)
+                    }
+                    composable(Routes.ADMIN_PERIODS) {
+                        AdminPeriodsRoute(journalApi = journalApi)
+                    }
+                    composable(Routes.ADMIN_ACCESS) {
+                        AdminAccessRoute(journalApi = journalApi)
+                    }
+                    composable(Routes.ADMIN_DOCUMENTS) {
+                        AdminDocumentsRoute(journalApi = journalApi)
+                    }
+                    composable(Routes.ADMIN_IMPORTS) {
+                        AdminImportsRoute(journalApi = journalApi)
+                    }
+                    composable(Routes.ADMIN_SYSTEM) {
+                        AdminSystemRoute(journalApi = journalApi)
+                    }
+                    composable(Routes.ADMIN_PROBLEM_STUDENTS) {
+                        AdminProblemStudentsRoute(journalApi = journalApi)
+                    }
+                    composable(Routes.NOTIFICATIONS) {
+                        NotificationsRoute(
+                            role = role,
+                            userId = jwtUserId,
+                            onOpenRoute = { targetRoute ->
+                                navController.navigate(targetRoute) {
+                                    launchSingleTop = true
+                                }
+                            }
+                        )
+                    }
+                    composable(Routes.TEACHER_HOME) {
+                        TeacherHomeRoute(
+                            onOpenLesson = { lesson ->
+                                val groupId = lesson.groupId.orEmpty()
+                                val disciplineId = lesson.disciplineId.orEmpty()
+                                val periodId = lesson.periodId.orEmpty()
+                                if (groupId.isNotBlank() && disciplineId.isNotBlank() && periodId.isNotBlank()) {
+                                    navController.navigate(
+                                        Routes.teacherJournal(
+                                            groupId = groupId,
+                                            disciplineId = disciplineId,
+                                            periodId = periodId,
+                                            lessonType = lesson.lessonType
+                                        )
+                                    )
+                                }
+                            }
+                        )
+                    }
+                    composable(Routes.TEACHER_DASHBOARD) {
+                        TeacherDashboardRoute(
+                            jwtName = jwtFullName,
+                            userId = jwtUserId,
+                            onOpenJournal = { target ->
+                                navController.navigate(
+                                    Routes.teacherJournal(
+                                        groupId = target.groupId,
+                                        disciplineId = target.disciplineId,
+                                        periodId = target.periodId,
+                                        lessonType = target.lessonType,
+                                        teacherId = target.teacherId
+                                    )
                                 )
-                            )
-                        }
-                    }
-                )
-            }
-            composable(Routes.TEACHER_DASHBOARD) {
-                TeacherDashboardRoute(
-                    jwtName = jwtFullName,
-                    userId = jwtUserId,
-                    onOpenJournal = { target ->
-                        navController.navigate(
-                            Routes.teacherJournal(
-                                groupId = target.groupId,
-                                disciplineId = target.disciplineId,
-                                periodId = target.periodId,
-                                lessonType = target.lessonType,
-                                teacherId = target.teacherId
-                            )
+                            }
                         )
                     }
-                )
-            }
-            composable(Routes.TEACHER_VED) {
-                TeacherVedRoute()
-            }
-            composable(Routes.TEACHER_ARCHIVE) {
-                TeacherArchiveRoute(
-                    journalApi = journalApi,
-                    onOpenJournal = { target ->
-                        navController.navigate(
-                            Routes.teacherJournal(
-                                groupId = target.groupId,
-                                disciplineId = target.disciplineId,
-                                periodId = target.periodId,
-                                lessonType = target.lessonType,
-                                teacherId = target.teacherId
-                            )
+                    composable(Routes.TEACHER_VED) {
+                        TeacherVedRoute()
+                    }
+                    composable(Routes.TEACHER_ARCHIVE) {
+                        TeacherArchiveRoute(
+                            journalApi = journalApi,
+                            onOpenJournal = { target ->
+                                navController.navigate(
+                                    Routes.teacherJournal(
+                                        groupId = target.groupId,
+                                        disciplineId = target.disciplineId,
+                                        periodId = target.periodId,
+                                        lessonType = target.lessonType,
+                                        teacherId = target.teacherId
+                                    )
+                                )
+                            }
                         )
                     }
-                )
-            }
-            composable(Routes.STUDENT_SCHEDULE) {
-                StudentScheduleRoute(
-                    onOpenLesson = { disciplineId, periodId, groupId ->
-                        navController.navigate(Routes.studentJournal(disciplineId, periodId, groupId))
-                    }
-                )
-            }
-            composable(
-                route = Routes.STUDENT_JOURNAL,
-                arguments = listOf(
-                    navArgument("disciplineId") { type = NavType.StringType },
-                    navArgument("periodId") { type = NavType.StringType },
-                    navArgument("groupId") { type = NavType.StringType }
-                )
-            ) { entry ->
-                StudentJournalRoute(
-                    disciplineId = entry.arguments?.getString("disciplineId").orEmpty(),
-                    periodId = entry.arguments?.getString("periodId").orEmpty(),
-                    groupId = entry.arguments?.getString("groupId").orEmpty()
-                )
-            }
-            composable(Routes.STUDENT_DASHBOARD) {
-                StudentDashboardRoute(jwtName = jwtFullName)
-            }
-            composable(Routes.METHODIST_DASHBOARD) {
-                MethodistDashboardRoute(
-                    jwtName = jwtFullName,
-                    userId = jwtUserId
-                )
-            }
-            composable(Routes.METHODIST_JOURNALS) {
-                MethodistJournalsRoute(
-                    onOpenJournal = { target ->
-                        navController.navigate(
-                            Routes.teacherJournal(
-                                groupId = target.groupId,
-                                disciplineId = target.disciplineId,
-                                periodId = target.periodId,
-                                lessonType = target.lessonType,
-                                teacherId = target.teacherId
-                            )
-                        )
-                    },
-                    onCreateJournal = { navController.navigate(Routes.METHODIST_JOURNAL_CREATE) }
-                )
-            }
-            composable(Routes.METHODIST_TEMPLATES) {
-                MethodistTemplatesRoute(journalApi = journalApi)
-            }
-            composable(Routes.METHODIST_JOURNAL_CREATE) {
-                MethodistJournalCreateRoute(
-                    journalApi = journalApi,
-                    onOpenJournal = { target ->
-                        navController.navigate(
-                            Routes.teacherJournal(
-                                groupId = target.groupId,
-                                disciplineId = target.disciplineId,
-                                periodId = target.periodId,
-                                lessonType = target.lessonType,
-                                teacherId = target.teacherId
-                            )
+                    composable(Routes.STUDENT_SCHEDULE) {
+                        StudentScheduleRoute(
+                            onOpenLesson = { disciplineId, periodId, groupId ->
+                                navController.navigate(Routes.studentJournal(disciplineId, periodId, groupId))
+                            }
                         )
                     }
-                )
-            }
-            composable(
-                route = Routes.TEACHER_JOURNAL,
-                arguments = listOf(
-                    navArgument("groupId") { type = NavType.StringType },
-                    navArgument("disciplineId") { type = NavType.StringType },
-                    navArgument("periodId") { type = NavType.StringType },
-                    navArgument("lessonType") { type = NavType.StringType },
-                    navArgument("teacherId") {
-                        type = NavType.StringType
-                        nullable = true
-                        defaultValue = null
+                    composable(
+                        route = Routes.STUDENT_JOURNAL,
+                        arguments = listOf(
+                            navArgument("disciplineId") { type = NavType.StringType },
+                            navArgument("periodId") { type = NavType.StringType },
+                            navArgument("groupId") { type = NavType.StringType }
+                        )
+                    ) { entry ->
+                        StudentJournalRoute(
+                            disciplineId = entry.arguments?.getString("disciplineId").orEmpty(),
+                            periodId = entry.arguments?.getString("periodId").orEmpty(),
+                            groupId = entry.arguments?.getString("groupId").orEmpty()
+                        )
                     }
-                )
-            ) { entry ->
-                val groupId = entry.arguments?.getString("groupId").orEmpty()
-                val disciplineId = entry.arguments?.getString("disciplineId").orEmpty()
-                val periodId = entry.arguments?.getString("periodId").orEmpty()
-                val lessonType = entry.arguments?.getString("lessonType").orEmpty()
-                TeacherJournalRoute(
-                    onOpenStudentCard = { studentId ->
-                        navController.navigate(Routes.teacherStudentCard(groupId, disciplineId, periodId, lessonType, studentId))
+                    composable(Routes.STUDENT_DASHBOARD) {
+                        StudentDashboardRoute(jwtName = jwtFullName)
                     }
-                )
-            }
-            composable(
-                route = Routes.TEACHER_STUDENT_CARD,
-                arguments = listOf(
-                    navArgument("groupId") { type = NavType.StringType },
-                    navArgument("disciplineId") { type = NavType.StringType },
-                    navArgument("periodId") { type = NavType.StringType },
-                    navArgument("lessonType") { type = NavType.StringType },
-                    navArgument("studentId") { type = NavType.StringType }
-                )
-            ) { entry ->
-                TeacherStudentCardRoute()
-            }
+                    composable(Routes.METHODIST_DASHBOARD) {
+                        MethodistDashboardRoute(
+                            jwtName = jwtFullName,
+                            userId = jwtUserId
+                        )
+                    }
+                    composable(Routes.METHODIST_JOURNALS) {
+                        MethodistJournalsRoute(
+                            onOpenJournal = { target ->
+                                navController.navigate(
+                                    Routes.teacherJournal(
+                                        groupId = target.groupId,
+                                        disciplineId = target.disciplineId,
+                                        periodId = target.periodId,
+                                        lessonType = target.lessonType,
+                                        teacherId = target.teacherId
+                                    )
+                                )
+                            },
+                            onCreateJournal = { navController.navigate(Routes.METHODIST_JOURNAL_CREATE) }
+                        )
+                    }
+                    composable(Routes.METHODIST_TEMPLATES) {
+                        MethodistTemplatesRoute(journalApi = journalApi)
+                    }
+                    composable(Routes.METHODIST_JOURNAL_CREATE) {
+                        MethodistJournalCreateRoute(
+                            journalApi = journalApi,
+                            onOpenJournal = { target ->
+                                navController.navigate(
+                                    Routes.teacherJournal(
+                                        groupId = target.groupId,
+                                        disciplineId = target.disciplineId,
+                                        periodId = target.periodId,
+                                        lessonType = target.lessonType,
+                                        teacherId = target.teacherId
+                                    )
+                                )
+                            }
+                        )
+                    }
+                    composable(
+                        route = Routes.TEACHER_JOURNAL,
+                        arguments = listOf(
+                            navArgument("groupId") { type = NavType.StringType },
+                            navArgument("disciplineId") { type = NavType.StringType },
+                            navArgument("periodId") { type = NavType.StringType },
+                            navArgument("lessonType") { type = NavType.StringType },
+                            navArgument("teacherId") {
+                                type = NavType.StringType
+                                nullable = true
+                                defaultValue = null
+                            }
+                        )
+                    ) { entry ->
+                        val groupId = entry.arguments?.getString("groupId").orEmpty()
+                        val disciplineId = entry.arguments?.getString("disciplineId").orEmpty()
+                        val periodId = entry.arguments?.getString("periodId").orEmpty()
+                        val lessonType = entry.arguments?.getString("lessonType").orEmpty()
+                        TeacherJournalRoute(
+                            onOpenStudentCard = { studentId ->
+                                navController.navigate(
+                                    Routes.teacherStudentCard(
+                                        groupId = groupId,
+                                        disciplineId = disciplineId,
+                                        periodId = periodId,
+                                        lessonType = lessonType,
+                                        studentId = studentId
+                                    )
+                                )
+                            }
+                        )
+                    }
+                    composable(
+                        route = Routes.TEACHER_STUDENT_CARD,
+                        arguments = listOf(
+                            navArgument("groupId") { type = NavType.StringType },
+                            navArgument("disciplineId") { type = NavType.StringType },
+                            navArgument("periodId") { type = NavType.StringType },
+                            navArgument("lessonType") { type = NavType.StringType },
+                            navArgument("studentId") { type = NavType.StringType }
+                        )
+                    ) {
+                        TeacherStudentCardRoute()
+                    }
                 }
             }
         }
@@ -377,7 +413,9 @@ private fun AppHeader(
     title: String,
     canNavigateBack: Boolean,
     isMenuOpen: Boolean,
+    unreadCount: Int,
     onBack: () -> Unit,
+    onNotifications: () -> Unit,
     onMenu: () -> Unit
 ) {
     Box(
@@ -387,16 +425,12 @@ private fun AppHeader(
             .padding(horizontal = 16.dp, vertical = 12.dp)
     ) {
         if (canNavigateBack) {
-            Text(
-                text = "←",
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .clickable(onClick = onBack)
-                    .padding(horizontal = 13.dp, vertical = 8.dp),
-                color = MenuPrimary,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
-            )
+            HeaderIconButton(
+                modifier = Modifier.align(Alignment.CenterStart),
+                onClick = onBack
+            ) {
+                BackIcon()
+            }
         } else {
             Spacer(modifier = Modifier.align(Alignment.CenterStart).width(48.dp))
         }
@@ -405,28 +439,31 @@ private fun AppHeader(
             text = title,
             modifier = Modifier
                 .align(Alignment.Center)
-                .padding(horizontal = 56.dp),
+                .padding(horizontal = 96.dp),
             color = MenuPrimary,
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
-            textAlign = TextAlign.Center
+            textAlign = TextAlign.Center,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
         )
 
-        Crossfade(
-            targetState = isMenuOpen,
-            animationSpec = tween(250),
-            modifier = Modifier
-                .align(Alignment.CenterEnd)
-                .clickable(onClick = onMenu)
-                .padding(horizontal = 13.dp, vertical = 8.dp),
-            label = "menu_icon"
-        ) { open ->
-            Text(
-                text = if (open) "×" else "☰",
-                color = MenuPrimary,
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold
+        Row(
+            modifier = Modifier.align(Alignment.CenterEnd),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            NotificationIconButton(
+                unreadCount = unreadCount,
+                onClick = onNotifications
             )
+            HeaderIconButton(onClick = onMenu) {
+                if (isMenuOpen) {
+                    CloseIcon()
+                } else {
+                    MenuIcon()
+                }
+            }
         }
     }
 }
@@ -469,49 +506,19 @@ private fun AnimatedVisibilityScope.RightSideMenu(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Column {
-                Text("Меню", color = MenuPrimary, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
                 Text(
-                    when (role) {
-                        "methodologist" -> "Методист"
-                        "student" -> "Студент"
-                        "admin" -> "Администратор"
-                        else -> "Преподаватель"
-                    },
+                    text = "Меню",
+                    color = MenuPrimary,
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.Bold
+                )
+                Text(
+                    text = roleTitle(role),
                     color = MenuPrimary.copy(alpha = 0.65f)
                 )
             }
 
-            val items = when (role) {
-                "methodologist" -> listOf(
-                    MenuItem("Личный кабинет", Routes.METHODIST_DASHBOARD),
-                    MenuItem("Журналы", Routes.METHODIST_JOURNALS),
-                    MenuItem("КТП", Routes.METHODIST_TEMPLATES)
-                )
-                "student" -> listOf(
-                    MenuItem("Расписание", Routes.STUDENT_SCHEDULE),
-                    MenuItem("Личный кабинет", Routes.STUDENT_DASHBOARD)
-                )
-                "admin" -> listOf(
-                    MenuItem("Личный кабинет", Routes.ADMIN_DASHBOARD),
-                    MenuItem("Пользователи", Routes.ADMIN_USERS),
-                    MenuItem("Аудит", Routes.ADMIN_AUDIT),
-                    MenuItem("Журналы", Routes.ADMIN_JOURNALS),
-                    MenuItem("Периоды", Routes.ADMIN_PERIODS),
-                    MenuItem("Доступы", Routes.ADMIN_ACCESS),
-                    MenuItem("Документы", Routes.ADMIN_DOCUMENTS),
-                    MenuItem("Импорт", Routes.ADMIN_IMPORTS),
-                    MenuItem("Система", Routes.ADMIN_SYSTEM),
-                    MenuItem("Проблемные студенты", Routes.ADMIN_PROBLEM_STUDENTS)
-                )
-                else -> listOf(
-                    MenuItem("Расписание", Routes.TEACHER_HOME),
-                    MenuItem("Личный кабинет", Routes.TEACHER_DASHBOARD),
-                    MenuItem("Ведомости", Routes.TEACHER_VED),
-                    MenuItem("Архив", Routes.TEACHER_ARCHIVE)
-                )
-            }
-
-            items.forEach { item ->
+            menuItems(role).forEach { item ->
                 MenuRow(
                     item = item,
                     selected = currentRoute == item.route,
@@ -524,19 +531,14 @@ private fun AnimatedVisibilityScope.RightSideMenu(
             LogoutRow(onClick = onLogout)
         }
 
-        // × positioned at the same screen location as the ☰ in AppHeader
-        Text(
-            text = "×",
+        HeaderIconButton(
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 12.dp, end = 16.dp)
-                .clickable(onClick = onDismiss)
-                .padding(horizontal = 13.dp, vertical = 8.dp),
-            color = MenuPrimary,
-            style = MaterialTheme.typography.titleLarge,
-            fontSize = 30.sp, //размер
-            fontWeight = FontWeight.Bold
-        )
+                .padding(top = 12.dp, end = 16.dp),
+            onClick = onDismiss
+        ) {
+            CloseIcon()
+        }
     }
 }
 
@@ -546,10 +548,10 @@ private fun LogoutRow(onClick: () -> Unit) {
         text = "Выйти из аккаунта",
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFFFE4E6), RoundedCornerShape(14.dp))
+            .background(MenuDangerBackground, RoundedCornerShape(14.dp))
             .clickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 13.dp),
-        color = Color(0xFFB91C1C),
+        color = MenuDanger,
         fontWeight = FontWeight.SemiBold
     )
 }
@@ -566,6 +568,155 @@ private fun MenuRow(item: MenuItem, selected: Boolean, onClick: () -> Unit) {
         color = if (selected) Color.White else MenuPrimary,
         fontWeight = FontWeight.SemiBold
     )
+}
+
+@Composable
+private fun HeaderIconButton(
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit,
+    content: @Composable () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .size(44.dp)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun NotificationIconButton(
+    unreadCount: Int,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        BellIcon()
+        if (unreadCount > 0) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .height(18.dp)
+                    .background(MenuDanger, RoundedCornerShape(999.dp))
+                    .padding(horizontal = 5.dp, vertical = 1.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = unreadCount.coerceAtMost(99).toString(),
+                    color = Color.White,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BackIcon() {
+    Canvas(modifier = Modifier.size(24.dp)) {
+        val strokeWidth = 2.5.dp.toPx()
+        drawLine(
+            color = MenuPrimary,
+            start = Offset(size.width * 0.72f, size.height * 0.2f),
+            end = Offset(size.width * 0.3f, size.height * 0.5f),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = MenuPrimary,
+            start = Offset(size.width * 0.3f, size.height * 0.5f),
+            end = Offset(size.width * 0.72f, size.height * 0.8f),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = MenuPrimary,
+            start = Offset(size.width * 0.32f, size.height * 0.5f),
+            end = Offset(size.width * 0.88f, size.height * 0.5f),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+@Composable
+private fun MenuIcon() {
+    Canvas(modifier = Modifier.size(24.dp)) {
+        val strokeWidth = 2.5.dp.toPx()
+        listOf(0.26f, 0.5f, 0.74f).forEach { y ->
+            drawLine(
+                color = MenuPrimary,
+                start = Offset(size.width * 0.2f, size.height * y),
+                end = Offset(size.width * 0.8f, size.height * y),
+                strokeWidth = strokeWidth,
+                cap = StrokeCap.Round
+            )
+        }
+    }
+}
+
+@Composable
+private fun CloseIcon() {
+    Canvas(modifier = Modifier.size(24.dp)) {
+        val strokeWidth = 2.5.dp.toPx()
+        drawLine(
+            color = MenuPrimary,
+            start = Offset(size.width * 0.25f, size.height * 0.25f),
+            end = Offset(size.width * 0.75f, size.height * 0.75f),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = MenuPrimary,
+            start = Offset(size.width * 0.75f, size.height * 0.25f),
+            end = Offset(size.width * 0.25f, size.height * 0.75f),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+    }
+}
+
+@Composable
+private fun BellIcon() {
+    Canvas(modifier = Modifier.size(24.dp)) {
+        val stroke = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+        drawArc(
+            color = MenuPrimary,
+            startAngle = 200f,
+            sweepAngle = 140f,
+            useCenter = false,
+            topLeft = Offset(size.width * 0.24f, size.height * 0.22f),
+            size = Size(size.width * 0.52f, size.height * 0.58f),
+            style = stroke
+        )
+        drawLine(
+            color = MenuPrimary,
+            start = Offset(size.width * 0.28f, size.height * 0.72f),
+            end = Offset(size.width * 0.72f, size.height * 0.72f),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round
+        )
+        drawLine(
+            color = MenuPrimary,
+            start = Offset(size.width * 0.5f, size.height * 0.17f),
+            end = Offset(size.width * 0.5f, size.height * 0.23f),
+            strokeWidth = stroke.width,
+            cap = StrokeCap.Round
+        )
+        drawCircle(
+            color = MenuPrimary,
+            radius = size.width * 0.045f,
+            center = Offset(size.width * 0.5f, size.height * 0.82f)
+        )
+    }
 }
 
 private fun openKeycloakLogout(
@@ -622,7 +773,49 @@ private fun screenTitle(route: String): String = when {
     route == Routes.ADMIN_IMPORTS -> "Импорт"
     route == Routes.ADMIN_SYSTEM -> "Система"
     route == Routes.ADMIN_PROBLEM_STUDENTS -> "Проблемные студенты"
+    route == Routes.NOTIFICATIONS -> "Уведомления"
     else -> "Электронный журнал"
+}
+
+private fun roleTitle(role: String): String = when (role) {
+    "methodologist" -> "Методист"
+    "student" -> "Студент"
+    "admin" -> "Администратор"
+    else -> "Преподаватель"
+}
+
+private fun menuItems(role: String): List<MenuItem> = when (role) {
+    "methodologist" -> listOf(
+        MenuItem("Личный кабинет", Routes.METHODIST_DASHBOARD),
+        MenuItem("Журналы", Routes.METHODIST_JOURNALS),
+        MenuItem("КТП", Routes.METHODIST_TEMPLATES),
+        MenuItem("Уведомления", Routes.NOTIFICATIONS)
+    )
+    "student" -> listOf(
+        MenuItem("Расписание", Routes.STUDENT_SCHEDULE),
+        MenuItem("Личный кабинет", Routes.STUDENT_DASHBOARD),
+        MenuItem("Уведомления", Routes.NOTIFICATIONS)
+    )
+    "admin" -> listOf(
+        MenuItem("Личный кабинет", Routes.ADMIN_DASHBOARD),
+        MenuItem("Пользователи", Routes.ADMIN_USERS),
+        MenuItem("Аудит", Routes.ADMIN_AUDIT),
+        MenuItem("Журналы", Routes.ADMIN_JOURNALS),
+        MenuItem("Периоды", Routes.ADMIN_PERIODS),
+        MenuItem("Доступы", Routes.ADMIN_ACCESS),
+        MenuItem("Документы", Routes.ADMIN_DOCUMENTS),
+        MenuItem("Импорт", Routes.ADMIN_IMPORTS),
+        MenuItem("Система", Routes.ADMIN_SYSTEM),
+        MenuItem("Проблемные студенты", Routes.ADMIN_PROBLEM_STUDENTS),
+        MenuItem("Уведомления", Routes.NOTIFICATIONS)
+    )
+    else -> listOf(
+        MenuItem("Расписание", Routes.TEACHER_HOME),
+        MenuItem("Личный кабинет", Routes.TEACHER_DASHBOARD),
+        MenuItem("Ведомости", Routes.TEACHER_VED),
+        MenuItem("Архив", Routes.TEACHER_ARCHIVE),
+        MenuItem("Уведомления", Routes.NOTIFICATIONS)
+    )
 }
 
 private data class MenuItem(

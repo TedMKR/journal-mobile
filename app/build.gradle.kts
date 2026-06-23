@@ -103,6 +103,7 @@ dependencies {
     implementation(project(":features:admin:imports"))
     implementation(project(":features:admin:system"))
     implementation(project(":features:admin:problemstudents"))
+    implementation(project(":features:notifications"))
 
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
     implementation("androidx.biometric:biometric:1.1.0")

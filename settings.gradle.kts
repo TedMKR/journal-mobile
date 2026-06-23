@@ -48,5 +48,6 @@ include(
     ":features:admin:documents",
     ":features:admin:imports",
     ":features:admin:system",
-    ":features:admin:problemstudents"
+    ":features:admin:problemstudents",
+    ":features:notifications"
 )

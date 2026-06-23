@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.room.Room
 import com.journal.core.database.dao.DashboardCacheDao
 import com.journal.core.database.dao.JournalGridCacheDao
+import com.journal.core.database.dao.NotificationDao
 import com.journal.core.database.dao.PendingActionDao
 import com.journal.core.database.dao.SessionDao
 import com.journal.core.database.dao.StudentLessonDao
@@ -34,6 +35,7 @@ object DatabaseModule {
             .addMigrations(JournalDatabase.MIGRATION_3_4)
             .addMigrations(JournalDatabase.MIGRATION_4_5)
             .addMigrations(JournalDatabase.MIGRATION_5_6)
+            .addMigrations(JournalDatabase.MIGRATION_6_7)
             .build()
 
     @Provides
@@ -63,4 +65,8 @@ object DatabaseModule {
     @Provides
     fun provideDashboardCacheDao(db: JournalDatabase): DashboardCacheDao =
         db.dashboardCacheDao()
+
+    @Provides
+    fun provideNotificationDao(db: JournalDatabase): NotificationDao =
+        db.notificationDao()
 }
