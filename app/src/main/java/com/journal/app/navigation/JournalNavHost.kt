@@ -476,7 +476,6 @@ private fun AnimatedVisibilityScope.RightSideMenu(
             if (showSettings) {
                 SettingsMenuContent(
                     gradeNotificationsEnabled = gradeNotificationsEnabled,
-                    onBack = { showSettings = false },
                     onToggleNotifications = {
                         onGradeNotificationsEnabledChange(!gradeNotificationsEnabled)
                     },
@@ -538,7 +537,6 @@ private fun ColumnScope.MainMenuContent(
 @Composable
 private fun ColumnScope.SettingsMenuContent(
     gradeNotificationsEnabled: Boolean,
-    onBack: () -> Unit,
     onToggleNotifications: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -549,16 +547,7 @@ private fun ColumnScope.SettingsMenuContent(
             style = MaterialTheme.typography.headlineSmall,
             fontWeight = FontWeight.Bold
         )
-        Text(
-            text = "Уведомления и аккаунт",
-            color = MenuPrimary.copy(alpha = 0.65f)
-        )
     }
-
-    MenuActionRow(
-        text = "Назад",
-        onClick = onBack
-    )
 
     MenuActionRow(
         text = if (gradeNotificationsEnabled) {
