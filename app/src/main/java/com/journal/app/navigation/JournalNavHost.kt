@@ -563,16 +563,6 @@ private fun ColumnScope.SettingsMenuContent(
         onCheckedChange = onNotificationsEnabledChange
     )
 
-    Text(
-        text = if (gradeNotificationsEnabled) {
-            "Системные уведомления об оценках включены."
-        } else {
-            "Системные уведомления об оценках отключены."
-        },
-        color = MenuPrimary.copy(alpha = 0.65f),
-        style = MaterialTheme.typography.bodySmall
-    )
-
     Spacer(modifier = Modifier.weight(1f))
     LogoutRow(onClick = onLogout)
 }
