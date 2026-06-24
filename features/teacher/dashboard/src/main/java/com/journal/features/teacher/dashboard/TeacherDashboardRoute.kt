@@ -32,6 +32,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import com.journal.core.ui.AppTheme
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.text.font.FontWeight
@@ -166,26 +167,62 @@ private fun TeacherOfflineBanner(modifier: Modifier = Modifier) {
 
 @Composable
 private fun ProfileSummary(state: TeacherDashboardUiState) {
+    val colors = AppTheme.colors
+    val isDarkTheme = colors.background.luminance() < 0.5f
+    val profileBackground = if (isDarkTheme) CardBackground else colors.primary
+    val profileTextColor = if (isDarkTheme) PrimaryText else colors.onPrimary
+    val statBackground = if (isDarkTheme) colors.headerBackground else colors.onPrimary
+    val statContentColor = colors.primary
+    val statBarColor = if (isDarkTheme) colors.barBackground else colors.headerBackground
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(16.dp))
+            .background(profileBackground, RoundedCornerShape(16.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(
             text = state.teacherName,
-            color = PrimaryText,
+            color = profileTextColor,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            StatTile("Всего\nстудентов", state.totalStudents.toString(), Modifier.weight(1f))
-            StatTile("Всего\nпредметов", state.totalDisciplines.toString(), Modifier.weight(1f))
+            StatTile(
+                "Всего\nстудентов",
+                state.totalStudents.toString(),
+                Modifier.weight(1f),
+                backgroundColor = statBackground,
+                contentColor = statContentColor,
+                barColor = statBarColor
+            )
+            StatTile(
+                "Всего\nпредметов",
+                state.totalDisciplines.toString(),
+                Modifier.weight(1f),
+                backgroundColor = statBackground,
+                contentColor = statContentColor,
+                barColor = statBarColor
+            )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            StatTile("Часов\nв расписании", state.hoursInSchedule, Modifier.weight(1f))
-            StatTile("Средняя\nуспеваемость", state.avgGrade, Modifier.weight(1f))
+            StatTile(
+                "Часов\nв расписании",
+                state.hoursInSchedule,
+                Modifier.weight(1f),
+                backgroundColor = statBackground,
+                contentColor = statContentColor,
+                barColor = statBarColor
+            )
+            StatTile(
+                "Средняя\nуспеваемость",
+                state.avgGrade,
+                Modifier.weight(1f),
+                backgroundColor = statBackground,
+                contentColor = statContentColor,
+                barColor = statBarColor
+            )
         }
     }
 }

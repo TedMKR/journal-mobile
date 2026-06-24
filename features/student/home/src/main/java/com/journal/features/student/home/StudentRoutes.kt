@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.Color
 import com.journal.core.ui.AppTheme
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -423,30 +424,67 @@ private fun ProfileSummaryCard(
     val displayName = profileName.takeIf(String::isNotBlank)
         ?: jwtDisplayName.takeIf(String::isNotBlank)
         ?: "Профиль студента"
+    val colors = AppTheme.colors
+    val isDarkTheme = colors.background.luminance() < 0.5f
+    val profileBackground = if (isDarkTheme) CardBackground else colors.primary
+    val profileTextColor = if (isDarkTheme) PrimaryText else colors.onPrimary
+    val profileSecondaryTextColor = if (isDarkTheme) MutedText else colors.onPrimary.copy(alpha = 0.78f)
+    val statBackground = if (isDarkTheme) colors.headerBackground else colors.onPrimary
+    val statContentColor = colors.primary
+    val statBarColor = if (isDarkTheme) colors.barBackground else colors.headerBackground
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(16.dp))
+            .background(profileBackground, RoundedCornerShape(16.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(
             text = displayName,
-            color = PrimaryText,
+            color = profileTextColor,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
         )
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            profile?.groupName?.takeIf { it.isNotBlank() }?.let { Text("Группа: $it", color = MutedText) }
-            if (profile?.isHeadStudent == true) InfoChip("Староста")
+            profile?.groupName?.takeIf { it.isNotBlank() }?.let {
+                Text("Группа: $it", color = profileSecondaryTextColor)
+            }
+            if (profile?.isHeadStudent == true) {
+                InfoChip(
+                    "Староста",
+                    color = profileTextColor,
+                    backgroundColor = if (isDarkTheme) colors.headerBackground else colors.onPrimary.copy(alpha = 0.16f)
+                )
+            }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            StatTile("Всего\nпредметов", subjects.size.toString(), Modifier.weight(1f))
-            StatTile("Средний\nбалл", avgGrade?.let { String.format(Locale.US, "%.1f", it) } ?: "—", Modifier.weight(1f))
+            StatTile(
+                "Всего\nпредметов",
+                subjects.size.toString(),
+                Modifier.weight(1f),
+                backgroundColor = statBackground,
+                contentColor = statContentColor,
+                barColor = statBarColor
+            )
+            StatTile(
+                "Средний\nбалл",
+                avgGrade?.let { String.format(Locale.US, "%.1f", it) } ?: "—",
+                Modifier.weight(1f),
+                backgroundColor = statBackground,
+                contentColor = statContentColor,
+                barColor = statBarColor
+            )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            StatTile("Посещаемость", "${attendance.toInt()}%", Modifier.weight(1f))
+            StatTile(
+                "Посещаемость",
+                "${attendance.toInt()}%",
+                Modifier.weight(1f),
+                backgroundColor = statBackground,
+                contentColor = statContentColor,
+                barColor = statBarColor
+            )
         }
     }
 }

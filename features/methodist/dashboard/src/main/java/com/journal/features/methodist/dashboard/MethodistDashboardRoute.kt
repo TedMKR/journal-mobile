@@ -37,6 +37,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import com.journal.core.ui.AppTheme
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.window.Dialog
@@ -215,36 +216,78 @@ private fun DashboardSummaryGrid(
     jwtName: String? = null
 ) {
     val displayName = PersonNameFormatter.formatFullName(jwtName).takeIf(String::isNotBlank) ?: "Методист"
+    val colors = AppTheme.colors
+    val isDarkTheme = colors.background.luminance() < 0.5f
+    val profileBackground = if (isDarkTheme) CardBackground else colors.primary
+    val profileTextColor = if (isDarkTheme) PrimaryText else colors.onPrimary
+    val tileBackground = if (isDarkTheme) SummaryTileBackground else colors.onPrimary
+    val tileContentColor = PrimaryText
+    val tileBarColor = if (isDarkTheme) SummaryTileBar else colors.headerBackground
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(CardBackground, RoundedCornerShape(16.dp))
+            .background(profileBackground, RoundedCornerShape(16.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
             displayName,
-            color = PrimaryText,
+            color = profileTextColor,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            DashboardSummaryTile("Дисциплины", disciplinesCount.toString(), Modifier.weight(1f))
-            DashboardSummaryTile("Преподаватели", teachersCount.toString(), Modifier.weight(1f))
+            DashboardSummaryTile(
+                "Дисциплины",
+                disciplinesCount.toString(),
+                Modifier.weight(1f),
+                backgroundColor = tileBackground,
+                contentColor = tileContentColor,
+                barColor = tileBarColor
+            )
+            DashboardSummaryTile(
+                "Преподаватели",
+                teachersCount.toString(),
+                Modifier.weight(1f),
+                backgroundColor = tileBackground,
+                contentColor = tileContentColor,
+                barColor = tileBarColor
+            )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
-            DashboardSummaryTile("Группы", groupsCount.toString(), Modifier.weight(1f))
-            DashboardSummaryTile("Журналы", journalsCount.toString(), Modifier.weight(1f))
+            DashboardSummaryTile(
+                "Группы",
+                groupsCount.toString(),
+                Modifier.weight(1f),
+                backgroundColor = tileBackground,
+                contentColor = tileContentColor,
+                barColor = tileBarColor
+            )
+            DashboardSummaryTile(
+                "Журналы",
+                journalsCount.toString(),
+                Modifier.weight(1f),
+                backgroundColor = tileBackground,
+                contentColor = tileContentColor,
+                barColor = tileBarColor
+            )
         }
     }
 }
 
 @Composable
-private fun DashboardSummaryTile(label: String, value: String, modifier: Modifier = Modifier) {
+private fun DashboardSummaryTile(
+    label: String,
+    value: String,
+    modifier: Modifier = Modifier,
+    backgroundColor: Color = SummaryTileBackground,
+    contentColor: Color = PrimaryText,
+    barColor: Color = SummaryTileBar
+) {
     Column(
         modifier = modifier
-            .background(SummaryTileBackground, RoundedCornerShape(12.dp))
+            .background(backgroundColor, RoundedCornerShape(12.dp))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -252,10 +295,10 @@ private fun DashboardSummaryTile(label: String, value: String, modifier: Modifie
             modifier = Modifier
                 .fillMaxWidth()
                 .height(5.dp)
-                .background(SummaryTileBar, RoundedCornerShape(999.dp))
+                .background(barColor, RoundedCornerShape(999.dp))
         )
-        Text(label, color = PrimaryText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
-        Text(value, color = AccentBlue, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+        Text(label, color = contentColor, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
+        Text(value, color = contentColor, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
     }
 }
 

@@ -58,6 +58,7 @@ import com.journal.core.ui.AppTheme
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.luminance
 
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
@@ -258,6 +259,14 @@ fun AdminDashboardRoute(
     val usersCount = dashboard?.usersCount ?: 0
     val periodsCount = dashboard?.periodsCount ?: 0
     val documentsCount = dashboard?.documentsCount ?: 0
+    val colors = AppTheme.colors
+    val isDarkTheme = colors.background.luminance() < 0.5f
+    val dashboardCardBackground = if (isDarkTheme) CardBackground else PrimaryBlue
+    val dashboardTitleColor = if (isDarkTheme) PrimaryBlue else colors.onPrimary
+    val dashboardLoadingTextColor = if (isDarkTheme) SecondaryText else colors.onPrimary.copy(alpha = 0.78f)
+    val dashboardTileBackground = if (isDarkTheme) SummaryTileBackground else colors.onPrimary
+    val dashboardTileValueColor = PrimaryBlue
+    val dashboardTileLabelColor = if (isDarkTheme) SecondaryText else PrimaryBlue
 
     LaunchedEffect(userId) {
         viewModel.load(userId)
@@ -276,12 +285,12 @@ fun AdminDashboardRoute(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
-                .background(CardBackground)
+                .background(dashboardCardBackground)
                 .padding(20.dp)
         ) {
             Text(
                 "Кабинет администратора",
-                color = PrimaryBlue,
+                color = dashboardTitleColor,
                 fontWeight = FontWeight.Bold,
                 fontSize = 22.sp
             )
@@ -292,8 +301,8 @@ fun AdminDashboardRoute(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CircularProgressIndicator(color = PrimaryBlue, modifier = Modifier.width(20.dp).height(20.dp))
-                    Text("Загружаю данные...", color = SecondaryText)
+                    CircularProgressIndicator(color = dashboardTitleColor, modifier = Modifier.width(20.dp).height(20.dp))
+                    Text("Загружаю данные...", color = dashboardLoadingTextColor)
                 }
             } else {
                 Row(
@@ -305,16 +314,16 @@ fun AdminDashboardRoute(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(SummaryTileBackground)
+                                .background(dashboardTileBackground)
                                 .padding(12.dp)
                         ) {
                             Text(
                                 journalsCount.toString(),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 24.sp,
-                                color = PrimaryBlue
+                                color = dashboardTileValueColor
                             )
-                            Text("Журналы", fontSize = 12.sp, color = SecondaryText)
+                            Text("Журналы", fontSize = 12.sp, color = dashboardTileLabelColor)
                         }
                     }
                     Box(modifier = Modifier.weight(1f)) {
@@ -322,16 +331,16 @@ fun AdminDashboardRoute(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(SummaryTileBackground)
+                                .background(dashboardTileBackground)
                                 .padding(12.dp)
                         ) {
                             Text(
                                 usersCount.toString(),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 24.sp,
-                                color = PrimaryBlue
+                                color = dashboardTileValueColor
                             )
-                            Text("Пользователи", fontSize = 12.sp, color = SecondaryText)
+                            Text("Пользователи", fontSize = 12.sp, color = dashboardTileLabelColor)
                         }
                     }
                 }
@@ -345,16 +354,16 @@ fun AdminDashboardRoute(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(SummaryTileBackground)
+                                .background(dashboardTileBackground)
                                 .padding(12.dp)
                         ) {
                             Text(
                                 periodsCount.toString(),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 24.sp,
-                                color = PrimaryBlue
+                                color = dashboardTileValueColor
                             )
-                            Text("Периоды", fontSize = 12.sp, color = SecondaryText)
+                            Text("Периоды", fontSize = 12.sp, color = dashboardTileLabelColor)
                         }
                     }
                     Box(modifier = Modifier.weight(1f)) {
@@ -362,16 +371,16 @@ fun AdminDashboardRoute(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(SummaryTileBackground)
+                                .background(dashboardTileBackground)
                                 .padding(12.dp)
                         ) {
                             Text(
                                 documentsCount.toString(),
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 24.sp,
-                                color = PrimaryBlue
+                                color = dashboardTileValueColor
                             )
-                            Text("Документы", fontSize = 12.sp, color = SecondaryText)
+                            Text("Документы", fontSize = 12.sp, color = dashboardTileLabelColor)
                         }
                     }
                 }
