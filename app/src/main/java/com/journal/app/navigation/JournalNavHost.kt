@@ -777,6 +777,7 @@ private fun NotificationSwitchThumbIcon(
 ) {
     Canvas(modifier = Modifier.size(14.dp)) {
         val strokeWidth = 1.25.dp.toPx()
+        val iconOffsetY = -0.8.dp.toPx()
         val bellPath = Path().apply {
             moveTo(size.width * 0.5f, size.height * 0.19f)
             cubicTo(
@@ -816,30 +817,34 @@ private fun NotificationSwitchThumbIcon(
             )
         }
 
-        drawPath(
-            path = bellPath,
-            color = iconColor,
-            style = Stroke(
-                width = strokeWidth,
-                cap = StrokeCap.Round,
-                join = StrokeJoin.Round
+        withTransform({
+            translate(top = iconOffsetY)
+        }) {
+            drawPath(
+                path = bellPath,
+                color = iconColor,
+                style = Stroke(
+                    width = strokeWidth,
+                    cap = StrokeCap.Round,
+                    join = StrokeJoin.Round
+                )
             )
-        )
-        drawLine(
-            color = iconColor,
-            start = Offset(size.width * 0.39f, size.height * 0.91f),
-            end = Offset(size.width * 0.61f, size.height * 0.91f),
-            strokeWidth = strokeWidth,
-            cap = StrokeCap.Round
-        )
-        if (!enabled) {
             drawLine(
                 color = iconColor,
-                start = Offset(size.width * 0.18f, size.height * 0.17f),
-                end = Offset(size.width * 0.82f, size.height * 0.84f),
-                strokeWidth = 1.45.dp.toPx(),
+                start = Offset(size.width * 0.39f, size.height * 0.91f),
+                end = Offset(size.width * 0.61f, size.height * 0.91f),
+                strokeWidth = strokeWidth,
                 cap = StrokeCap.Round
             )
+            if (!enabled) {
+                drawLine(
+                    color = iconColor,
+                    start = Offset(size.width * 0.18f, size.height * 0.17f),
+                    end = Offset(size.width * 0.82f, size.height * 0.84f),
+                    strokeWidth = 1.45.dp.toPx(),
+                    cap = StrokeCap.Round
+                )
+            }
         }
     }
 }
