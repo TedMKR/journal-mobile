@@ -27,6 +27,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.luminance
 import com.journal.core.ui.AppTheme
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -101,9 +103,15 @@ fun AuthRoute(
 @Composable
 private fun AuthBackgroundCard(content: @Composable ColumnScope.() -> Unit) {
     val colors = AppTheme.colors
+    val isDarkTheme = colors.background.luminance() < 0.5f
+    val backgroundRes = if (isDarkTheme) {
+        R.drawable.auth_dark_section_background
+    } else {
+        R.drawable.auth_white_section_background
+    }
     Box(modifier = Modifier.fillMaxSize()) {
         Image(
-            painter = painterResource(id = R.drawable.auth_white_section_background),
+            painter = painterResource(id = backgroundRes),
             contentDescription = null,
             modifier = Modifier.fillMaxSize(),
             contentScale = ContentScale.Crop
@@ -126,7 +134,8 @@ private fun AuthBackgroundCard(content: @Composable ColumnScope.() -> Unit) {
                     modifier = Modifier
                         .align(Alignment.CenterHorizontally)
                         .size(width = 190.dp, height = 74.dp),
-                    contentScale = ContentScale.Fit
+                    contentScale = ContentScale.Fit,
+                    colorFilter = ColorFilter.tint(colors.primary)
                 )
 
                 content()
