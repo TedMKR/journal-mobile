@@ -589,7 +589,8 @@ private fun ColumnScope.SettingsMenuContent(
     SettingsSwitchRow(
         label = "Темная тема",
         checked = darkThemeEnabled,
-        onCheckedChange = onDarkThemeEnabledChange
+        onCheckedChange = onDarkThemeEnabledChange,
+        thumbIcon = SwitchThumbIcon.Theme
     )
 
     Spacer(modifier = Modifier.weight(1f))
@@ -600,7 +601,8 @@ private fun ColumnScope.SettingsMenuContent(
 private fun SettingsSwitchRow(
     label: String,
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
+    thumbIcon: SwitchThumbIcon = SwitchThumbIcon.None
 ) {
     Row(
         modifier = Modifier
@@ -617,15 +619,22 @@ private fun SettingsSwitchRow(
         )
         ProjectSwitch(
             checked = checked,
-            onCheckedChange = onCheckedChange
+            onCheckedChange = onCheckedChange,
+            thumbIcon = thumbIcon
         )
     }
+}
+
+private enum class SwitchThumbIcon {
+    None,
+    Theme
 }
 
 @Composable
 private fun ProjectSwitch(
     checked: Boolean,
-    onCheckedChange: (Boolean) -> Unit
+    onCheckedChange: (Boolean) -> Unit,
+    thumbIcon: SwitchThumbIcon = SwitchThumbIcon.None
 ) {
     val colors = AppTheme.colors
     val shape = RoundedCornerShape(30.dp)
@@ -668,8 +677,84 @@ private fun ProjectSwitch(
                 .align(Alignment.CenterStart)
                 .padding(start = thumbOffset)
                 .size(22.dp)
-                .background(thumbColor, RoundedCornerShape(20.dp))
-        )
+                .background(thumbColor, RoundedCornerShape(20.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (thumbIcon == SwitchThumbIcon.Theme) {
+                ThemeSwitchThumbIcon(
+                    darkTheme = checked,
+                    iconColor = colors.primary,
+                    cutoutColor = thumbColor
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ThemeSwitchThumbIcon(
+    darkTheme: Boolean,
+    iconColor: Color,
+    cutoutColor: Color
+) {
+    Canvas(modifier = Modifier.size(14.dp)) {
+        val center = Offset(size.width / 2f, size.height / 2f)
+        if (darkTheme) {
+            val radius = size.minDimension * 0.38f
+            drawCircle(
+                color = iconColor,
+                radius = radius,
+                center = center
+            )
+            drawCircle(
+                color = cutoutColor,
+                radius = radius * 0.86f,
+                center = Offset(center.x + radius * 0.42f, center.y - radius * 0.24f)
+            )
+        } else {
+            val coreRadius = size.minDimension * 0.22f
+            val inner = size.minDimension * 0.34f
+            val outer = size.minDimension * 0.48f
+            val innerDiag = inner * 0.7f
+            val outerDiag = outer * 0.7f
+            val rayStroke = 1.2.dp.toPx()
+
+            fun drawRay(start: Offset, end: Offset) {
+                drawLine(
+                    color = iconColor,
+                    start = start,
+                    end = end,
+                    strokeWidth = rayStroke,
+                    cap = StrokeCap.Round
+                )
+            }
+
+            drawCircle(
+                color = iconColor,
+                radius = coreRadius,
+                center = center
+            )
+            drawRay(Offset(center.x, center.y - inner), Offset(center.x, center.y - outer))
+            drawRay(Offset(center.x, center.y + inner), Offset(center.x, center.y + outer))
+            drawRay(Offset(center.x - inner, center.y), Offset(center.x - outer, center.y))
+            drawRay(Offset(center.x + inner, center.y), Offset(center.x + outer, center.y))
+            drawRay(
+                Offset(center.x - innerDiag, center.y - innerDiag),
+                Offset(center.x - outerDiag, center.y - outerDiag)
+            )
+            drawRay(
+                Offset(center.x + innerDiag, center.y - innerDiag),
+                Offset(center.x + outerDiag, center.y - outerDiag)
+            )
+            drawRay(
+                Offset(center.x - innerDiag, center.y + innerDiag),
+                Offset(center.x - outerDiag, center.y + outerDiag)
+            )
+            drawRay(
+                Offset(center.x + innerDiag, center.y + innerDiag),
+                Offset(center.x + outerDiag, center.y + outerDiag)
+            )
+        }
     }
 }
 
