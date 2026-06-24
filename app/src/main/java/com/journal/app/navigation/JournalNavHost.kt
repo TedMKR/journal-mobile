@@ -35,7 +35,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -563,17 +562,12 @@ private fun ColumnScope.MainMenuContent(
     currentRoute: String,
     onNavigate: (String) -> Unit
 ) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        menuItems(role).forEachIndexed { index, item ->
-            if (index == 0) {
-                MenuDivider()
-            }
-            MenuRow(
-                item = item,
-                selected = currentRoute == item.route,
-                onClick = { onNavigate(item.route) }
-            )
-        }
+    menuItems(role).forEach { item ->
+        MenuRow(
+            item = item,
+            selected = currentRoute == item.route,
+            onClick = { onNavigate(item.route) }
+        )
     }
 
     Spacer(modifier = Modifier.weight(1f))
@@ -780,26 +774,16 @@ private fun LogoutRow(onClick: () -> Unit) {
 
 @Composable
 private fun MenuRow(item: MenuItem, selected: Boolean, onClick: () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(
-            text = item.title,
-            modifier = Modifier
-                .fillMaxWidth()
-                .noRippleClickable(onClick = onClick)
-                .padding(vertical = 13.dp),
-            color = MenuPrimary,
-            style = MaterialTheme.typography.bodyLarge,
-            fontWeight = FontWeight.SemiBold
-        )
-        MenuDivider(selected = selected)
-    }
-}
-
-@Composable
-private fun MenuDivider(selected: Boolean = false) {
-    HorizontalDivider(
-        thickness = if (selected) 1.dp else 0.5.dp,
-        color = if (selected) MenuPrimary else AppTheme.colors.fieldBorder
+    val selectedTextColor = AppTheme.colors.onPrimary
+    Text(
+        text = item.title,
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(if (selected) MenuPrimary else MenuItemBackground, RoundedCornerShape(14.dp))
+            .noRippleClickable(onClick = onClick)
+            .padding(horizontal = 14.dp, vertical = 13.dp),
+        color = if (selected) selectedTextColor else MenuPrimary,
+        fontWeight = FontWeight.SemiBold
     )
 }
 
