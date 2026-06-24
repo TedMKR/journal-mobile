@@ -499,7 +499,7 @@ private fun AnimatedVisibilityScope.RightSideMenu(
                 .background(MenuBackground)
                 .clickable(enabled = false) {}
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 18.dp, vertical = 28.dp),
+                .padding(start = 16.dp, top = 12.dp, end = 16.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             MenuHeader(
