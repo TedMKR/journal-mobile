@@ -18,6 +18,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -424,7 +425,7 @@ private fun AppHeader(
                 text = "←",
                 modifier = Modifier
                     .align(Alignment.CenterStart)
-                    .clickable(onClick = onBack)
+                    .noRippleClickable(onClick = onBack)
                     .padding(horizontal = 13.dp, vertical = 8.dp),
                 color = MenuPrimary,
                 style = MaterialTheme.typography.titleLarge,
@@ -483,7 +484,7 @@ private fun AnimatedVisibilityScope.RightSideMenu(
                 exit = fadeOut(animationSpec = tween(300))
             )
             .background(MenuOverlay)
-            .clickable(onClick = onDismiss)
+            .noRippleClickable(onClick = onDismiss)
     ) {
         Column(
             modifier = with(animScope) {
@@ -656,6 +657,8 @@ private fun ProjectSwitch(
             .border(width = 1.dp, color = borderColor, shape = shape)
             .toggleable(
                 value = checked,
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
                 role = Role.Switch,
                 onValueChange = onCheckedChange
             )
@@ -677,7 +680,7 @@ private fun LogoutRow(onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .background(MenuDangerBackground, RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
+            .noRippleClickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 13.dp),
         color = MenuDanger,
         fontWeight = FontWeight.SemiBold
@@ -692,7 +695,7 @@ private fun MenuRow(item: MenuItem, selected: Boolean, onClick: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .background(if (selected) MenuPrimary else MenuItemBackground, RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick)
+            .noRippleClickable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 13.dp),
         color = if (selected) selectedTextColor else MenuPrimary,
         fontWeight = FontWeight.SemiBold
@@ -708,12 +711,25 @@ private fun HeaderIconButton(
     Box(
         modifier = modifier
             .size(44.dp)
-            .clickable(onClick = onClick),
+            .noRippleClickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         content()
     }
 }
+
+@Composable
+private fun Modifier.noRippleClickable(
+    enabled: Boolean = true,
+    role: Role? = null,
+    onClick: () -> Unit
+): Modifier = clickable(
+    enabled = enabled,
+    role = role,
+    interactionSource = remember { MutableInteractionSource() },
+    indication = null,
+    onClick = onClick
+)
 
 @Composable
 private fun MenuIcon() {
