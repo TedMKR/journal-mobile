@@ -86,6 +86,10 @@ private val SecondaryText: Color
     @Composable get() = AppTheme.colors.mutedText
 private val LightBlue: Color
     @Composable get() = AppTheme.colors.headerBackground
+private val SummaryTileBackground: Color
+    @Composable get() = AppTheme.colors.headerBackground
+private val SummaryTileBar: Color
+    @Composable get() = AppTheme.colors.barBackground
 private val AccentBlue: Color
     @Composable get() = AppTheme.colors.primary
 private const val DashboardVisibleRows = 8
@@ -240,7 +244,7 @@ private fun DashboardSummaryGrid(
 private fun DashboardSummaryTile(label: String, value: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
-            .background(LessonBackground, RoundedCornerShape(12.dp))
+            .background(SummaryTileBackground, RoundedCornerShape(12.dp))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -248,7 +252,7 @@ private fun DashboardSummaryTile(label: String, value: String, modifier: Modifie
             modifier = Modifier
                 .fillMaxWidth()
                 .height(5.dp)
-                .background(LightBlue, RoundedCornerShape(999.dp))
+                .background(SummaryTileBar, RoundedCornerShape(999.dp))
         )
         Text(label, color = PrimaryText, style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.SemiBold)
         Text(value, color = AccentBlue, style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)

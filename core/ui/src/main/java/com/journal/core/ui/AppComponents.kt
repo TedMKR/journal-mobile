@@ -88,9 +88,9 @@ fun AppStatTile(
     title: String,
     value: String,
     modifier: Modifier = Modifier,
-    backgroundColor: Color = AppTheme.colors.surface,
+    backgroundColor: Color = AppTheme.colors.headerBackground,
     contentColor: Color = AppTheme.colors.primary,
-    barColor: Color = AppTheme.colors.headerBackground
+    barColor: Color = AppTheme.colors.barBackground
 ) {
     Column(
         modifier = modifier

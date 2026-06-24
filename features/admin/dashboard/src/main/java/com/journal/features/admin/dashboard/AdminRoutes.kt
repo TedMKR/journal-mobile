@@ -108,8 +108,8 @@ private val SecondaryText: Color
     @Composable get() = AppTheme.colors.mutedText
 private val LightBlue: Color
     @Composable get() = AppTheme.colors.headerBackground
-private val LessonSurface: Color
-    @Composable get() = AppTheme.colors.lessonBackground
+private val SummaryTileBackground: Color
+    @Composable get() = AppTheme.colors.headerBackground
 private val FieldBorder: Color
     @Composable get() = AppTheme.colors.fieldBorder
 private val InputTextColor: Color
@@ -305,7 +305,7 @@ fun AdminDashboardRoute(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(LessonSurface)
+                                .background(SummaryTileBackground)
                                 .padding(12.dp)
                         ) {
                             Text(
@@ -322,7 +322,7 @@ fun AdminDashboardRoute(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(LessonSurface)
+                                .background(SummaryTileBackground)
                                 .padding(12.dp)
                         ) {
                             Text(
@@ -345,7 +345,7 @@ fun AdminDashboardRoute(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(LessonSurface)
+                                .background(SummaryTileBackground)
                                 .padding(12.dp)
                         ) {
                             Text(
@@ -362,7 +362,7 @@ fun AdminDashboardRoute(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(LessonSurface)
+                                .background(SummaryTileBackground)
                                 .padding(12.dp)
                         ) {
                             Text(
