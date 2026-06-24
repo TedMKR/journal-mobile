@@ -81,7 +81,10 @@ class MainActivity : FragmentActivity() {
                         if (sessionState is AppViewModel.SessionState.RequireBiometric) {
                             showBiometricPrompt(
                                 onSuccess = { appViewModel.onBiometricSuccess() },
-                                onFailed = { appViewModel.onBiometricFailed() }
+                                onFailed = {
+                                    appViewModel.onBiometricFailed()
+                                    finish()
+                                }
                             )
                         }
                     }
@@ -175,7 +178,7 @@ class MainActivity : FragmentActivity() {
             .canAuthenticate(authenticators)
 
         if (canAuthenticate != BiometricManager.BIOMETRIC_SUCCESS) {
-            onSuccess()
+            onFailed()
             return
         }
 
