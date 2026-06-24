@@ -5,7 +5,6 @@ import androidx.core.content.FileProvider
 import java.io.File
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -649,7 +648,6 @@ private fun TeachingAssignmentRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(CardBackground)
-            .border(1.dp, LightBlue, RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
         Row(
@@ -695,7 +693,6 @@ private fun AccessBindingRow(
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(CardBackground)
-            .border(1.dp, LightBlue, RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
         Row(

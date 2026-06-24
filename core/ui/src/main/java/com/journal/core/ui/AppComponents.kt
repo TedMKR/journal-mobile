@@ -46,7 +46,6 @@ import androidx.compose.ui.unit.sp
 fun AppSectionCard(
     modifier: Modifier = Modifier,
     backgroundColor: Color = AppTheme.colors.surface,
-    borderColor: Color = AppTheme.colors.outline,
     cornerRadius: Int = 16,
     content: @Composable () -> Unit
 ) {
@@ -55,7 +54,6 @@ fun AppSectionCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(cornerRadius.dp))
             .background(backgroundColor)
-            .border(1.dp, borderColor, RoundedCornerShape(cornerRadius.dp))
             .padding(18.dp)
     ) {
         content()

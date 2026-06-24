@@ -392,6 +392,7 @@ fun AdminJournalsRoute(
                         AdminPaginationRow(
                             page = page - 1,
                             totalPages = totalPages,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                             onPrev = { if (page > 1) page-- },
                             onNext = { if (page < totalPages) page++ }
                         )
@@ -414,7 +415,6 @@ private fun JournalAdminRow(
             .padding(horizontal = 12.dp, vertical = 6.dp)
             .clip(RoundedCornerShape(16.dp))
             .background(CardBackground)
-            .border(1.dp, Color(0xFFD1D5DB), RoundedCornerShape(16.dp))
             .padding(16.dp)
     ) {
         // Header: calendar icon + discipline title + status badge

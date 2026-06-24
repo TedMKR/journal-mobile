@@ -422,6 +422,7 @@ fun AdminProblemStudentsRoute(
                 AdminPaginationRow(
                     page = page - 1,
                     totalPages = totalPages,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 5.dp),
                     onPrev = { if (page > 1) page-- },
                     onNext = { if (page < totalPages) page++ }
                 )
@@ -518,7 +519,6 @@ private fun ProblemStudentCard(student: ProblemStudentEntry, modifier: Modifier 
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(CardBackground, RoundedCornerShape(16.dp))
-            .border(1.dp, LightBlue, RoundedCornerShape(16.dp))
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
