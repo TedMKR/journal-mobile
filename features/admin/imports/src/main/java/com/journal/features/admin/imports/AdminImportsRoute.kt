@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
@@ -62,6 +63,7 @@ fun AdminImportsRoute(journalApi: JournalApi) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var page by remember { mutableIntStateOf(1) }
+    val listState = rememberLazyListState()
     var status by remember { mutableStateOf("") }
     var isLoading by remember { mutableStateOf(true) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -132,7 +134,10 @@ fun AdminImportsRoute(journalApi: JournalApi) {
         }
     }
 
-    LaunchedEffect(page, status) { load() }
+    LaunchedEffect(page, status) {
+        load()
+        listState.scrollToItem(0)
+    }
 
     val totalPages = maxOf(1, (total + PAGE_SIZE - 1) / PAGE_SIZE)
 
@@ -197,6 +202,7 @@ fun AdminImportsRoute(journalApi: JournalApi) {
                 Text("История импорта пуста", color = colors.mutedText, fontWeight = FontWeight.SemiBold)
             }
             else -> LazyColumn(
+                state = listState,
                 modifier = Modifier.fillMaxSize(),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)

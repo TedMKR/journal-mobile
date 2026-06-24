@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -244,6 +245,7 @@ fun AdminAuditRoute(
     var filterAction by remember { mutableStateOf("") }
     var filterEntity by remember { mutableStateOf("") }
     var page by remember { mutableIntStateOf(1) }
+    val listState = rememberLazyListState()
     var actionError by remember { mutableStateOf<String?>(null) }
 
     fun loadAudit() {
@@ -255,7 +257,10 @@ fun AdminAuditRoute(
         )
     }
 
-    LaunchedEffect(page, filterAction, filterEntity) { loadAudit() }
+    LaunchedEffect(page, filterAction, filterEntity) {
+        loadAudit()
+        listState.scrollToItem(0)
+    }
 
     val totalPages = maxOf(1, (uiState.total + AUDIT_PAGE_SIZE - 1) / AUDIT_PAGE_SIZE)
     val currentError = actionError ?: uiState.error
@@ -354,6 +359,7 @@ fun AdminAuditRoute(
             }
 
             else -> LazyColumn(
+                state = listState,
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)

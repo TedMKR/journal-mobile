@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -245,6 +246,7 @@ fun AdminProblemStudentsRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     var page by rememberSaveable { mutableIntStateOf(1) }
+    val listState = rememberLazyListState()
     var periodId by rememberSaveable { mutableStateOf("") }
     var groupId by rememberSaveable { mutableStateOf("") }
     var disciplineId by rememberSaveable { mutableStateOf("") }
@@ -265,7 +267,10 @@ fun AdminProblemStudentsRoute(
         )
     }
 
-    LaunchedEffect(page) { loadStudents() }
+    LaunchedEffect(page) {
+        loadStudents()
+        listState.scrollToItem(0)
+    }
 
     val totalPages = maxOf(1, (uiState.total + PROBLEM_STUDENTS_PAGE_SIZE - 1) / PROBLEM_STUDENTS_PAGE_SIZE)
 
@@ -277,6 +282,7 @@ fun AdminProblemStudentsRoute(
         uiState.disciplines.map { it.name to it.id }
 
     LazyColumn(
+        state = listState,
         modifier = Modifier
             .fillMaxSize()
             .background(BackgroundColor),

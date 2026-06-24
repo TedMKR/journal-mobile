@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -249,6 +250,7 @@ fun AdminUsersRoute(
     var filterRole by remember { mutableStateOf("") }
     var filterStatus by remember { mutableStateOf("") }
     var page by remember { mutableIntStateOf(1) }
+    val listState = rememberLazyListState()
 
     // Edit dialog state
     var editingUser by remember { mutableStateOf<AdminUser?>(null) }
@@ -274,7 +276,10 @@ fun AdminUsersRoute(
         )
     }
 
-    LaunchedEffect(page, search, filterRole, filterStatus) { loadUsers() }
+    LaunchedEffect(page, search, filterRole, filterStatus) {
+        loadUsers()
+        listState.scrollToItem(0)
+    }
 
     val totalPages = maxOf(1, (uiState.total + USERS_PAGE_SIZE - 1) / USERS_PAGE_SIZE)
     val currentError = actionError ?: uiState.error
@@ -487,6 +492,7 @@ fun AdminUsersRoute(
             }
 
             else -> LazyColumn(
+                state = listState,
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)

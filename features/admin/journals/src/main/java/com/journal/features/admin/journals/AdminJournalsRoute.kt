@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -278,6 +279,7 @@ fun AdminJournalsRoute(
     var actionError by remember { mutableStateOf<String?>(null) }
     var filterStatus by remember { mutableStateOf("") }
     var page by remember { mutableIntStateOf(1) }
+    val listState = rememberLazyListState()
 
     data class PendingAction(val journal: AdminJournalContext, val action: String)
     var pendingAction by remember { mutableStateOf<PendingAction?>(null) }
@@ -309,7 +311,10 @@ fun AdminJournalsRoute(
         }
     }
 
-    LaunchedEffect(page, filterStatus) { loadJournals() }
+    LaunchedEffect(page, filterStatus) {
+        loadJournals()
+        listState.scrollToItem(0)
+    }
 
     val totalPages = maxOf(1, (uiState.total + JOURNALS_PAGE_SIZE - 1) / JOURNALS_PAGE_SIZE)
     val currentError = actionError ?: uiState.error
@@ -377,6 +382,7 @@ fun AdminJournalsRoute(
                 Text("Журналы не найдены", color = SecondaryText, fontWeight = FontWeight.SemiBold)
             }
             else -> LazyColumn(
+                state = listState,
                 modifier = Modifier.weight(1f),
                 contentPadding = PaddingValues(vertical = 8.dp)
             ) {
