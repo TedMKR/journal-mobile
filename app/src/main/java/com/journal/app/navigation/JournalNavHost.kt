@@ -582,15 +582,15 @@ private fun ColumnScope.SettingsMenuContent(
     onLogout: () -> Unit
 ) {
     SettingsSwitchRow(
-        label = "Уведомления",
-        checked = gradeNotificationsEnabled,
-        onCheckedChange = onNotificationsEnabledChange
-    )
-    SettingsSwitchRow(
         label = "Темная тема",
         checked = darkThemeEnabled,
         onCheckedChange = onDarkThemeEnabledChange,
         thumbIcon = SwitchThumbIcon.Theme
+    )
+    SettingsSwitchRow(
+        label = "Уведомления",
+        checked = gradeNotificationsEnabled,
+        onCheckedChange = onNotificationsEnabledChange
     )
 
     Spacer(modifier = Modifier.weight(1f))
