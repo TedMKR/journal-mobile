@@ -502,6 +502,12 @@ private fun AnimatedVisibilityScope.RightSideMenu(
                 .padding(horizontal = 18.dp, vertical = 28.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
+            MenuHeader(
+                title = if (showSettings) "Настройки" else "Меню",
+                settingsActive = showSettings,
+                onSettingsClick = { showSettings = !showSettings },
+                onDismiss = onDismiss
+            )
             if (showSettings) {
                 SettingsMenuContent(
                     gradeNotificationsEnabled = gradeNotificationsEnabled,
@@ -518,20 +524,33 @@ private fun AnimatedVisibilityScope.RightSideMenu(
                 )
             }
         }
+    }
+}
 
-        Row(
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 12.dp, end = 16.dp),
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            HeaderIconButton(onClick = { showSettings = !showSettings }) {
-                GearIcon(active = showSettings)
-            }
-            HeaderIconButton(onClick = onDismiss) {
-                CloseIcon()
-            }
+@Composable
+private fun MenuHeader(
+    title: String,
+    settingsActive: Boolean,
+    onSettingsClick: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = title,
+            color = MenuPrimary,
+            style = MaterialTheme.typography.titleMedium,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.weight(1f)
+        )
+        HeaderIconButton(onClick = onSettingsClick) {
+            GearIcon(active = settingsActive)
+        }
+        HeaderIconButton(onClick = onDismiss) {
+            CloseIcon()
         }
     }
 }
@@ -542,15 +561,6 @@ private fun ColumnScope.MainMenuContent(
     currentRoute: String,
     onNavigate: (String) -> Unit
 ) {
-    Column {
-        Text(
-            text = "Меню",
-            color = MenuPrimary,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
-    }
-
     menuItems(role).forEach { item ->
         MenuRow(
             item = item,
@@ -570,15 +580,6 @@ private fun ColumnScope.SettingsMenuContent(
     onDarkThemeEnabledChange: (Boolean) -> Unit,
     onLogout: () -> Unit
 ) {
-    Column {
-        Text(
-            text = "Настройки",
-            color = MenuPrimary,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold
-        )
-    }
-
     SettingsSwitchRow(
         label = "Уведомления",
         checked = gradeNotificationsEnabled,
