@@ -47,6 +47,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
@@ -590,7 +591,8 @@ private fun ColumnScope.SettingsMenuContent(
     SettingsSwitchRow(
         label = "Уведомления",
         checked = gradeNotificationsEnabled,
-        onCheckedChange = onNotificationsEnabledChange
+        onCheckedChange = onNotificationsEnabledChange,
+        thumbIcon = SwitchThumbIcon.Notifications
     )
 
     Spacer(modifier = Modifier.weight(1f))
@@ -627,7 +629,8 @@ private fun SettingsSwitchRow(
 
 private enum class SwitchThumbIcon {
     None,
-    Theme
+    Theme,
+    Notifications
 }
 
 @Composable
@@ -680,12 +683,21 @@ private fun ProjectSwitch(
                 .background(thumbColor, RoundedCornerShape(20.dp)),
             contentAlignment = Alignment.Center
         ) {
-            if (thumbIcon == SwitchThumbIcon.Theme) {
-                ThemeSwitchThumbIcon(
-                    darkTheme = checked,
-                    iconColor = colors.primary,
-                    cutoutColor = thumbColor
-                )
+            when (thumbIcon) {
+                SwitchThumbIcon.Theme -> {
+                    ThemeSwitchThumbIcon(
+                        darkTheme = checked,
+                        iconColor = colors.primary,
+                        cutoutColor = thumbColor
+                    )
+                }
+                SwitchThumbIcon.Notifications -> {
+                    NotificationSwitchThumbIcon(
+                        enabled = checked,
+                        iconColor = colors.primary
+                    )
+                }
+                SwitchThumbIcon.None -> Unit
             }
         }
     }
@@ -753,6 +765,80 @@ private fun ThemeSwitchThumbIcon(
             drawRay(
                 Offset(center.x + innerDiag, center.y + innerDiag),
                 Offset(center.x + outerDiag, center.y + outerDiag)
+            )
+        }
+    }
+}
+
+@Composable
+private fun NotificationSwitchThumbIcon(
+    enabled: Boolean,
+    iconColor: Color
+) {
+    Canvas(modifier = Modifier.size(14.dp)) {
+        val strokeWidth = 1.25.dp.toPx()
+        val bellPath = Path().apply {
+            moveTo(size.width * 0.5f, size.height * 0.19f)
+            cubicTo(
+                size.width * 0.36f,
+                size.height * 0.23f,
+                size.width * 0.28f,
+                size.height * 0.35f,
+                size.width * 0.28f,
+                size.height * 0.49f
+            )
+            lineTo(size.width * 0.28f, size.height * 0.61f)
+            cubicTo(
+                size.width * 0.28f,
+                size.height * 0.70f,
+                size.width * 0.21f,
+                size.height * 0.76f,
+                size.width * 0.18f,
+                size.height * 0.80f
+            )
+            lineTo(size.width * 0.82f, size.height * 0.80f)
+            cubicTo(
+                size.width * 0.79f,
+                size.height * 0.76f,
+                size.width * 0.72f,
+                size.height * 0.70f,
+                size.width * 0.72f,
+                size.height * 0.61f
+            )
+            lineTo(size.width * 0.72f, size.height * 0.49f)
+            cubicTo(
+                size.width * 0.72f,
+                size.height * 0.35f,
+                size.width * 0.64f,
+                size.height * 0.23f,
+                size.width * 0.5f,
+                size.height * 0.19f
+            )
+        }
+
+        drawPath(
+            path = bellPath,
+            color = iconColor,
+            style = Stroke(
+                width = strokeWidth,
+                cap = StrokeCap.Round,
+                join = StrokeJoin.Round
+            )
+        )
+        drawLine(
+            color = iconColor,
+            start = Offset(size.width * 0.39f, size.height * 0.91f),
+            end = Offset(size.width * 0.61f, size.height * 0.91f),
+            strokeWidth = strokeWidth,
+            cap = StrokeCap.Round
+        )
+        if (!enabled) {
+            drawLine(
+                color = iconColor,
+                start = Offset(size.width * 0.18f, size.height * 0.17f),
+                end = Offset(size.width * 0.82f, size.height * 0.84f),
+                strokeWidth = 1.45.dp.toPx(),
+                cap = StrokeCap.Round
             )
         }
     }
