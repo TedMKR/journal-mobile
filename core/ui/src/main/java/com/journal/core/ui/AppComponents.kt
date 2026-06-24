@@ -548,23 +548,68 @@ fun AppPaginationRow(
     secondaryColor: Color = AppTheme.colors.mutedText
 ) {
     val surfaceColor = AppTheme.colors.surface
-    val borderColor = AppTheme.colors.outline
+    val buttonColor = AppTheme.colors.headerBackground
+    val canGoPrev = page > 0
+    val canGoNext = page + 1 < totalPages
+
     Row(
         modifier = modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(surfaceColor)
-            .border(1.dp, borderColor, RoundedCornerShape(16.dp))
-            .padding(horizontal = 12.dp, vertical = 8.dp),
+            .padding(horizontal = 6.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        TextButton(onClick = onPrev, enabled = page > 0) {
-            Text("Назад", color = contentColor, fontWeight = FontWeight.SemiBold)
-        }
-        Text("${page + 1} / $totalPages", color = secondaryColor, fontWeight = FontWeight.SemiBold)
-        TextButton(onClick = onNext, enabled = page + 1 < totalPages) {
-            Text("Вперед", color = contentColor, fontWeight = FontWeight.SemiBold)
-        }
+        AppPaginationArrowButton(
+            text = "‹",
+            enabled = canGoPrev,
+            onClick = onPrev,
+            backgroundColor = buttonColor,
+            contentColor = contentColor,
+            disabledColor = secondaryColor
+        )
+        Text(
+            "${page + 1} / $totalPages",
+            color = contentColor,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        AppPaginationArrowButton(
+            text = "›",
+            enabled = canGoNext,
+            onClick = onNext,
+            backgroundColor = buttonColor,
+            contentColor = contentColor,
+            disabledColor = secondaryColor
+        )
+    }
+}
+
+@Composable
+private fun AppPaginationArrowButton(
+    text: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    backgroundColor: Color,
+    contentColor: Color,
+    disabledColor: Color
+) {
+    Box(
+        modifier = Modifier
+            .size(44.dp)
+            .background(
+                color = if (enabled) backgroundColor else backgroundColor.copy(alpha = 0.55f),
+                shape = RoundedCornerShape(12.dp)
+            )
+            .clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = text,
+            color = if (enabled) contentColor else disabledColor,
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold
+        )
     }
 }

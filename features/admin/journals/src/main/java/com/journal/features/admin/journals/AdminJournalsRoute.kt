@@ -388,7 +388,14 @@ fun AdminJournalsRoute(
                     )
                 }
                 if (totalPages > 1) {
-                    item { AdminPaginationRow(page, totalPages, onPrev = { page-- }, onNext = { page++ }) }
+                    item {
+                        AdminPaginationRow(
+                            page = page - 1,
+                            totalPages = totalPages,
+                            onPrev = { if (page > 1) page-- },
+                            onNext = { if (page < totalPages) page++ }
+                        )
+                    }
                 }
             }
         }

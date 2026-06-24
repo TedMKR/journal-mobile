@@ -420,10 +420,10 @@ fun AdminProblemStudentsRoute(
         if (totalPages > 1) {
             item {
                 AdminPaginationRow(
-                    page = page,
+                    page = page - 1,
                     totalPages = totalPages,
-                    onPrev = { page-- },
-                    onNext = { page++ }
+                    onPrev = { if (page > 1) page-- },
+                    onNext = { if (page < totalPages) page++ }
                 )
             }
         }

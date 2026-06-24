@@ -363,35 +363,12 @@ fun AdminAuditRoute(
 
                 if (totalPages > 1) {
                     item {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(16.dp))
-                                .background(CardBackground)
-                                .border(1.dp, LightBlue, RoundedCornerShape(16.dp))
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            TextButton(
-                                onClick = { if (page > 1) page-- },
-                                enabled = page > 1
-                            ) {
-                                Text("< Назад", color = if (page > 1) PrimaryBlue else SecondaryText)
-                            }
-                            Text(
-                                "$page / $totalPages",
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                                color = PrimaryBlue,
-                                fontWeight = FontWeight.Bold
-                            )
-                            TextButton(
-                                onClick = { if (page < totalPages) page++ },
-                                enabled = page < totalPages
-                            ) {
-                                Text("Вперёд >", color = if (page < totalPages) PrimaryBlue else SecondaryText)
-                            }
-                        }
+                        AdminPaginationRow(
+                            page = page - 1,
+                            totalPages = totalPages,
+                            onPrev = { if (page > 1) page-- },
+                            onNext = { if (page < totalPages) page++ }
+                        )
                     }
                 }
             }
