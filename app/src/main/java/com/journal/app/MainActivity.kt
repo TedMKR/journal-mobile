@@ -18,6 +18,9 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.core.app.ActivityCompat
@@ -35,6 +38,7 @@ import com.journal.core.data.theme.AppearanceSettingsRepository
 import com.journal.core.network.api.JournalApi
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
+import kotlinx.coroutines.delay
 
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
@@ -76,14 +80,21 @@ class MainActivity : FragmentActivity() {
                     val gradeNotificationsEnabled by notificationSettingsRepository
                         .gradeNotificationsEnabled
                         .collectAsState()
+                    var biometricPromptRequest by remember { mutableStateOf(0) }
 
-                    LaunchedEffect(sessionState) {
+                    LaunchedEffect(sessionState, biometricPromptRequest) {
                         if (sessionState is AppViewModel.SessionState.RequireBiometric) {
+                            if (biometricPromptRequest > 0) {
+                                delay(BIOMETRIC_PROMPT_RETRY_DELAY_MS)
+                            }
                             showBiometricPrompt(
                                 onSuccess = { appViewModel.onBiometricSuccess() },
-                                onFailed = {
+                                onDismissed = {
                                     appViewModel.onBiometricFailed()
-                                    finish()
+                                    biometricPromptRequest += 1
+                                },
+                                onUnavailable = {
+                                    appViewModel.onBiometricFailed()
                                 }
                             )
                         }
@@ -170,7 +181,8 @@ class MainActivity : FragmentActivity() {
 
     private fun showBiometricPrompt(
         onSuccess: () -> Unit,
-        onFailed: () -> Unit
+        onDismissed: () -> Unit,
+        onUnavailable: () -> Unit
     ) {
         val authenticators = BIOMETRIC_STRONG or DEVICE_CREDENTIAL
 
@@ -178,7 +190,7 @@ class MainActivity : FragmentActivity() {
             .canAuthenticate(authenticators)
 
         if (canAuthenticate != BiometricManager.BIOMETRIC_SUCCESS) {
-            onFailed()
+            onUnavailable()
             return
         }
 
@@ -198,7 +210,11 @@ class MainActivity : FragmentActivity() {
                 }
 
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
-                    onFailed()
+                    if (errorCode.isBiometricPromptDismissal()) {
+                        onDismissed()
+                    } else {
+                        onUnavailable()
+                    }
                 }
 
                 override fun onAuthenticationFailed() = Unit
@@ -208,7 +224,13 @@ class MainActivity : FragmentActivity() {
         biometricPrompt.authenticate(promptInfo)
     }
 
+    private fun Int.isBiometricPromptDismissal(): Boolean =
+        this == BiometricPrompt.ERROR_CANCELED ||
+            this == BiometricPrompt.ERROR_NEGATIVE_BUTTON ||
+            this == BiometricPrompt.ERROR_USER_CANCELED
+
     private companion object {
         const val POST_NOTIFICATIONS_REQUEST_CODE = 9101
+        const val BIOMETRIC_PROMPT_RETRY_DELAY_MS = 250L
     }
 }

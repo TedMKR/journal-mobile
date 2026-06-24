@@ -110,11 +110,8 @@ class AppViewModel @Inject constructor(
     }
 
     fun onBiometricFailed() {
-        clearStoredAuth()
-        viewModelScope.launch(Dispatchers.IO) {
-            sessionRepository.clearAll()
-        }
-        _sessionState.value = SessionState.Unauthenticated
+        Log.d(TAG, "Biometric confirmation dismissed - keeping session locked")
+        _sessionState.value = SessionState.RequireBiometric
     }
 
     fun clearSession() {
