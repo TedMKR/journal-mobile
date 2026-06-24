@@ -57,12 +57,9 @@ import com.journal.core.model.teacher.LessonTopic
 import com.journal.core.model.teacher.TeacherProfile
 import com.journal.core.model.teacher.TopicPayload
 import com.journal.core.model.teacher.UpdateLessonTemplateRequest
-import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppDropdown
 import com.journal.core.ui.AppFieldPlaceholder
-import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppMutedText
-import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.appFieldColors
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -81,6 +78,8 @@ private val BackgroundColor: Color
     @Composable get() = AppTheme.colors.background
 private val CardBackground: Color
     @Composable get() = AppTheme.colors.surface
+private val LessonBackground: Color
+    @Composable get() = AppTheme.colors.lessonBackground
 private val PrimaryText: Color
     @Composable get() = AppTheme.colors.primary
 private val SecondaryText: Color
@@ -216,13 +215,13 @@ private fun DashboardSummaryGrid(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(PrimaryText, RoundedCornerShape(16.dp))
+            .background(CardBackground, RoundedCornerShape(16.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Text(
             displayName,
-            color = Color.White,
+            color = PrimaryText,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
         )
@@ -241,7 +240,7 @@ private fun DashboardSummaryGrid(
 private fun DashboardSummaryTile(label: String, value: String, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
-            .background(CardBackground, RoundedCornerShape(12.dp))
+            .background(LessonBackground, RoundedCornerShape(12.dp))
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
@@ -413,7 +412,7 @@ private fun JournalContextCard(context: JournalContext, onOpen: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFF7F8FB), RoundedCornerShape(16.dp))
+            .background(LessonBackground, RoundedCornerShape(16.dp))
             .border(1.dp, LightBlue, RoundedCornerShape(16.dp))
             .clickable(onClick = onOpen)
             .padding(14.dp),

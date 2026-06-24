@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,8 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -51,12 +48,9 @@ import com.journal.core.model.teacher.GrantJournalAccessRequest
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.TeacherLesson
 import com.journal.core.model.teacher.TeacherProfile
-import com.journal.core.ui.AppBackground
 import com.journal.core.ui.AppDropdown
-import com.journal.core.ui.AppHeaderBackground
-import com.journal.core.ui.AppLessonBackground
-import com.journal.core.ui.AppPrimary
-import com.journal.core.ui.AppSecondaryText
+import com.journal.core.ui.AppPrimaryButton as PrimaryButton
+import com.journal.core.ui.AppSecondaryButton as SecondaryButton
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.OffsetDateTime
@@ -73,7 +67,8 @@ private val SecondaryText: Color
     @Composable get() = AppTheme.colors.secondaryText
 private val CardBackground: Color
     @Composable get() = AppTheme.colors.surface
-private val AccentBackground = AppHeaderBackground
+private val AccentBackground: Color
+    @Composable get() = AppTheme.colors.headerBackground
 private val LessonBackground: Color
     @Composable get() = AppTheme.colors.lessonBackground
 
@@ -174,13 +169,13 @@ private fun ProfileSummary(state: TeacherDashboardUiState) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(PrimaryText, RoundedCornerShape(16.dp))
+            .background(CardBackground, RoundedCornerShape(16.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(
             text = state.teacherName,
-            color = Color.White,
+            color = PrimaryText,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
         )
@@ -328,7 +323,8 @@ private fun AnalyticsCard(
             placeholder = "Выберите группу"
         )
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-            Button(
+            SecondaryButton(
+                text = "Применить",
                 onClick = {
                     // Resolve the periodId for the chosen group+discipline.
                     // Priority: exact lesson match → active academic period → default target's period.
@@ -347,31 +343,14 @@ private fun AnalyticsCard(
                     )
                 },
                 enabled = canApply,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = AccentBackground,
-                    contentColor = Color.White,
-                    disabledContainerColor = AccentBackground,
-                    disabledContentColor = Color.White
-                ),
-                shape = RoundedCornerShape(12.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 modifier = Modifier.weight(1f)
-            ) {
-                Text("Применить", maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
-            }
-            Button(
+            )
+            PrimaryButton(
+                text = "Открыть доступ",
                 onClick = { showAccessDialog = true },
                 enabled = selectedTarget != null && !isOffline,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryText,
-                    contentColor = AppTheme.colors.onPrimary
-                ),
-                shape = RoundedCornerShape(12.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 modifier = Modifier.weight(1f)
-            ) {
-                Text("Открыть доступ", maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
-            }
+            )
         }
 
         when {
@@ -534,12 +513,13 @@ private fun AccessGrantDialog(
                         .clickable(onClick = onDismiss)
                         .padding(12.dp)
                 )
-                Button(
-                    onClick = {
+                PrimaryButton(
+                    text = if (isSaving) "Сохранение..." else "Сохранить",
+                    onClick = saveAccess@{
                         val granteeId = selectedTeacher?.keycloakId
                         if (target == null || granteeId.isNullOrBlank()) {
                             message = "Выберите преподавателя"
-                            return@Button
+                            return@saveAccess
                         }
                         scope.launch {
                             isSaving = true
@@ -562,21 +542,8 @@ private fun AccessGrantDialog(
                             }
                         }
                     },
-                    enabled = !isSaving && !teachersState.isLoading && !isOffline && !teachersState.isOffline,
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = PrimaryText,
-                        contentColor = AppTheme.colors.onPrimary
-                    ),
-                    shape = RoundedCornerShape(12.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-                ) {
-                    Text(
-                        if (isSaving) "Сохранение..." else "Сохранить",
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Clip
-                    )
-                }
+                    enabled = !isSaving && !teachersState.isLoading && !isOffline && !teachersState.isOffline
+                )
             }
         }
     }

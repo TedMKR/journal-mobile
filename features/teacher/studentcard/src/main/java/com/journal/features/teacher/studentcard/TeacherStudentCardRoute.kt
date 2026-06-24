@@ -35,11 +35,6 @@ import androidx.compose.ui.unit.dp
 import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.model.teacher.JournalGridResponse
 import com.journal.core.model.teacher.JournalGridStudent
-import com.journal.core.ui.AppBackground
-import com.journal.core.ui.AppBarBackground
-import com.journal.core.ui.AppHeaderBackground
-import com.journal.core.ui.AppPrimary
-import com.journal.core.ui.AppSecondaryText
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
@@ -49,7 +44,8 @@ private val BackgroundColor: Color
     @Composable get() = AppTheme.colors.background
 private val PrimaryText: Color
     @Composable get() = AppTheme.colors.primary
-private val MutedText = AppSecondaryText
+private val MutedText: Color
+    @Composable get() = AppTheme.colors.secondaryText
 private val CardBackground: Color
     @Composable get() = AppTheme.colors.surface
 private val LightBlue: Color
@@ -98,18 +94,18 @@ private fun StudentCardContent(
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(PrimaryText, RoundedCornerShape(16.dp))
+                .background(CardBackground, RoundedCornerShape(16.dp))
                 .padding(14.dp)
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
                 Text(
                     PersonNameFormatter.formatFullName(card.student.fullName),
-                    color = Color.White,
+                    color = PrimaryText,
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Группа: ${card.groupName}", color = Color.White.copy(alpha = 0.84f))
+                    Text("Группа: ${card.groupName}", color = MutedText)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
                     StatTile(

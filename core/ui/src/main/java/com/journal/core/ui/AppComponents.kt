@@ -182,7 +182,6 @@ fun AppPrimaryButton(
     ) {
         Text(
             text = text,
-            color = textColor,
             fontWeight = if (bold) FontWeight.SemiBold else FontWeight.Normal,
             fontSize = 14.sp,
             maxLines = 1,
@@ -197,6 +196,7 @@ fun AppSecondaryButton(
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    enabled: Boolean = true,
     containerColor: Color = AppTheme.colors.surface,
     contentColor: Color = AppTheme.colors.primary,
     cornerRadius: Int = 12
@@ -205,6 +205,7 @@ fun AppSecondaryButton(
     val borderColor = AppTheme.colors.outline
     Button(
         onClick = onClick,
+        enabled = enabled,
         modifier = modifier,
         shape = shape,
         border = BorderStroke(1.dp, borderColor),

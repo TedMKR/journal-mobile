@@ -50,15 +50,6 @@ import com.journal.core.model.teacher.StudentLesson
 import com.journal.core.model.teacher.StudentSubjectCard
 import com.journal.core.model.teacher.StudentProfile
 import com.journal.core.model.teacher.StudentSubjectSummary
-import com.journal.core.ui.AppBackground
-import com.journal.core.ui.AppBarBackground
-import com.journal.core.ui.AppDanger
-import com.journal.core.ui.AppHeaderBackground
-import com.journal.core.ui.AppLessonBackground
-import com.journal.core.ui.AppPrimary
-import com.journal.core.ui.AppSecondaryText
-import com.journal.core.ui.AppSuccess
-import com.journal.core.ui.AppWarning
 import java.time.LocalDate
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -74,23 +65,32 @@ private val LessonBackground: Color
     @Composable get() = AppTheme.colors.lessonBackground
 private val PrimaryText: Color
     @Composable get() = AppTheme.colors.primary
-private val MutedText = AppSecondaryText
+private val MutedText: Color
+    @Composable get() = AppTheme.colors.secondaryText
 private val BadgeBackground: Color
     @Composable get() = AppTheme.colors.headerBackground
 private val LightBlue: Color
     @Composable get() = AppTheme.colors.headerBackground
 private val BarBackground: Color
     @Composable get() = AppTheme.colors.barBackground
-private val Accent = AppPrimary
-private val Danger = AppDanger
-private val Success = AppSuccess
+private val Accent: Color
+    @Composable get() = AppTheme.colors.primary
+private val Danger: Color
+    @Composable get() = AppTheme.colors.danger
+private val Success: Color
+    @Composable get() = AppTheme.colors.success
 
 // Journal table colours
-private val JournalHeaderBg    = AppHeaderBackground
-private val JournalCellBorder  = Color(0xFFC9CED8)
-private val JournalPresentColor = AppSuccess
-private val JournalAbsentColor  = AppDanger
-private val JournalExcuseColor  = AppWarning
+private val JournalHeaderBg: Color
+    @Composable get() = AppTheme.colors.headerBackground
+private val JournalCellBorder: Color
+    @Composable get() = AppTheme.colors.outline
+private val JournalPresentColor: Color
+    @Composable get() = AppTheme.colors.success
+private val JournalAbsentColor: Color
+    @Composable get() = AppTheme.colors.danger
+private val JournalExcuseColor: Color
+    @Composable get() = AppTheme.colors.warning
 
 private const val STUDENT_NAME_COL   = 190
 private const val STUDENT_ATTEND_COL = 82
@@ -427,18 +427,18 @@ private fun ProfileSummaryCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(PrimaryText, RoundedCornerShape(16.dp))
+            .background(CardBackground, RoundedCornerShape(16.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Text(
             text = displayName,
-            color = Color.White,
+            color = PrimaryText,
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.Bold
         )
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            profile?.groupName?.takeIf { it.isNotBlank() }?.let { Text("Группа: $it", color = Color.White.copy(alpha = 0.84f)) }
+            profile?.groupName?.takeIf { it.isNotBlank() }?.let { Text("Группа: $it", color = MutedText) }
             if (profile?.isHeadStudent == true) InfoChip("Староста")
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
@@ -505,17 +505,19 @@ private fun SubjectRow(subject: StudentSubjectSummary) {
                 )
             }
         }
-        Box(modifier = Modifier.fillMaxWidth().background(Color(0xFFE5E7EB)).padding(top = 1.dp))
+        Box(modifier = Modifier.fillMaxWidth().background(BarBackground).padding(top = 1.dp))
     }
 }
 
 @Composable
 private fun AttendanceRing(percent: Int) {
+    val barColor = BarBackground
+    val accentColor = Accent
     Box(contentAlignment = Alignment.Center) {
         Canvas(modifier = Modifier.size(54.dp).padding(4.dp)) {
             val stroke = 8.dp.toPx()
             drawArc(
-                color = Color(0xFFE5E7EB),
+                color = barColor,
                 startAngle = -90f,
                 sweepAngle = 360f,
                 useCenter = false,
@@ -523,7 +525,7 @@ private fun AttendanceRing(percent: Int) {
                 size = Size(size.width, size.height)
             )
             drawArc(
-                color = Accent,
+                color = accentColor,
                 startAngle = -90f,
                 sweepAngle = 360f * percent.coerceIn(0, 100) / 100f,
                 useCenter = false,

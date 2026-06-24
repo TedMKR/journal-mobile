@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,8 +16,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.Image
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
@@ -54,12 +51,8 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import com.journal.core.common.config.PersonNameFormatter
 import com.journal.core.common.config.userFacingMessage
-import com.journal.core.ui.AppBackground
-import com.journal.core.ui.AppDanger
-import com.journal.core.ui.AppLessonBackground
-import com.journal.core.ui.AppPrimary
-import com.journal.core.ui.AppSecondaryText
-import com.journal.core.ui.AppSuccess
+import com.journal.core.ui.AppPrimaryButton as PrimaryButton
+import com.journal.core.ui.AppSecondaryButton as SecondaryButton
 import com.journal.core.ui.StyledDatePickerDialog
 import com.journal.core.ui.appFieldColors
 import com.journal.core.model.teacher.AcademicGroup
@@ -94,8 +87,10 @@ private val CardBackground: Color
     @Composable get() = AppTheme.colors.surface
 private val LightBlue: Color
     @Composable get() = AppTheme.colors.lessonBackground
-private val Danger = AppDanger
-private val Success = AppSuccess
+private val Danger: Color
+    @Composable get() = AppTheme.colors.danger
+private val Success: Color
+    @Composable get() = AppTheme.colors.success
 
 @Composable
 fun TeacherVedRoute(
@@ -384,10 +379,10 @@ private fun TemplateCard() {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(PrimaryText, RoundedCornerShape(16.dp))
+                    .background(LightBlue, RoundedCornerShape(16.dp))
                     .padding(16.dp)
             ) {
-                Text("Ведомость текущего контроля успеваемости", color = Color.White, fontWeight = FontWeight.SemiBold)
+                Text("Ведомость текущего контроля успеваемости", color = PrimaryText, fontWeight = FontWeight.SemiBold)
             }
         }
     }
@@ -464,24 +459,15 @@ private fun StatementFormCard(
                 placeholder = "Выберите период",
                 onValueChange = onPeriodChange
             )
-                Button(
+            SecondaryButton(
+                text = if (isLoadingPrefill) "Загружаю..." else "Заполнить данные",
                 onClick = onLoadPrefill,
                 enabled = selectedDisciplineId.isNotBlank() &&
                     selectedGroupId.isNotBlank() &&
                     selectedPeriodId.isNotBlank() &&
                     !isLoadingPrefill &&
-                    !isOffline,
-                colors = ButtonDefaults.buttonColors(containerColor = LightBlue, contentColor = PrimaryText),
-                shape = RoundedCornerShape(10.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                Text(
-                    if (isLoadingPrefill) "Загружаю..." else "Заполнить данные",
-                    maxLines = 1,
-                    softWrap = false,
-                    overflow = TextOverflow.Clip
-                )
-            }
+                    !isOffline
+            )
             prefill?.let { data ->
                 StatementDetails(
                     prefill = data,
@@ -496,21 +482,12 @@ private fun StatementFormCard(
                     onOverridesChange = onOverridesChange,
                     onOptionsChange = onOptionsChange
                 )
-                    Button(
+                PrimaryButton(
+                    text = if (isGenerating) "Формирую..." else "Сформировать",
                     onClick = onGenerate,
                     enabled = !isGenerating && !isOffline,
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
-                    shape = RoundedCornerShape(10.dp),
-                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                     modifier = Modifier.align(Alignment.End)
-                ) {
-                    Text(
-                        if (isGenerating) "Формирую..." else "Сформировать",
-                        maxLines = 1,
-                        softWrap = false,
-                        overflow = TextOverflow.Clip
-                    )
-                }
+                )
             }
         }
     }
@@ -560,7 +537,7 @@ private fun StudentsPreview(prefill: CurrentAttestationPrefill) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFFF8F9FB), RoundedCornerShape(16.dp))
+            .background(LightBlue, RoundedCornerShape(16.dp))
             .padding(14.dp),
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
@@ -607,15 +584,11 @@ private fun ReadyStatementsCard(
                     ) {
                         Text(statement.title, color = PrimaryText, fontWeight = FontWeight.Bold)
                         Text("${statement.contextLabel} · ${formatLabel(statement.format)} · ${statusLabel(statement.status)}", color = SecondaryText)
-                        Button(
+                        PrimaryButton(
+                            text = "Скачать",
                             onClick = { onDownload(statement) },
-                            enabled = statement.status == "done" && !isOffline,
-                            colors = ButtonDefaults.buttonColors(containerColor = PrimaryText, contentColor = Color.White),
-                            shape = RoundedCornerShape(10.dp),
-                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-                        ) {
-                            Text("Скачать", maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
-                        }
+                            enabled = statement.status == "done" && !isOffline
+                        )
                     }
                 }
             }
@@ -643,7 +616,7 @@ private fun SelectField(
                 readOnly = true,
                 placeholder = { Text(placeholder) },
                 textStyle = LocalTextStyle.current.copy(color = PrimaryText),
-                colors = appFieldColors(unfocusedLabelColor = AppSecondaryText),
+                colors = appFieldColors(unfocusedLabelColor = SecondaryText),
                 trailingIcon = {
                     Image(
                         painter = painterResource(id = R.drawable.arrow_bottom),
@@ -697,7 +670,7 @@ private fun InputField(label: String, value: String, onValueChange: (String) -> 
             placeholder = { Text(placeholder) },
             singleLine = true,
             textStyle = LocalTextStyle.current.copy(color = PrimaryText),
-            colors = appFieldColors(unfocusedLabelColor = AppSecondaryText),
+            colors = appFieldColors(unfocusedLabelColor = SecondaryText),
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(10.dp)
         )
@@ -738,21 +711,15 @@ private fun DateField(label: String, value: String, onValueChange: (String) -> U
                 placeholder = { Text("ДД-ММ-ГГГГ") },
                 singleLine = true,
                 textStyle = LocalTextStyle.current.copy(color = PrimaryText),
-                colors = appFieldColors(unfocusedLabelColor = AppSecondaryText),
+                colors = appFieldColors(unfocusedLabelColor = SecondaryText),
                 modifier = Modifier.weight(1f),
                 shape = RoundedCornerShape(10.dp)
             )
-            Button(
+            SecondaryButton(
+                text = "Выбрать",
                 onClick = { showDatePicker = true },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFE5E7EB),
-                    contentColor = PrimaryText
-                ),
-                shape = RoundedCornerShape(8.dp),
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                Text("Выбрать", maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
-            }
+                cornerRadius = 8
+            )
         }
     }
 }

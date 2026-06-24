@@ -79,17 +79,9 @@ import com.journal.core.model.teacher.AdminUser
 import com.journal.core.model.teacher.AuditEvent
 import com.journal.core.model.teacher.ProblemStudentEntry
 import com.journal.core.model.teacher.ProblemStudentsMeta
-import com.journal.core.ui.AppBackground
-import com.journal.core.ui.AppBarBackground
-import com.journal.core.ui.AppDanger
-import com.journal.core.ui.AppDangerLight
 import com.journal.core.ui.AppFieldBorder
-import com.journal.core.ui.AppHeaderBackground
 import com.journal.core.ui.AppInputText
 import com.journal.core.ui.AppMutedText
-import com.journal.core.ui.AppPrimary
-import com.journal.core.ui.AppSuccess
-import com.journal.core.ui.AppSuccessLight
 import kotlinx.coroutines.launch
 import java.time.OffsetDateTime
 import java.time.format.DateTimeFormatter
@@ -116,16 +108,16 @@ private val SecondaryText: Color
     @Composable get() = AppTheme.colors.mutedText
 private val LightBlue: Color
     @Composable get() = AppTheme.colors.headerBackground
+private val LessonSurface: Color
+    @Composable get() = AppTheme.colors.lessonBackground
 private val FieldBorder: Color
     @Composable get() = AppTheme.colors.fieldBorder
 private val InputTextColor: Color
     @Composable get() = AppTheme.colors.inputText
 private val DangerColor: Color
     @Composable get() = AppTheme.colors.danger
-private val DangerLight = AppDangerLight
 private val GreenColor: Color
     @Composable get() = AppTheme.colors.success
-private val GreenLight = AppSuccessLight
 private val AccentBadge: Color
     @Composable get() = AppTheme.colors.headerBackground
 private val BarBackground: Color
@@ -284,12 +276,12 @@ fun AdminDashboardRoute(
             modifier = Modifier
                 .fillMaxWidth()
                 .clip(RoundedCornerShape(16.dp))
-                .background(PrimaryBlue)
+                .background(CardBackground)
                 .padding(20.dp)
         ) {
             Text(
                 "Кабинет администратора",
-                color = Color.White,
+                color = PrimaryBlue,
                 fontWeight = FontWeight.Bold,
                 fontSize = 22.sp
             )
@@ -300,8 +292,8 @@ fun AdminDashboardRoute(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    CircularProgressIndicator(color = Color.White, modifier = Modifier.width(20.dp).height(20.dp))
-                    Text("Загружаю данные...", color = Color.White.copy(alpha = 0.7f))
+                    CircularProgressIndicator(color = PrimaryBlue, modifier = Modifier.width(20.dp).height(20.dp))
+                    Text("Загружаю данные...", color = SecondaryText)
                 }
             } else {
                 Row(
@@ -313,7 +305,7 @@ fun AdminDashboardRoute(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(CardBackground)
+                                .background(LessonSurface)
                                 .padding(12.dp)
                         ) {
                             Text(
@@ -330,7 +322,7 @@ fun AdminDashboardRoute(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(CardBackground)
+                                .background(LessonSurface)
                                 .padding(12.dp)
                         ) {
                             Text(
@@ -353,7 +345,7 @@ fun AdminDashboardRoute(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(CardBackground)
+                                .background(LessonSurface)
                                 .padding(12.dp)
                         ) {
                             Text(
@@ -370,7 +362,7 @@ fun AdminDashboardRoute(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(CardBackground)
+                                .background(LessonSurface)
                                 .padding(12.dp)
                         ) {
                             Text(

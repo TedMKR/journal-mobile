@@ -57,16 +57,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.journal.core.common.config.PersonNameFormatter
-import com.journal.core.ui.AppBackground
-import com.journal.core.ui.AppDanger
-import com.journal.core.ui.AppHeaderBackground
-import com.journal.core.ui.AppPrimary
 import com.journal.core.ui.AppPrimaryButton
-import com.journal.core.ui.AppSecondaryText
 import com.journal.core.ui.AppSecondaryButton
-import com.journal.core.ui.AppSuccess
 import com.journal.core.ui.AppTextActionButton
-import com.journal.core.ui.AppWarning
 import com.journal.core.ui.StyledDatePickerDialog
 import com.journal.core.ui.appFieldColors
 import com.journal.core.data.repository.PendingJournalAction
@@ -93,13 +86,20 @@ private val PrimaryText: Color
     @Composable get() = AppTheme.colors.primary
 private val CardBackground: Color
     @Composable get() = AppTheme.colors.surface
-private val HeaderBackground = AppHeaderBackground
-private val CellBorder = Color(0xFFC9CED8)
+private val HeaderBackground: Color
+    @Composable get() = AppTheme.colors.headerBackground
+private val CellBorder: Color
+    @Composable get() = AppTheme.colors.outline
 private val AccentBlue: Color
     @Composable get() = AppTheme.colors.primary
-private val PresentColor = AppSuccess
-private val AbsentColor = AppDanger
-private val ExcuseColor = AppWarning
+private val SecondaryText: Color
+    @Composable get() = AppTheme.colors.mutedText
+private val PresentColor: Color
+    @Composable get() = AppTheme.colors.success
+private val AbsentColor: Color
+    @Composable get() = AppTheme.colors.danger
+private val ExcuseColor: Color
+    @Composable get() = AppTheme.colors.warning
 private val DangerColor: Color
     @Composable get() = AppTheme.colors.danger
 private val DialogContainerColor: Color
@@ -727,7 +727,7 @@ private fun TableCell(
                     .align(Alignment.TopEnd)
                     .padding(top = 5.dp, end = 1.dp)
                     .size(7.dp)
-                    .background(AppWarning, RoundedCornerShape(50))
+                    .background(ExcuseColor, RoundedCornerShape(50))
             )
         }
     }
@@ -1326,7 +1326,7 @@ private fun BulkDropdown(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(CardBackground, RoundedCornerShape(10.dp))
-                .border(1.dp, Color(0xFFD1D5DB), RoundedCornerShape(10.dp))
+                .border(1.dp, CellBorder, RoundedCornerShape(10.dp))
                 .clickable(onClick = onToggle)
                 .padding(horizontal = 14.dp, vertical = 12.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -1336,7 +1336,7 @@ private fun BulkDropdown(
                 Text(
                     text = label,
                     style = MaterialTheme.typography.labelSmall,
-                    color = AppSecondaryText
+                    color = SecondaryText
                 )
                 Text(
                     text = selectedLabel,
@@ -1359,7 +1359,7 @@ private fun BulkDropdown(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(CardBackground, RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
-                    .border(1.dp, Color(0xFFD1D5DB), RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
+                    .border(1.dp, CellBorder, RoundedCornerShape(bottomStart = 10.dp, bottomEnd = 10.dp))
                     .padding(vertical = 4.dp)
             ) {
                 content()
@@ -1425,7 +1425,7 @@ private fun BulkAttendanceDialog(
                 Text(
                     text = "Выберите занятие и статус посещаемости",
                     style = MaterialTheme.typography.bodySmall,
-                    color = AppSecondaryText
+                    color = SecondaryText
                 )
             }
 
